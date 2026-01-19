@@ -197,12 +197,24 @@ Cursor/Windsurf
 - 一貫したビルド・テスト環境
 - Turborepoのキャッシュで高速ビルド
 
-### 2. SQLite as Default, PostgreSQL for Teams
+### 2. SQLite + PostgreSQL 二枚体制
+
+**戦略:**
+
+| 環境 | DB | 用途 |
+|------|-----|------|
+| ローカル開発 | SQLite | ゼロ設定、ポータブル |
+| 本番環境 | PostgreSQL | AI機能（pgvector）、スケーラビリティ |
 
 **理由:**
-- SQLite: ゼロ設定、ポータブル、ローカル開発に最適
-- PostgreSQL: チーム共有、スケーラビリティ
-- Drizzle ORMで両方をサポート
+- SQLite: `agentmine init`だけで即使用可能
+- PostgreSQL: pgvectorによるベクトル検索でAI機能を強化
+  - Memory Bankのセマンティック検索
+  - タスク類似検索
+  - スキル推薦
+- Drizzle ORMで両方をサポート（クエリAPIは共通）
+
+**参考:** [ADR-002: Database Strategy](./adr/002-sqlite-default.md)
 
 ### 3. File-based Memory Bank
 

@@ -1,5 +1,16 @@
 # Data Model
 
+## Database Strategy
+
+| 環境 | DB | 用途 |
+|------|-----|------|
+| ローカル開発 | **SQLite** | ゼロ設定、ポータブル |
+| 本番環境 | **PostgreSQL** | AI機能（pgvector）、スケーラビリティ |
+
+Drizzle ORMにより、両DBで共通のクエリAPIを使用。スキーマ定義は若干異なるが、アプリケーションコードは共通化可能。
+
+**参考:** [ADR-002: Database Strategy](./adr/002-sqlite-default.md)
+
 ## ER Diagram
 
 ```
@@ -369,3 +380,68 @@ agentmine db migrate
 # ロールバック
 agentmine db migrate:rollback
 ```
+
+## PostgreSQL拡張: pgvector
+
+本番環境（PostgreSQL）では、pgvectorを使用したベクトル検索が利用可能。
+
+### memory_entries（PostgreSQL版）
+
+```typescript
+import { pgTable, serial, text, integer, timestamp, vector } from 'drizzle-orm/pg-core';
+
+export const memoryEntries = pgTable('memory_entries', {
+  id: serial('id').primaryKey(),
+
+  sessionId: integer('session_id').references(() => sessions.id),
+
+  type: text('type', {
+    enum: ['decision', 'context', 'error', 'progress', 'handover']
+  }).notNull(),
+
+  content: text('content').notNull(),
+
+  // ベクトル埋め込み（OpenAI text-embedding-3-small: 1536次元）
+  embedding: vector('embedding', { dimensions: 1536 }),
+
+  metadata: text('metadata').$type<Record<string, any>>(),
+
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+```
+
+### ベクトル検索インデックス
+
+```sql
+-- pgvector拡張を有効化
+CREATE EXTENSION IF NOT EXISTS vector;
+
+-- HNSWインデックス（高速な近似最近傍検索）
+CREATE INDEX ON memory_entries
+USING hnsw (embedding vector_cosine_ops);
+```
+
+### セマンティック検索クエリ
+
+```typescript
+import { sql } from 'drizzle-orm';
+
+// 類似メモリを検索
+const similarMemories = await db.execute(sql`
+  SELECT id, content, type,
+         1 - (embedding <=> ${queryEmbedding}) as similarity
+  FROM memory_entries
+  WHERE session_id = ${sessionId}
+  ORDER BY embedding <=> ${queryEmbedding}
+  LIMIT 10
+`);
+```
+
+### ユースケース
+
+| 機能 | 説明 |
+|------|------|
+| Memory Bankセマンティック検索 | 過去セッションから関連コンテキストを検索 |
+| タスク類似検索 | 「似たタスクを探す」 |
+| スキル推薦 | コンテキストに合ったスキルを提案 |
+| 重複検出 | 同様のエラー・決定を検出 |
