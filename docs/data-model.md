@@ -22,8 +22,7 @@ Drizzle ORMにより、両DBで共通のクエリAPIを使用。スキーマ定�
 │ description     │       │ description     │
 │ created_at      │       │ model           │
 │ updated_at      │       │ tools       []  │
-└────────┬────────┘       │ skills      []  │
-         │                │ config      {}  │
+└────────┬────────┘       │ config      {}  │
          │                │ created_at      │
          │                └────────┬────────┘
          │                         │
@@ -50,34 +49,23 @@ Drizzle ORMにより、両DBで共通のクエリAPIを使用。スキーマ定�
 │ updated_at      │
 └────────┬────────┘
          │
-         │
          ▼
-┌─────────────────┐       ┌─────────────────┐
-│     Session     │       │      Skill      │
-├─────────────────┤       ├─────────────────┤
-│ id          PK  │       │ id          PK  │
-│ task_id     FK  │       │ name            │
-│ agent_name      │       │ source          │
-│ status          │       │ path            │
-│ input           │       │ url             │
-│ output          │       │ content         │
-│ token_usage     │       │ created_at      │
-│ started_at      │       └─────────────────┘
-│ completed_at    │
-│ context_file    │
-└─────────────────┘
-
-┌─────────────────┐
-│  MemoryEntry    │
-├─────────────────┤
-│ id          PK  │
-│ session_id  FK  │
-│ type            │
-│ content         │
-│ metadata    {}  │
-│ created_at      │
+┌─────────────────┐       ┌───────────────────┐
+│     Session     │       │ ProjectDecision   │
+├─────────────────┤       ├───────────────────┤
+│ id          PK  │       │ id            PK  │
+│ task_id     FK  │       │ category          │
+│ agent_name      │       │ title             │
+│ status          │       │ decision          │
+│ started_at      │       │ reason            │
+│ completed_at    │       │ related_task_id FK│
+│ duration_ms     │       │ created_at        │
+│ artifacts   []  │       │ updated_at        │
+│ error       {}  │       └───────────────────┘
 └─────────────────┘
 ```
+
+**Note:** スキル管理は agentmine の範囲外（各AIツールに委ねる）
 
 ## Schema Definition (Drizzle)
 
@@ -94,8 +82,8 @@ export const tasks = sqliteTable('tasks', {
   title: text('title').notNull(),
   description: text('description'),
   
-  status: text('status', { 
-    enum: ['open', 'in_progress', 'review', 'done', 'cancelled'] 
+  status: text('status', {
+    enum: ['open', 'in_progress', 'review', 'done', 'blocked', 'cancelled']
   }).notNull().default('open'),
   
   priority: text('priority', { 
@@ -133,15 +121,14 @@ export type NewTask = typeof tasks.$inferInsert;
 ```typescript
 export const agents = sqliteTable('agents', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  
+
   name: text('name').notNull().unique(),
   description: text('description'),
   model: text('model').notNull(), // claude-opus, claude-sonnet, etc.
-  
+
   tools: text('tools', { mode: 'json' }).$type<string[]>().default([]),
-  skills: text('skills', { mode: 'json' }).$type<string[]>().default([]),
   config: text('config', { mode: 'json' }).$type<AgentConfig>().default({}),
-  
+
   createdAt: integer('created_at', { mode: 'timestamp' })
     .notNull()
     .default(sql`(unixepoch())`),
@@ -154,77 +141,72 @@ interface AgentConfig {
 }
 ```
 
+**Note:** `skills` フィールドは削除。スキル管理は agentmine の範囲外。
+
 ### sessions
 
 ```typescript
 export const sessions = sqliteTable('sessions', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  
+
   taskId: integer('task_id').references(() => tasks.id),
   agentName: text('agent_name').notNull(),
-  
-  status: text('status', { 
-    enum: ['running', 'completed', 'failed', 'cancelled'] 
+
+  status: text('status', {
+    enum: ['running', 'completed', 'failed', 'cancelled']
   }).notNull().default('running'),
-  
-  input: text('input'),
-  output: text('output'),
-  
-  tokenUsage: integer('token_usage'),
-  
-  contextFile: text('context_file'), // .agentmine/memory/session-{id}.md
-  
+
+  // 実行時間
   startedAt: integer('started_at', { mode: 'timestamp' })
     .notNull()
     .default(sql`(unixepoch())`),
   completedAt: integer('completed_at', { mode: 'timestamp' }),
+  durationMs: integer('duration_ms'),
+
+  // 成果物（変更されたファイルパス）
+  artifacts: text('artifacts', { mode: 'json' })
+    .$type<string[]>()
+    .default([]),
+
+  // エラー情報（失敗時）
+  error: text('error', { mode: 'json' })
+    .$type<SessionError | null>()
+    .default(null),
 });
+
+interface SessionError {
+  type: string;      // timeout, crash, etc.
+  message: string;
+  details?: Record<string, any>;
+}
 ```
 
-### skills
+**Note:** `tokenUsage` は測定不可のため削除。Orchestrator が観測可能な範囲のみ記録。
+
+### project_decisions (Memory Bank)
 
 ```typescript
-export const skills = sqliteTable('skills', {
+export const projectDecisions = sqliteTable('project_decisions', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  
-  name: text('name').notNull().unique(),
-  description: text('description'),
-  
-  source: text('source', { 
-    enum: ['builtin', 'local', 'remote'] 
+
+  category: text('category', {
+    enum: ['architecture', 'tooling', 'convention', 'rule']
   }).notNull(),
-  
-  path: text('path'),     // local: .agentmine/skills/xxx.md
-  url: text('url'),       // remote: https://...
-  content: text('content'), // builtin: 埋め込みコンテンツ
-  
+
+  title: text('title').notNull(),
+  decision: text('decision').notNull(),
+  reason: text('reason'),
+
+  // 関連タスク（任意）
+  relatedTaskId: integer('related_task_id').references(() => tasks.id),
+
   createdAt: integer('created_at', { mode: 'timestamp' })
-    .notNull()
     .default(sql`(unixepoch())`),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }),
 });
 ```
 
-### memory_entries
-
-```typescript
-export const memoryEntries = sqliteTable('memory_entries', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  
-  sessionId: integer('session_id').references(() => sessions.id),
-  
-  type: text('type', { 
-    enum: ['decision', 'context', 'error', 'progress', 'handover'] 
-  }).notNull(),
-  
-  content: text('content').notNull(),
-  
-  metadata: text('metadata', { mode: 'json' }).$type<Record<string, any>>(),
-  
-  createdAt: integer('created_at', { mode: 'timestamp' })
-    .notNull()
-    .default(sql`(unixepoch())`),
-});
-```
+**Note:** `skills` テーブルは削除。スキル管理は agentmine の範囲外。
 
 ## Status Transitions
 
@@ -249,6 +231,8 @@ export const memoryEntries = sqliteTable('memory_entries', {
               │in_progress│
               └───────────┘
 
+in_progress → blocked (コンフリクト等)
+blocked → open (解消後)
 Any state → cancelled
 ```
 
@@ -281,9 +265,8 @@ CREATE INDEX idx_tasks_parent ON tasks(parent_id);
 CREATE INDEX idx_sessions_task ON sessions(task_id);
 CREATE INDEX idx_sessions_status ON sessions(status);
 
--- Memory queries
-CREATE INDEX idx_memory_session ON memory_entries(session_id);
-CREATE INDEX idx_memory_type ON memory_entries(type);
+-- Project decisions queries
+CREATE INDEX idx_decisions_category ON project_decisions(category);
 ```
 
 ## Configuration Schema (YAML)
@@ -306,29 +289,33 @@ agents:
     description: string
     model: string       # claude-opus | claude-sonnet | claude-haiku | ...
     tools: string[]     # Read, Write, Edit, Bash, Grep, Glob, WebSearch
-    skills: string[]    # skill names
     config:
       temperature: number    # 0.0 - 1.0
       maxTokens: number
       systemPrompt: string
 
-# Skill definitions
-skills:
-  [name]:
-    source: builtin | local | remote
-    path: string        # if local
-    url: string         # if remote
-
 # Git integration
 git:
+  baseBranch: string    # default: "develop"
   branchPrefix: string  # default: "task-"
-  autoPr: boolean       # default: true
-  prTemplate: string    # PR body template
+  commitConvention:
+    enabled: boolean    # default: true
+    format: string      # conventional | simple | custom
 
-# Memory configuration
-memory:
-  autoSave: boolean     # default: true
-  summarizeAfter: number # tokens before auto-summarize
+# Execution settings
+execution:
+  parallel:
+    enabled: boolean
+    maxWorkers: number
+    worktree:
+      path: string      # default: ".worktrees/"
+      cleanup: boolean  # default: true
+
+# Session log retention
+sessionLog:
+  retention:
+    enabled: boolean    # default: false
+    days: number        # 保持日数
 ```
 
 ## Migration Strategy
@@ -381,32 +368,33 @@ agentmine db migrate
 agentmine db migrate:rollback
 ```
 
-## PostgreSQL拡張: pgvector
+## PostgreSQL拡張: pgvector（将来）
 
 本番環境（PostgreSQL）では、pgvectorを使用したベクトル検索が利用可能。
 
-### memory_entries（PostgreSQL版）
+### project_decisions（PostgreSQL版）
 
 ```typescript
 import { pgTable, serial, text, integer, timestamp, vector } from 'drizzle-orm/pg-core';
 
-export const memoryEntries = pgTable('memory_entries', {
+export const projectDecisions = pgTable('project_decisions', {
   id: serial('id').primaryKey(),
 
-  sessionId: integer('session_id').references(() => sessions.id),
-
-  type: text('type', {
-    enum: ['decision', 'context', 'error', 'progress', 'handover']
+  category: text('category', {
+    enum: ['architecture', 'tooling', 'convention', 'rule']
   }).notNull(),
 
-  content: text('content').notNull(),
+  title: text('title').notNull(),
+  decision: text('decision').notNull(),
+  reason: text('reason'),
 
-  // ベクトル埋め込み（OpenAI text-embedding-3-small: 1536次元）
+  relatedTaskId: integer('related_task_id').references(() => tasks.id),
+
+  // ベクトル埋め込み（将来追加）
   embedding: vector('embedding', { dimensions: 1536 }),
 
-  metadata: text('metadata').$type<Record<string, any>>(),
-
   createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at'),
 });
 ```
 
@@ -417,31 +405,29 @@ export const memoryEntries = pgTable('memory_entries', {
 CREATE EXTENSION IF NOT EXISTS vector;
 
 -- HNSWインデックス（高速な近似最近傍検索）
-CREATE INDEX ON memory_entries
+CREATE INDEX ON project_decisions
 USING hnsw (embedding vector_cosine_ops);
 ```
 
-### セマンティック検索クエリ
+### セマンティック検索クエリ（将来）
 
 ```typescript
 import { sql } from 'drizzle-orm';
 
-// 類似メモリを検索
-const similarMemories = await db.execute(sql`
-  SELECT id, content, type,
+// 類似する決定事項を検索
+const similarDecisions = await db.execute(sql`
+  SELECT id, title, decision, reason,
          1 - (embedding <=> ${queryEmbedding}) as similarity
-  FROM memory_entries
-  WHERE session_id = ${sessionId}
+  FROM project_decisions
   ORDER BY embedding <=> ${queryEmbedding}
-  LIMIT 10
+  LIMIT 5
 `);
 ```
 
-### ユースケース
+### ユースケース（将来）
 
 | 機能 | 説明 |
 |------|------|
-| Memory Bankセマンティック検索 | 過去セッションから関連コンテキストを検索 |
+| 決定事項のセマンティック検索 | 関連する過去の決定を検索 |
 | タスク類似検索 | 「似たタスクを探す」 |
-| スキル推薦 | コンテキストに合ったスキルを提案 |
-| 重複検出 | 同様のエラー・決定を検出 |
+| 重複検出 | 同様の決定を検出 |

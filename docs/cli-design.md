@@ -56,6 +56,8 @@ agentmine
 │   ├── assign
 │   ├── start
 │   ├── done
+│   ├── retry
+│   ├── resume
 │   ├── parse-prd
 │   ├── expand
 │   ├── analyze
@@ -64,16 +66,30 @@ agentmine
 │   ├── list
 │   ├── show
 │   └── run
-├── skill                   # スキル管理
+├── session                 # セッション管理
 │   ├── list
 │   ├── show
-│   ├── run
+│   └── cleanup
+├── memory                  # Memory Bank（プロジェクト決定事項）
+│   ├── list
+│   ├── add
+│   ├── edit
+│   ├── remove
+│   └── preview
+├── errors                  # エラー管理
+│   ├── list
+│   ├── show
+│   └── resolve
+├── user                    # ユーザー管理（Phase 2）
+│   ├── list
 │   ├── add
 │   └── remove
-├── context                 # コンテキスト管理
-│   ├── show
-│   ├── load
-│   └── save
+├── auth                    # 認証（Phase 2）
+│   ├── key
+│   │   ├── create
+│   │   ├── list
+│   │   └── revoke
+│   └── whoami
 ├── db                      # データベース管理
 │   ├── migrate
 │   └── reset
@@ -81,6 +97,8 @@ agentmine
 │   └── serve
 └── ui                      # Web UI起動
 ```
+
+**Note:** `skill` コマンドは削除。スキル管理は agentmine の範囲外。
 
 ## Command Details
 
@@ -383,37 +401,95 @@ Examples:
   echo "レビューしてください" | agentmine agent run reviewer
 ```
 
-### context show
+### memory list
 
 ```bash
-agentmine context show [options]
+agentmine memory list [options]
 
 Options:
-  --session <id>      特定セッションのコンテキスト
-  --task <id>         特定タスクのコンテキスト
+  --category <cat>    architecture | tooling | convention | rule
   --json              JSON出力
 
 Examples:
-  agentmine context show
-  agentmine context show --task 1
+  agentmine memory list
+  agentmine memory list --category architecture
 ```
 
-### context load
+### memory add
 
 ```bash
-agentmine context load [options]
+agentmine memory add [options]
 
 Options:
-  --session <id>      セッションID
-  --task <id>         タスクID（最新セッション）
+  --category <cat>    カテゴリ (required)
+  --title <text>      タイトル (required)
+  --decision <text>   決定事項 (required)
+  --reason <text>     理由 (optional)
 
 Examples:
-  agentmine context load --session 42
-  agentmine context load --task 1
+  agentmine memory add \
+    --category tooling \
+    --title "テストフレームワーク" \
+    --decision "Vitest" \
+    --reason "高速、Vite互換"
 ```
 
-**出力:**
-コンテキストを標準出力に出力（AIエージェントが読み込むため）
+### memory preview
+
+```bash
+agentmine memory preview
+
+# AIに渡されるコンテキストをプレビュー
+```
+
+### session list
+
+```bash
+agentmine session list [options]
+
+Options:
+  --task <id>         タスクでフィルタ
+  --status <status>   running | completed | failed | cancelled
+  --json              JSON出力
+
+Examples:
+  agentmine session list
+  agentmine session list --task 42 --status failed
+```
+
+### session show
+
+```bash
+agentmine session show <id>
+
+Examples:
+  agentmine session show 123
+```
+
+### errors list
+
+```bash
+agentmine errors list [options]
+
+Options:
+  --task <id>         タスクでフィルタ
+  --category <cat>    agent | infra | external
+  --unresolved        未解決のみ
+  --json              JSON出力
+
+Examples:
+  agentmine errors list
+  agentmine errors list --unresolved
+```
+
+### errors resolve
+
+```bash
+agentmine errors resolve <id>
+
+Examples:
+  agentmine errors resolve 1
+```
 
 ### mcp serve
 
