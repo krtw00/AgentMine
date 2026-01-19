@@ -286,7 +286,12 @@ workerCommand
     }
 
     // Build prompt
-    const prompt = buildPromptFromTask(task, memoryService)
+    const prompt = buildPromptFromTask({
+      task,
+      agent,
+      agentService,
+      memoryService,
+    })
 
     // Determine client to use
     // --exec true (no value) -> use agent's client
@@ -567,10 +572,11 @@ workerCommand
 workerCommand
   .command('prompt <taskId>')
   .description('Generate the prompt for a task')
+  .option('-a, --agent <name>', 'Agent name (for including promptFile)')
   .option('--json', 'JSON output')
-  .action(async (taskId, options: OutputOptions) => {
+  .action(async (taskId, options: OutputOptions & { agent?: string }) => {
     ensureInitialized()
-    const { taskService, memoryService } = getServices()
+    const { taskService, agentService, memoryService } = getServices()
 
     const task = await taskService.findById(parseInt(taskId))
     if (!task) {
@@ -578,10 +584,25 @@ workerCommand
       process.exit(5)
     }
 
-    const prompt = buildPromptFromTask(task, memoryService)
+    // Get agent if specified
+    let agent: AgentDefinition | undefined
+    if (options.agent) {
+      agent = agentService.findByName(options.agent) ?? undefined
+      if (!agent) {
+        console.error(chalk.red(`Agent "${options.agent}" not found`))
+        process.exit(5)
+      }
+    }
+
+    const prompt = buildPromptFromTask({
+      task,
+      agent,
+      agentService: agent ? agentService : undefined,
+      memoryService,
+    })
 
     if (options.json) {
-      console.log(JSON.stringify({ taskId: task.id, prompt }))
+      console.log(JSON.stringify({ taskId: task.id, agentName: agent?.name ?? null, prompt }))
     } else {
       console.log(prompt)
     }
@@ -948,7 +969,15 @@ function sleep(ms: number): Promise<void> {
 // Prompt Building
 // ============================================
 
-function buildPromptFromTask(task: Task, memoryService?: MemoryService): string {
+interface BuildPromptOptions {
+  task: Task
+  agent?: AgentDefinition
+  agentService?: AgentService
+  memoryService?: MemoryService
+}
+
+function buildPromptFromTask(options: BuildPromptOptions): string {
+  const { task, agent, agentService, memoryService } = options
   const parts: string[] = []
 
   // Task header
@@ -956,8 +985,7 @@ function buildPromptFromTask(task: Task, memoryService?: MemoryService): string 
   parts.push('')
 
   // Metadata
-  parts.push(`Type: ${task.type}`)
-  parts.push(`Priority: ${task.priority}`)
+  parts.push(`Type: ${task.type} | Priority: ${task.priority}`)
   parts.push('')
 
   // Description
@@ -970,17 +998,44 @@ function buildPromptFromTask(task: Task, memoryService?: MemoryService): string 
   // Branch info
   if (task.branchName) {
     parts.push('## Branch')
-    parts.push(`Work on branch: ${task.branchName}`)
+    parts.push(`Work on branch: \`${task.branchName}\``)
     parts.push('')
   }
 
-  // Memory Bank context (compact)
+  // Agent instructions from promptFile
+  if (agent && agentService) {
+    const promptContent = agentService.getPromptFileContent(agent)
+    if (promptContent) {
+      parts.push('## Agent Instructions')
+      parts.push(promptContent)
+      parts.push('')
+    }
+  }
+
+  // Scope information
+  if (agent?.scope) {
+    parts.push('## Scope')
+    parts.push(`- **Read**: ${agent.scope.read.join(', ')}`)
+    parts.push(`- **Write**: ${agent.scope.write.join(', ')}`)
+    if (agent.scope.exclude.length > 0) {
+      parts.push(`- **Exclude**: ${agent.scope.exclude.join(', ')}`)
+    }
+    parts.push('')
+  }
+
+  // Memory Bank context (reference-based: file paths only)
   if (memoryService) {
     try {
-      const preview = memoryService.previewCompact()
-      if (preview && preview !== 'No memory entries.') {
-        parts.push('## Context (from Memory Bank)')
-        parts.push(preview)
+      const memoryFiles = memoryService.listFiles()
+      if (memoryFiles.length > 0) {
+        parts.push('## Project Context (Memory Bank)')
+        parts.push('The following project decision files are available in `.agentmine/memory/`:')
+        parts.push('')
+        for (const file of memoryFiles) {
+          parts.push(`- \`${file.path}\` - ${file.title} (${file.category})`)
+        }
+        parts.push('')
+        parts.push('Read these files for detailed project decisions and context.')
         parts.push('')
       }
     } catch {
@@ -990,9 +1045,10 @@ function buildPromptFromTask(task: Task, memoryService?: MemoryService): string 
 
   // Instructions
   parts.push('## Instructions')
-  parts.push('1. Implement the changes required for this task')
-  parts.push('2. Ensure all tests pass')
-  parts.push('3. Commit your changes with a descriptive message')
+  parts.push('1. Review existing implementation patterns before starting')
+  parts.push('2. Use existing services - do NOT create mock data')
+  parts.push('3. Ensure all tests pass')
+  parts.push('4. Commit your changes with a descriptive message')
   parts.push('')
 
   return parts.join('\n')
