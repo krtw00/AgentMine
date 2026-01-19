@@ -3,8 +3,8 @@ import { VERSION } from '@agentmine/core'
 import { initCommand } from './commands/init.js'
 import { taskCommand } from './commands/task.js'
 import { agentCommand } from './commands/agent.js'
-import { skillCommand } from './commands/skill.js'
-import { uiCommand } from './commands/ui.js'
+import { sessionCommand } from './commands/session.js'
+import { workerCommand } from './commands/worker.js'
 
 const program = new Command()
 
@@ -17,7 +17,7 @@ program
 program.addCommand(initCommand)
 program.addCommand(taskCommand)
 program.addCommand(agentCommand)
-program.addCommand(skillCommand)
-program.addCommand(uiCommand)
+program.addCommand(sessionCommand)
+program.addCommand(workerCommand)
 
 program.parse()
