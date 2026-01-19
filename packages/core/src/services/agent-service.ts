@@ -217,6 +217,25 @@ export class AgentService {
   }
 
   /**
+   * Get prompt file content for an agent
+   * Returns null if promptFile is not specified or file doesn't exist
+   */
+  getPromptFileContent(agent: AgentDefinition): string | null {
+    if (!agent.config?.promptFile) {
+      return null
+    }
+
+    // promptFile is relative to agents directory
+    const promptPath = join(this.agentsDir, '..', agent.config.promptFile)
+
+    if (!existsSync(promptPath)) {
+      return null
+    }
+
+    return readFileSync(promptPath, 'utf-8')
+  }
+
+  /**
    * Build command for running an agent
    * Returns the command string to execute the agent
    */

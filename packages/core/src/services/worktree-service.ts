@@ -353,6 +353,9 @@ export class WorktreeService {
   /**
    * Apply sparse-checkout to exclude files from worktree
    * This removes files physically but git doesn't see them as deleted
+   *
+   * Always includes: .agentmine/memory/** (for Worker access to Memory Bank)
+   * Always excludes: .agentmine/agents/**, .agentmine/config.yaml, .agentmine/prompts/**
    */
   private applySparseCheckout(
     worktreePath: string,
@@ -360,19 +363,35 @@ export class WorktreeService {
     result: ApplyScopeResult
   ): void {
     try {
-      // Initialize sparse-checkout in cone mode
+      // Initialize sparse-checkout in no-cone mode
       execSync('git sparse-checkout init --no-cone', {
         cwd: worktreePath,
         encoding: 'utf-8',
         stdio: 'pipe',
       })
 
-      // Build sparse-checkout patterns: include all, then exclude specific patterns
-      // Format: /* includes all, !pattern excludes
-      const patterns = ['/*', '/**/*']
+      // Build sparse-checkout patterns
+      // Order matters: includes first, then excludes, then specific includes again
+      const patterns = [
+        '/*',                       // Include all top-level files
+        '/**/*',                    // Include all nested files
+      ]
+
+      // Add user-defined exclude patterns
       for (const pattern of excludePatterns) {
         patterns.push(`!${pattern}`)
       }
+
+      // Always exclude sensitive .agentmine subdirectories
+      // (Worker should not access agent definitions, config, or prompts directly)
+      patterns.push('!.agentmine/agents/**')
+      patterns.push('!.agentmine/config.yaml')
+      patterns.push('!.agentmine/prompts/**')
+      patterns.push('!.agentmine/db/**')
+
+      // Always include Memory Bank (Worker needs access to read project decisions)
+      // This comes after excludes to override any .agentmine/** exclude
+      patterns.push('.agentmine/memory/**')
 
       // Set sparse-checkout patterns
       execSync(`git sparse-checkout set ${patterns.map(p => `'${p}'`).join(' ')}`, {
@@ -381,11 +400,26 @@ export class WorktreeService {
         stdio: 'pipe',
       })
 
+      // Build combined exclude patterns for counting
+      const allExcludePatterns = [
+        ...excludePatterns,
+        '.agentmine/agents/**',
+        '.agentmine/config.yaml',
+        '.agentmine/prompts/**',
+        '.agentmine/db/**',
+      ]
+
       // Count excluded files (files that no longer exist)
       const allFilesBeforeSparse = this.getAllTrackedFiles(worktreePath)
       for (const filePath of allFilesBeforeSparse) {
         const relativePath = relative(worktreePath, filePath)
-        const shouldExclude = excludePatterns.some(pattern =>
+
+        // Skip files in memory directory (always included)
+        if (relativePath.startsWith('.agentmine/memory/')) {
+          continue
+        }
+
+        const shouldExclude = allExcludePatterns.some(pattern =>
           minimatch(relativePath, pattern, { dot: true })
         )
         if (shouldExclude) {
@@ -402,6 +436,7 @@ export class WorktreeService {
 
   /**
    * Fallback: manually delete excluded files (may show as deleted in git)
+   * Also excludes .agentmine subdirectories except memory
    */
   private manualExclude(
     worktreePath: string,
@@ -410,14 +445,29 @@ export class WorktreeService {
   ): void {
     const allFiles = this.getAllFiles(worktreePath)
 
+    // Build combined exclude patterns
+    const allExcludePatterns = [
+      ...excludePatterns,
+      '.agentmine/agents/**',
+      '.agentmine/config.yaml',
+      '.agentmine/prompts/**',
+      '.agentmine/db/**',
+    ]
+
     for (const filePath of allFiles) {
       const relativePath = relative(worktreePath, filePath)
 
+      // Skip .git directory
       if (relativePath.startsWith('.git/') || relativePath === '.git') {
         continue
       }
 
-      const shouldExclude = excludePatterns.some(pattern =>
+      // Always preserve Memory Bank files
+      if (relativePath.startsWith('.agentmine/memory/')) {
+        continue
+      }
+
+      const shouldExclude = allExcludePatterns.some(pattern =>
         minimatch(relativePath, pattern, { dot: true })
       )
 

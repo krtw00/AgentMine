@@ -35,6 +35,15 @@ export interface MemoryFilters {
   category?: string
 }
 
+export interface MemoryFileInfo {
+  /** File path relative to memory directory */
+  path: string
+  /** Title derived from filename */
+  title: string
+  /** Category derived from subdirectory */
+  category: string
+}
+
 // ============================================
 // Errors
 // ============================================
@@ -248,9 +257,41 @@ export class MemoryService {
     return lines.join('\n')
   }
 
+  /**
+   * List memory files (path and title only, no content)
+   * Used for reference-based prompt generation to reduce context length
+   */
+  listFiles(): MemoryFileInfo[] {
+    if (!this.isInitialized()) {
+      return []
+    }
+
+    const files: MemoryFileInfo[] = []
+    this.scanDirectoryForFiles(this.memoryDir, '', files)
+    return files
+  }
+
   // ============================================
   // Private methods
   // ============================================
+
+  private scanDirectoryForFiles(dir: string, relativePath: string, files: MemoryFileInfo[]): void {
+    const items = readdirSync(dir, { withFileTypes: true })
+
+    for (const item of items) {
+      const itemRelativePath = relativePath ? `${relativePath}/${item.name}` : item.name
+
+      if (item.isDirectory()) {
+        this.scanDirectoryForFiles(join(dir, item.name), itemRelativePath, files)
+      } else if (item.isFile() && this.isMemoryFile(item.name)) {
+        const pathParts = itemRelativePath.split('/')
+        const category = pathParts.length > 1 ? pathParts[0] : 'general'
+        const title = this.filenameToTitle(item.name)
+
+        files.push({ path: itemRelativePath, title, category })
+      }
+    }
+  }
 
   private scanDirectory(dir: string, relativePath: string, entries: MemoryEntry[]): void {
     const items = readdirSync(dir, { withFileTypes: true })
