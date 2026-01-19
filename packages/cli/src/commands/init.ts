@@ -3,45 +3,45 @@ import chalk from 'chalk'
 import { existsSync, mkdirSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { stringify } from 'yaml'
+import { createDb, initializeDb, type AgentmineConfig } from '@agentmine/core'
 
-const defaultConfig = {
+const defaultConfig: AgentmineConfig = {
   project: {
     name: '',
     description: '',
   },
-  agents: {
-    coder: {
-      description: 'コード実装担当',
-      model: 'claude-sonnet',
-      tools: ['Read', 'Write', 'Edit', 'Bash', 'Grep', 'Glob'],
-      skills: ['commit', 'test', 'debug'],
-    },
-    reviewer: {
-      description: 'コードレビュー担当',
-      model: 'claude-haiku',
-      tools: ['Read', 'Grep', 'Glob'],
-      skills: ['review'],
-    },
-  },
-  skills: {
-    commit: { source: 'builtin' },
-    test: { source: 'builtin' },
-    review: { source: 'builtin' },
-    debug: { source: 'builtin' },
-  },
   git: {
-    branch_prefix: 'task-',
-    auto_pr: true,
+    baseBranch: 'main',
+    branchPrefix: 'task-',
+    commitConvention: {
+      enabled: true,
+      format: 'conventional',
+    },
+  },
+  execution: {
+    parallel: {
+      enabled: false,
+      maxWorkers: 2,
+    },
+  },
+  sessionLog: {
+    retention: {
+      enabled: true,
+      days: 30,
+    },
   },
 }
 
 export const initCommand = new Command('init')
   .description('Initialize agentmine in current directory')
   .option('-n, --name <name>', 'Project name')
+  .option('--base-branch <branch>', 'Git base branch', 'main')
   .action(async (options) => {
     const cwd = process.cwd()
     const agentmineDir = join(cwd, '.agentmine')
     const configPath = join(agentmineDir, 'config.yaml')
+    const agentsDir = join(agentmineDir, 'agents')
+    const memoryDir = join(agentmineDir, 'memory')
 
     // Check if already initialized
     if (existsSync(agentmineDir)) {
@@ -49,31 +49,63 @@ export const initCommand = new Command('init')
       return
     }
 
-    // Create directory
+    // Create directories
     mkdirSync(agentmineDir, { recursive: true })
-    mkdirSync(join(agentmineDir, 'skills'), { recursive: true })
+    mkdirSync(agentsDir, { recursive: true })
+    mkdirSync(memoryDir, { recursive: true })
 
     // Get project name
     const projectName = options.name ?? cwd.split('/').pop() ?? 'my-project'
 
     // Create config
-    const config = {
+    const config: AgentmineConfig = {
       ...defaultConfig,
       project: {
         ...defaultConfig.project,
         name: projectName,
+      },
+      git: {
+        ...defaultConfig.git,
+        baseBranch: options.baseBranch,
       },
     }
 
     // Write config
     writeFileSync(configPath, stringify(config), 'utf-8')
 
+    // Create default agent definition
+    const defaultAgent = {
+      name: 'coder',
+      description: 'General coding agent',
+      client: 'claude-code',
+      model: 'sonnet',
+      scope: {
+        read: ['**/*'],
+        write: ['**/*'],
+        exclude: ['node_modules/**', '.git/**'],
+      },
+    }
+    writeFileSync(join(agentsDir, 'coder.yaml'), stringify(defaultAgent), 'utf-8')
+
+    // Initialize database
+    try {
+      const db = createDb({ projectRoot: cwd })
+      await initializeDb(db)
+      console.log(chalk.green('✓ Database initialized'))
+    } catch (error) {
+      console.log(chalk.red('✗ Failed to initialize database:'), error)
+      return
+    }
+
     console.log(chalk.green('✓ Initialized agentmine in'), chalk.cyan(agentmineDir))
     console.log('')
     console.log('Created:')
     console.log(chalk.gray('  .agentmine/'))
     console.log(chalk.gray('  ├── config.yaml'))
-    console.log(chalk.gray('  └── skills/'))
+    console.log(chalk.gray('  ├── data.db'))
+    console.log(chalk.gray('  ├── agents/'))
+    console.log(chalk.gray('  │   └── coder.yaml'))
+    console.log(chalk.gray('  └── memory/'))
     console.log('')
     console.log('Next steps:')
     console.log(chalk.cyan('  agentmine task add "Your first task"'))
