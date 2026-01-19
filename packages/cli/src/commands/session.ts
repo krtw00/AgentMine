@@ -14,6 +14,7 @@ import {
   type Session,
   type SessionStatus,
   type DodResult,
+  type ReviewStatus,
 } from '@agentmine/core'
 
 // ============================================
@@ -362,5 +363,116 @@ sessionCommand
     console.log(chalk.gray('  Cancelled:'), counts.cancelled)
     console.log('')
     console.log(chalk.white('  Total:    '), Object.values(counts).reduce((a, b) => a + b, 0))
+    console.log('')
+  })
+
+// session review
+sessionCommand
+  .command('review <sessionId>')
+  .description('Record review result for a session')
+  .requiredOption('-s, --status <status>', 'Review status (approved, rejected, needs_work)')
+  .requiredOption('-b, --by <reviewer>', 'Reviewer name')
+  .option('-c, --comment <comment>', 'Review comment')
+  .option('--json', 'JSON output')
+  .option('--quiet', 'Minimal output')
+  .action(async (sessionId, options) => {
+    ensureInitialized()
+    const service = getSessionService()
+
+    // Validate review status
+    const validStatuses: ReviewStatus[] = ['approved', 'rejected', 'needs_work']
+    if (!validStatuses.includes(options.status)) {
+      console.error(chalk.red(`Invalid review status: ${options.status}`))
+      console.log(chalk.gray(`Valid statuses: ${validStatuses.join(', ')}`))
+      process.exit(2)
+    }
+
+    try {
+      const session = await service.review(parseInt(sessionId), {
+        status: options.status as ReviewStatus,
+        reviewedBy: options.by,
+        comment: options.comment,
+      })
+
+      if (options.json) {
+        console.log(JSON.stringify(session))
+      } else if (options.quiet) {
+        console.log(sessionId)
+      } else {
+        const statusColor = {
+          approved: chalk.green,
+          rejected: chalk.red,
+          needs_work: chalk.yellow,
+        }[options.status] ?? chalk.white
+
+        console.log(chalk.green('✓ Reviewed session'), chalk.cyan(`#${sessionId}`))
+        console.log(chalk.gray('  Status:  '), statusColor(options.status))
+        console.log(chalk.gray('  Reviewer:'), options.by)
+        if (options.comment) {
+          console.log(chalk.gray('  Comment: '), options.comment)
+        }
+      }
+    } catch (error) {
+      if (error instanceof SessionNotFoundError) {
+        console.error(chalk.red(`Session #${sessionId} not found`))
+        process.exit(5)
+      }
+      throw error
+    }
+  })
+
+// session pending
+sessionCommand
+  .command('pending')
+  .description('List sessions pending review')
+  .option('--json', 'JSON output')
+  .option('--quiet', 'Minimal output (IDs only)')
+  .action(async (options) => {
+    ensureInitialized()
+    const service = getSessionService()
+
+    const sessions = await service.findPendingReview()
+
+    if (options.json) {
+      console.log(JSON.stringify(sessions, null, 2))
+      return
+    }
+
+    if (options.quiet) {
+      sessions.forEach(s => console.log(s.id))
+      return
+    }
+
+    if (sessions.length === 0) {
+      console.log(chalk.gray('No sessions pending review.'))
+      return
+    }
+
+    console.log('')
+    console.log(chalk.bold('Sessions Pending Review'))
+    console.log('')
+
+    const table = new Table({
+      head: [
+        chalk.white('ID'),
+        chalk.white('Task'),
+        chalk.white('Agent'),
+        chalk.white('Completed'),
+        chalk.white('Duration'),
+      ],
+      style: { head: [], border: [] },
+    })
+
+    for (const session of sessions) {
+      table.push([
+        chalk.cyan(`#${session.id}`),
+        session.taskId ? `#${session.taskId}` : '-',
+        session.agentName,
+        session.completedAt?.toISOString() ?? '-',
+        formatDuration(session.durationMs),
+      ])
+    }
+
+    console.log(table.toString())
     console.log('')
   })

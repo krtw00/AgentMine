@@ -178,6 +178,20 @@ export async function initializeDb(db: Db): Promise<void> {
     if (!columns.includes('worktree_path')) {
       await db.run(sql`ALTER TABLE sessions ADD COLUMN worktree_path TEXT`)
     }
+
+    // Migration: Add review columns to sessions
+    if (!columns.includes('review_status')) {
+      await db.run(sql`ALTER TABLE sessions ADD COLUMN review_status TEXT DEFAULT 'pending'`)
+    }
+    if (!columns.includes('reviewed_by')) {
+      await db.run(sql`ALTER TABLE sessions ADD COLUMN reviewed_by TEXT`)
+    }
+    if (!columns.includes('reviewed_at')) {
+      await db.run(sql`ALTER TABLE sessions ADD COLUMN reviewed_at INTEGER`)
+    }
+    if (!columns.includes('review_comment')) {
+      await db.run(sql`ALTER TABLE sessions ADD COLUMN review_comment TEXT`)
+    }
   } catch {
     // Ignore errors if columns already exist
   }

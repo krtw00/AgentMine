@@ -7,6 +7,7 @@ import {
   type NewSession,
   type SessionStatus,
   type DodResult,
+  type ReviewStatus,
   type SessionError,
 } from '../db/schema.js'
 import {
@@ -53,6 +54,12 @@ export interface EndSessionInput {
 export interface SessionResult {
   session: Session
   durationMs: number
+}
+
+export interface ReviewSessionInput {
+  status: ReviewStatus
+  reviewedBy: string
+  comment?: string
 }
 
 // ============================================
@@ -389,5 +396,44 @@ export class SessionService {
       .returning()
 
     return session
+  }
+
+  /**
+   * Record review result for a session
+   */
+  async review(sessionId: number, input: ReviewSessionInput): Promise<Session> {
+    const existing = await this.findById(sessionId)
+    if (!existing) {
+      throw new SessionNotFoundError(sessionId)
+    }
+
+    const [session] = await this.db
+      .update(sessions)
+      .set({
+        reviewStatus: input.status,
+        reviewedBy: input.reviewedBy,
+        reviewedAt: new Date(),
+        reviewComment: input.comment ?? null,
+      })
+      .where(eq(sessions.id, sessionId))
+      .returning()
+
+    return session
+  }
+
+  /**
+   * Find sessions pending review
+   */
+  async findPendingReview(): Promise<Session[]> {
+    return this.db
+      .select()
+      .from(sessions)
+      .where(
+        and(
+          eq(sessions.status, 'completed'),
+          eq(sessions.reviewStatus, 'pending')
+        )
+      )
+      .orderBy(desc(sessions.completedAt))
   }
 }

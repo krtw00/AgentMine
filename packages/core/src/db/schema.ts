@@ -110,6 +110,14 @@ export const sessions = sqliteTable('sessions', {
   // Detachモード用: プロセス情報
   pid: integer('pid'), // バックグラウンドプロセスのPID
   worktreePath: text('worktree_path'), // Worktreeのパス
+
+  // レビュー情報
+  reviewStatus: text('review_status', {
+    enum: ['pending', 'approved', 'rejected', 'needs_work']
+  }).default('pending'),
+  reviewedBy: text('reviewed_by'), // レビュワー名
+  reviewedAt: integer('reviewed_at', { mode: 'timestamp' }), // レビュー日時
+  reviewComment: text('review_comment'), // レビューコメント
 })
 
 /**
@@ -145,6 +153,7 @@ export type TaskType = 'task' | 'feature' | 'bug' | 'refactor'
 export type AssigneeType = 'ai' | 'human'
 export type SessionStatus = 'running' | 'completed' | 'failed' | 'cancelled'
 export type DodResult = 'pending' | 'merged' | 'timeout' | 'error'
+export type ReviewStatus = 'pending' | 'approved' | 'rejected' | 'needs_work'
 export type DecisionCategory = 'architecture' | 'tooling' | 'convention' | 'rule'
 
 export interface SessionError {

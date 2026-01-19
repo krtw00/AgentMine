@@ -77,11 +77,10 @@ const CLIENT_CONFIGS: Record<string, ClientConfig> = {
   },
   'codex': {
     command: 'codex',
-    args: (prompt, model) => {
-      // Non-interactive: --full-auto for autonomous execution
-      const args = ['--full-auto']
-      if (model) args.push('-m', model)
-      args.push(prompt)
+    args: (prompt, _model) => {
+      // Non-interactive: exec subcommand with --full-auto for autonomous execution
+      // Note: Model parameter is ignored for Codex (ChatGPT account doesn't support model selection)
+      const args = ['exec', '--full-auto', prompt]
       return args
     },
   },
