@@ -197,7 +197,7 @@ interface Orchestrator {
 ### Blackboard通信（DevHive互換）
 
 ```typescript
-// メッセージテーブル
+// メッセージテーブル（並列実行の詳細実装時に data-model.md へ追加）
 export const messages = sqliteTable('messages', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   
@@ -245,22 +245,22 @@ export const messages = sqliteTable('messages', {
 
 ```typescript
 // 検証可能な物理的存在
-type Artifact = 
+// Note: PR は Orchestrator が作成するため、Agent の成果物には含まない
+type Artifact =
   | { type: 'commit'; sha: string; branch: string }
   | { type: 'file'; path: string; checksum: string }
   | { type: 'branch'; name: string; baseBranch: string }
-  | { type: 'pr'; url: string; number: number }
   ;
 
-// 成果物テーブル
+// 成果物テーブル（詳細実装時に data-model.md へ追加）
 export const artifacts = sqliteTable('artifacts', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  
+
   sessionId: integer('session_id').references(() => sessions.id),
   taskId: integer('task_id').references(() => tasks.id),
-  
-  type: text('type', { 
-    enum: ['commit', 'file', 'branch', 'pr'] 
+
+  type: text('type', {
+    enum: ['commit', 'file', 'branch']
   }).notNull(),
   
   // 検証用データ
@@ -322,7 +322,7 @@ const expectedArtifacts: Record<TaskType, ArtifactType[]> = {
 ### ゴールスキーマ
 
 ```typescript
-// ゴール定義
+// ゴール定義（Goal Verification 詳細実装時に data-model.md へ追加）
 export const taskGoals = sqliteTable('task_goals', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   taskId: integer('task_id').references(() => tasks.id),
@@ -354,7 +354,7 @@ export const taskGoals = sqliteTable('task_goals', {
   }).notNull(),
 });
 
-// ゴール検証結果
+// ゴール検証結果（Goal Verification 詳細実装時に data-model.md へ追加）
 export const goalResults = sqliteTable('goal_results', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   goalId: integer('goal_id').references(() => taskGoals.id),
@@ -460,36 +460,33 @@ async function verifyGoal(goal: Goal, artifacts: Artifact[], task: Task): Promis
 
 ```
 ┌──────┐     ┌───────────┐     ┌────────────┐
-│ open │────▶│in_progress│────▶│  verifying │
+│ open │────▶│in_progress│────▶│  (verify)  │  ← 内部処理
 └──────┘     └───────────┘     └─────┬──────┘
                                      │
                         ┌────────────┴────────────┐
                         ▼                         ▼
-                 ┌──────────┐              ┌──────────┐
-                 │   done   │              │ rejected │
-                 └──────────┘              └────┬─────┘
-                                                │
-                                                ▼
-                                         ┌───────────┐
-                                         │in_progress│ (再作業)
-                                         └───────────┘
+                 ┌──────────┐              ┌───────────┐
+                 │  review  │              │in_progress│ (再作業)
+                 └──────────┘              └───────────┘
+
+※ verify（検証）は Orchestrator の内部処理。
+  タスクステータスは data-model.md の enum を使用:
+  open | in_progress | review | done | blocked | cancelled
 ```
 
 ## レビューは別タスク
 
 ```typescript
 // タスク完了後、必要に応じてレビュータスクを生成
+// Note: レビューも task type を使用（type enum: task | feature | bug | refactor）
 async function onTaskDone(task: Task): Promise<void> {
   if (task.requiresReview) {
     await createTask({
       parentId: task.id,
       title: `Review: ${task.title}`,
-      type: 'review',
+      type: 'task',  // レビューは通常の task として作成
       assigneeType: task.reviewerType || 'human',  // 人間 or AI
-      context: {
-        originalTask: task.id,
-        artifacts: await getArtifacts(task.id),
-      },
+      description: `Review artifacts from task #${task.id}`,
     });
   }
 }
@@ -516,11 +513,10 @@ dod:
 agents:
   default:
     adapter: claude-code
+    model: claude-sonnet
     timeout: 1800000  # 30分
-    sandbox:
-      type: docker
-      image: node:20
-    
+    tools: [Read, Write, Edit, Bash, Grep, Glob]
+
   codex:
     adapter: codex
     timeout: 1800000

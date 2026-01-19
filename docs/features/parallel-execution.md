@@ -92,7 +92,9 @@ agentmine task run 5 --agent coder,reviewer --compare
 ## ブランチ戦略
 
 ```
-main
+main ─────────────────── 本番（人間のみマージ）
+  │
+develop ─────────────── 統合ブランチ（PR先）
   │
   ├── task-3-auth
   │     └── (Worker 1)
@@ -104,6 +106,8 @@ main
         ├── task-5-dashboard-coder     (Compare Mode)
         └── task-5-dashboard-reviewer  (Compare Mode)
 ```
+
+**Note:** PRは develop ブランチへマージ。main へは人間がレビュー後にマージ。
 
 ## 隔離レベル
 
@@ -324,7 +328,6 @@ Compare Results: Task #5
 │ Test coverage  │ 80%             │ 75%             │
 │ Complexity     │ 7               │ 5               │
 │ Duration       │ 8m 12s          │ 6m 45s          │
-│ Tokens used    │ 12,500          │ 9,800           │
 └────────────────┴─────────────────┴─────────────────┘
 
 Branches:

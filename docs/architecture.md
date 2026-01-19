@@ -38,8 +38,7 @@
 │  │  .agentmine/                                                     │   │
 │  │  ├── config.yaml      # プロジェクト設定                          │   │
 │  │  ├── data.db          # SQLiteデータベース                        │   │
-│  │  ├── memory/          # Memory Bank（コンテキスト）               │   │
-│  │  └── skills/          # ローカルスキル                            │   │
+│  │  └── memory/          # Memory Bank（コンテキスト）               │   │
 │  └─────────────────────────────────────────────────────────────────┘   │
 └──────────────────────────────────────────────────────────────────────────┘
 ```
@@ -56,8 +55,7 @@ agentmine/
 │   │   │   │   ├── init.ts
 │   │   │   │   ├── task.ts
 │   │   │   │   ├── agent.ts
-│   │   │   │   ├── skill.ts
-│   │   │   │   ├── context.ts
+│   │   │   │   ├── memory.ts
 │   │   │   │   └── ui.ts
 │   │   │   ├── mcp/            # MCPサーバー
 │   │   │   │   ├── server.ts
@@ -93,13 +91,11 @@ agentmine/
 │       │   ├── models/         # ドメインモデル
 │       │   │   ├── task.ts
 │       │   │   ├── agent.ts
-│       │   │   ├── session.ts
-│       │   │   └── skill.ts
+│       │   │   └── session.ts
 │       │   ├── services/       # ビジネスロジック
 │       │   │   ├── task-service.ts
 │       │   │   ├── agent-service.ts
-│       │   │   ├── memory-service.ts
-│       │   │   └── skill-service.ts
+│       │   │   └── memory-service.ts
 │       │   ├── config/         # 設定管理
 │       │   │   ├── parser.ts   # YAML解析
 │       │   │   └── schema.ts   # 設定スキーマ
@@ -211,7 +207,6 @@ Cursor/Windsurf
 - PostgreSQL: pgvectorによるベクトル検索でAI機能を強化
   - Memory Bankのセマンティック検索
   - タスク類似検索
-  - スキル推薦
 - Drizzle ORMで両方をサポート（クエリAPIは共通）
 
 **参考:** [ADR-002: Database Strategy](./adr/002-sqlite-default.md)
@@ -253,13 +248,6 @@ Cursor/Windsurf
 - 設定ファイルには含めない
 - MCP経由でのキー露出を防ぐ
 
-### 3. Skill Validation
-
-リモートスキル読み込み時：
-- HTTPSのみ許可
-- 署名検証（将来）
-- ホワイトリスト制御
-
 ## Extensibility
 
 ### 1. Plugin System（将来）
@@ -287,17 +275,7 @@ agents:
     description: "カスタムエージェント"
     model: claude-sonnet
     tools: [Read, Write]
-    skills: [my-skill]
-    # カスタム設定
     config:
       temperature: 0.7
       maxTokens: 4096
-```
-
-### 3. Skill Marketplace（将来）
-
-```bash
-# コミュニティスキルのインストール
-agentmine skill install @community/security-audit
-agentmine skill install @company/internal-review
 ```

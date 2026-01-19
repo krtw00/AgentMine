@@ -24,12 +24,13 @@ agents:
     description: string       # 説明
     model: string            # AIモデル
     tools: string[]          # 使用可能ツール
-    skills: string[]         # 使用可能スキル
     config:                  # 追加設定
       temperature: number
       maxTokens: number
       systemPrompt: string
 ```
+
+**Note:** スキル管理は agentmine の範囲外。各AIツールのネイティブ機能に委ねる。
 
 ### 組み込みエージェント
 
@@ -44,10 +45,6 @@ agents:
       - Grep
       - Glob
       - WebSearch
-    skills:
-      - analyze
-      - design
-      - estimate
     config:
       temperature: 0.7
 
@@ -62,11 +59,6 @@ agents:
       - Bash
       - Grep
       - Glob
-    skills:
-      - implement
-      - test
-      - debug
-      - commit
     config:
       temperature: 0.3
       maxTokens: 8192
@@ -79,9 +71,6 @@ agents:
       - Read
       - Grep
       - Glob
-    skills:
-      - review
-      - security-check
     config:
       temperature: 0.5
 
@@ -93,9 +82,6 @@ agents:
       - Read
       - Write
       - Grep
-    skills:
-      - document
-      - explain
     config:
       temperature: 0.6
 ```
@@ -173,9 +159,8 @@ interface RunOptions {
 interface AgentResult {
   sessionId: number;
   output: string;
-  tokensUsed: number;
   filesChanged: string[];
-  decisions: Decision[];
+  durationMs: number;
 }
 ```
 
@@ -187,7 +172,6 @@ interface Agent {
   description: string;
   model: ModelType;
   tools: ToolType[];
-  skills: string[];
   config: AgentConfig;
 }
 
@@ -219,7 +203,7 @@ type ToolType =
 │                                                              │
 │  1. Load Agent Definition                                    │
 │     ┌─────────────┐                                         │
-│     │ config.yaml │ → Agent { model, tools, skills }        │
+│     │ config.yaml │ → Agent { model, tools, config }        │
 │     └─────────────┘                                         │
 │                                                              │
 │  2. Prepare Context                                          │
@@ -227,17 +211,12 @@ type ToolType =
 │     │  Task Info  │ +  │Memory Bank  │ → System Prompt      │
 │     └─────────────┘    └─────────────┘                      │
 │                                                              │
-│  3. Load Skills                                              │
-│     ┌─────────────┐                                         │
-│     │   Skills    │ → Additional Instructions               │
-│     └─────────────┘                                         │
-│                                                              │
-│  4. Execute                                                  │
+│  3. Execute                                                  │
 │     ┌─────────────┐                                         │
 │     │  AI Model   │ → Response + Tool Calls                 │
 │     └─────────────┘                                         │
 │                                                              │
-│  5. Save Session                                             │
+│  4. Save Session                                             │
 │     ┌─────────────┐    ┌─────────────┐                      │
 │     │  Database   │ +  │Memory Bank  │                      │
 │     └─────────────┘    └─────────────┘                      │
@@ -275,12 +254,12 @@ agentmine agent run coder "コードレビュー" --json
 ### agent list
 
 ```
-Name       Model          Tools                         Skills
-─────────────────────────────────────────────────────────────────────
-planner    claude-opus    Read,Grep,Glob,WebSearch     analyze,design,estimate
-coder      claude-sonnet  Read,Write,Edit,Bash,...     implement,test,debug
-reviewer   claude-haiku   Read,Grep,Glob               review,security-check
-writer     claude-sonnet  Read,Write,Grep              document,explain
+Name       Model          Tools
+───────────────────────────────────────────────────────────────
+planner    claude-opus    Read,Grep,Glob,WebSearch
+coder      claude-sonnet  Read,Write,Edit,Bash,Grep,Glob
+reviewer   claude-haiku   Read,Grep,Glob
+writer     claude-sonnet  Read,Write,Grep
 ```
 
 ### agent show
@@ -298,12 +277,6 @@ Tools:
   ✓ Bash     - コマンド実行
   ✓ Grep     - 内容検索
   ✓ Glob     - ファイル検索
-
-Skills:
-  - implement
-  - test
-  - debug
-  - commit
 
 Config:
   temperature: 0.3
@@ -340,11 +313,8 @@ Context: loaded (session #41)
 
 Session Complete
   ID: #42
-  Tokens: 3,245
   Files changed: 2
   Duration: 2m 15s
-
-Context saved to: .agentmine/memory/sessions/session-042.md
 ```
 
 ## System Prompt Template
@@ -356,7 +326,6 @@ You are {agent.description}.
 ## Your Capabilities
 Model: {agent.model}
 Tools: {agent.tools.join(', ')}
-Skills: {agent.skills.join(', ')}
 
 ## Current Context
 Project: {project.name}
@@ -364,11 +333,8 @@ Task: {task.title} (#{task.id})
 Status: {task.status}
 Branch: {task.branchName}
 
-## Previous Context
+## Project Decisions (Memory Bank)
 {memoryContext}
-
-## Instructions
-{skillInstructions}
 
 ## Guidelines
 1. 変更を加える前に現状を確認する
@@ -393,9 +359,6 @@ agents:
       - Grep
       - Glob
       - WebSearch
-    skills:
-      - security-audit
-      - vulnerability-check
     config:
       temperature: 0.2
       systemPrompt: |
