@@ -165,6 +165,22 @@ export async function initializeDb(db: Db): Promise<void> {
   await db.run(sql`CREATE INDEX IF NOT EXISTS idx_sessions_task ON sessions(task_id)`)
   await db.run(sql`CREATE INDEX IF NOT EXISTS idx_sessions_status ON sessions(status)`)
   await db.run(sql`CREATE INDEX IF NOT EXISTS idx_decisions_category ON project_decisions(category)`)
+
+  // Migration: Add pid and worktree_path columns to sessions (for detach mode)
+  // Check if column exists first to avoid errors
+  try {
+    const tableInfo = await db.all(sql`PRAGMA table_info(sessions)`) as Array<{ name: string }>
+    const columns = tableInfo.map((row) => row.name)
+
+    if (!columns.includes('pid')) {
+      await db.run(sql`ALTER TABLE sessions ADD COLUMN pid INTEGER`)
+    }
+    if (!columns.includes('worktree_path')) {
+      await db.run(sql`ALTER TABLE sessions ADD COLUMN worktree_path TEXT`)
+    }
+  } catch {
+    // Ignore errors if columns already exist
+  }
 }
 
 /**

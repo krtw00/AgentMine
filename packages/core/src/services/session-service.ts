@@ -336,4 +336,58 @@ export class SessionService {
 
     return { session, task }
   }
+
+  /**
+   * Update process information for detached mode
+   */
+  async updateProcessInfo(sessionId: number, info: { pid?: number; worktreePath?: string }): Promise<Session> {
+    const existing = await this.findById(sessionId)
+    if (!existing) {
+      throw new SessionNotFoundError(sessionId)
+    }
+
+    const [session] = await this.db
+      .update(sessions)
+      .set({
+        pid: info.pid,
+        worktreePath: info.worktreePath,
+      })
+      .where(eq(sessions.id, sessionId))
+      .returning()
+
+    return session
+  }
+
+  /**
+   * Find sessions by PID (for process management)
+   */
+  async findByPid(pid: number): Promise<Session | null> {
+    const [session] = await this.db
+      .select()
+      .from(sessions)
+      .where(eq(sessions.pid, pid))
+      .limit(1)
+
+    return session ?? null
+  }
+
+  /**
+   * Clear process info (when process ends)
+   */
+  async clearProcessInfo(sessionId: number): Promise<Session> {
+    const existing = await this.findById(sessionId)
+    if (!existing) {
+      throw new SessionNotFoundError(sessionId)
+    }
+
+    const [session] = await this.db
+      .update(sessions)
+      .set({
+        pid: null,
+      })
+      .where(eq(sessions.id, sessionId))
+      .returning()
+
+    return session
+  }
 }

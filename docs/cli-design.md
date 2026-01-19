@@ -294,6 +294,7 @@ Arguments:
 Options:
   -a, --agent <name>  エージェント名 (default: coder)
   --exec [client]     Worker AIを起動（clientを指定するとagent定義を上書き）
+  --detach            バックグラウンドで起動（PIDを返して即座に終了）
   --no-worktree       worktree作成をスキップ（カレントディレクトリで作業）
   --json              JSON出力
 
@@ -307,15 +308,23 @@ Examples:
   # 特定のクライアントで起動（agent定義を上書き）
   agentmine worker run 1 --exec codex
   agentmine worker run 1 --exec aider
+
+  # バックグラウンドで並列起動
+  agentmine worker run 1 --exec --detach
+  agentmine worker run 2 --exec --detach
+  agentmine worker wait 1 2  # 両方の完了を待機
 ```
 
 **動作:**
 1. タスク情報取得
 2. Git worktree作成（`.agentmine/worktrees/task-<id>/`）
 3. ブランチ作成（`task-<id>`）
-4. セッション開始（DBに記録）
-5. `--exec`指定時: Worker AIプロセスを起動し、終了を待機
-6. `--exec`なし: 各AIクライアント向けの起動コマンドを表示
+4. スコープ適用（exclude: sparse-checkout, write: chmod）
+5. セッション開始（DBに記録）
+6. `--exec`指定時: Worker AIプロセスを起動
+   - `--detach`なし: 終了を待機
+   - `--detach`あり: PIDをDBに記録して即座に終了
+7. `--exec`なし: 各AIクライアント向けの起動コマンドを表示
 
 **出力例（--execなし）:**
 
@@ -443,6 +452,106 @@ Options:
 Examples:
   agentmine worker cleanup 1
   agentmine worker cleanup 1 --force
+```
+
+### worker wait
+
+バックグラウンドで起動したWorker AIの完了を待機。
+
+```bash
+agentmine worker wait [task-ids...] [options]
+
+Arguments:
+  task-ids            タスクID（複数指定可、省略時は全実行中Worker）
+
+Options:
+  --timeout <ms>      タイムアウト（ミリ秒、デフォルト: 無制限）
+  --interval <ms>     ポーリング間隔（ミリ秒、デフォルト: 1000）
+  --json              JSON出力
+
+Examples:
+  # 特定のタスクを待機
+  agentmine worker wait 1 2
+
+  # 全実行中Workerを待機
+  agentmine worker wait
+
+  # タイムアウト付き
+  agentmine worker wait 1 --timeout 300000
+```
+
+**出力例:**
+
+```
+Waiting for 2 worker(s)...
+✓ Task #1 worker completed (PID: 12345)
+✓ Task #2 worker completed (PID: 12346)
+
+✓ All 2 worker(s) completed
+```
+
+### worker stop
+
+バックグラウンドで実行中のWorker AIを停止。
+
+```bash
+agentmine worker stop <task-ids...> [options]
+
+Arguments:
+  task-ids            タスクID（複数指定可）
+
+Options:
+  --force             SIGKILL（デフォルト: SIGTERM）
+  --json              JSON出力
+
+Examples:
+  agentmine worker stop 1
+  agentmine worker stop 1 2 3
+  agentmine worker stop 1 --force
+```
+
+**出力例:**
+
+```
+✓ Task #1 worker stopped (PID: 12345)
+✓ Task #2 worker stopped (PID: 12346)
+```
+
+### worker status
+
+Worker AIの実行状態を表示。
+
+```bash
+agentmine worker status [task-id] [options]
+
+Arguments:
+  task-id             タスクID（省略時は全実行中Worker）
+
+Options:
+  --json              JSON出力
+
+Examples:
+  # 特定タスクの状態
+  agentmine worker status 1
+
+  # 全実行中Workerの状態
+  agentmine worker status
+```
+
+**出力例:**
+
+```
+Running Workers:
+
+Task #1: 認証機能実装
+  Agent:   coder
+  Session: #1
+  PID:     12345 ● running
+
+Task #2: API設計
+  Agent:   coder
+  Session: #2
+  PID:     12346 ● running
 ```
 
 ### worker prompt

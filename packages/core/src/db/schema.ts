@@ -106,6 +106,10 @@ export const sessions = sqliteTable('sessions', {
   error: text('error', { mode: 'json' })
     .$type<SessionError | null>()
     .default(null),
+
+  // Detachモード用: プロセス情報
+  pid: integer('pid'), // バックグラウンドプロセスのPID
+  worktreePath: text('worktree_path'), // Worktreeのパス
 })
 
 /**

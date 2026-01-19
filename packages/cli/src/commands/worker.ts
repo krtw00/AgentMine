@@ -118,6 +118,15 @@ const CLIENT_CONFIGS: Record<string, ClientConfig> = {
       return args
     },
   },
+  // Test clients for development/testing
+  'test': {
+    command: 'sleep',
+    args: () => ['3'],
+  },
+  'test-long': {
+    command: 'sleep',
+    args: () => ['60'],
+  },
 }
 
 function getClientConfig(clientName: string): ClientConfig | null {
@@ -125,22 +134,44 @@ function getClientConfig(clientName: string): ClientConfig | null {
   return CLIENT_CONFIGS[normalized] || null
 }
 
+interface LaunchResult {
+  pid?: number
+  exitCode?: number
+}
+
 async function launchWorkerAI(
   client: string,
   prompt: string,
   cwd: string,
-  model?: string
-): Promise<number> {
+  model?: string,
+  detach: boolean = false
+): Promise<LaunchResult> {
   const config = getClientConfig(client)
 
   if (!config) {
     console.error(chalk.red(`Unknown AI client: ${client}`))
     console.log(chalk.gray('Supported clients: ' + Object.keys(CLIENT_CONFIGS).join(', ')))
-    return 1
+    return { exitCode: 1 }
   }
 
   const args = config.args(prompt, model)
 
+  if (detach) {
+    // Detach mode: spawn and return immediately with PID
+    const child = spawn(config.command, args, {
+      cwd,
+      detached: true,
+      stdio: 'ignore', // Don't inherit stdio for background process
+      shell: false,
+    })
+
+    // Unref to allow parent to exit independently
+    child.unref()
+
+    return { pid: child.pid }
+  }
+
+  // Foreground mode: wait for completion
   return new Promise((resolve) => {
     const child = spawn(config.command, args, {
       cwd,
@@ -150,11 +181,11 @@ async function launchWorkerAI(
 
     child.on('error', (error) => {
       console.error(chalk.red(`Failed to start ${client}: ${error.message}`))
-      resolve(1)
+      resolve({ exitCode: 1 })
     })
 
     child.on('close', (code) => {
-      resolve(code ?? 0)
+      resolve({ exitCode: code ?? 0 })
     })
   })
 }
@@ -172,6 +203,7 @@ workerCommand
   .description('Create worktree for a task and optionally start Worker AI')
   .option('-a, --agent <name>', 'Agent name (default: coder)', 'coder')
   .option('--exec [client]', 'Start Worker AI (uses agent client if not specified)')
+  .option('--detach', 'Run Worker AI in background (returns immediately with PID)')
   .option('--no-worktree', 'Skip worktree creation (work in current directory)')
   .option('--json', 'JSON output')
   .action(async (taskId, options) => {
@@ -266,19 +298,90 @@ workerCommand
     // Working directory for AI
     const workingDir = worktreeInfo?.path || process.cwd()
 
+    // Launch AI if --exec specified
+    if (execClient) {
+      const isDetach = options.detach === true
+      const result = await launchWorkerAI(execClient, prompt, workingDir, agent.model, isDetach)
+
+      if (isDetach && result.pid) {
+        // Save PID and worktree path to session for later management
+        await sessionService.updateProcessInfo(session.id, {
+          pid: result.pid,
+          worktreePath: workingDir,
+        })
+      }
+
+      if (options.json) {
+        console.log(JSON.stringify({
+          task: { id: task.id, title: task.title },
+          session: { id: session.id, agentName: session.agentName },
+          worktree: worktreeInfo,
+          prompt,
+          exec: execClient,
+          detach: isDetach,
+          pid: result.pid || null,
+          exitCode: result.exitCode,
+        }, null, 2))
+
+        if (!isDetach && result.exitCode !== undefined) {
+          process.exit(result.exitCode)
+        }
+        return
+      }
+
+      // Display status
+      console.log('')
+      console.log(chalk.green('✓ Worker environment ready'))
+
+      if (worktreeInfo) {
+        console.log(chalk.gray('Worktree: '), chalk.cyan(worktreeInfo.path))
+        console.log(chalk.gray('Branch:   '), chalk.cyan(worktreeInfo.branchName))
+      }
+      console.log(chalk.gray('Session:  '), chalk.cyan(`#${session.id}`))
+      console.log(chalk.gray('Task:     '), chalk.cyan(`#${task.id}: ${task.title}`))
+      console.log('')
+
+      if (isDetach) {
+        console.log(chalk.green(`✓ Worker AI started in background (PID: ${result.pid})`))
+        console.log('')
+        console.log(chalk.bold('To check status:'))
+        console.log(chalk.cyan(`  agentmine worker status ${taskId}`))
+        console.log('')
+        console.log(chalk.bold('To wait for completion:'))
+        console.log(chalk.cyan(`  agentmine worker wait ${taskId}`))
+        console.log('')
+        console.log(chalk.bold('To stop:'))
+        console.log(chalk.cyan(`  agentmine worker stop ${taskId}`))
+        console.log('')
+      } else {
+        console.log(chalk.green(`✓ Starting Worker AI (${execClient})...`))
+        console.log('')
+
+        // result.exitCode is already set from foreground execution
+        console.log('')
+        if (result.exitCode === 0) {
+          console.log(chalk.green(`✓ Worker AI exited (code: ${result.exitCode})`))
+        } else {
+          console.log(chalk.yellow(`⚠ Worker AI exited (code: ${result.exitCode})`))
+        }
+
+        console.log('')
+        console.log(chalk.bold('To complete the task:'))
+        console.log(chalk.cyan(`  agentmine worker done ${taskId}`))
+        console.log('')
+      }
+      return
+    }
+
+    // No --exec: show instructions only
     if (options.json) {
       console.log(JSON.stringify({
         task: { id: task.id, title: task.title },
         session: { id: session.id, agentName: session.agentName },
         worktree: worktreeInfo,
         prompt,
-        exec: execClient || null,
+        exec: null,
       }, null, 2))
-
-      if (execClient) {
-        const exitCode = await launchWorkerAI(execClient, prompt, workingDir, agent.model)
-        process.exit(exitCode)
-      }
       return
     }
 
@@ -293,27 +396,6 @@ workerCommand
     console.log(chalk.gray('Session:  '), chalk.cyan(`#${session.id}`))
     console.log(chalk.gray('Task:     '), chalk.cyan(`#${task.id}: ${task.title}`))
     console.log('')
-
-    // If --exec specified, launch AI
-    if (execClient) {
-      console.log(chalk.green(`✓ Starting Worker AI (${execClient})...`))
-      console.log('')
-
-      const exitCode = await launchWorkerAI(execClient, prompt, workingDir, agent.model)
-
-      console.log('')
-      if (exitCode === 0) {
-        console.log(chalk.green(`✓ Worker AI exited (code: ${exitCode})`))
-      } else {
-        console.log(chalk.yellow(`⚠ Worker AI exited (code: ${exitCode})`))
-      }
-
-      console.log('')
-      console.log(chalk.bold('To complete the task:'))
-      console.log(chalk.cyan(`  agentmine worker done ${taskId}`))
-      console.log('')
-      return
-    }
 
     // Show instructions (no --exec)
     const agentCommand = agentService.buildCommand(agent, prompt)
@@ -590,6 +672,278 @@ workerCommand
 
     console.log('')
   })
+
+// worker wait - Wait for background workers to complete
+workerCommand
+  .command('wait [taskIds...]')
+  .description('Wait for background Worker AI processes to complete')
+  .option('--timeout <ms>', 'Timeout in milliseconds (default: no timeout)')
+  .option('--interval <ms>', 'Polling interval in milliseconds', '1000')
+  .option('--json', 'JSON output')
+  .action(async (taskIds: string[], options) => {
+    ensureInitialized()
+    const { sessionService, taskService } = getServices()
+
+    // If no task IDs provided, wait for all running sessions with PIDs
+    let sessions
+    if (taskIds.length === 0) {
+      const running = await sessionService.findRunning()
+      sessions = running.filter(s => s.pid !== null)
+    } else {
+      sessions = []
+      for (const taskIdStr of taskIds) {
+        const taskId = parseInt(taskIdStr)
+        const session = await sessionService.findByTask(taskId)
+        if (session && session.pid) {
+          sessions.push(session)
+        }
+      }
+    }
+
+    if (sessions.length === 0) {
+      if (options.json) {
+        console.log(JSON.stringify({ completed: [], message: 'No running workers found' }))
+      } else {
+        console.log(chalk.yellow('No running workers found'))
+      }
+      return
+    }
+
+    const interval = parseInt(options.interval) || 1000
+    const timeout = options.timeout ? parseInt(options.timeout) : null
+    const startTime = Date.now()
+    const completed: Array<{ taskId: number; pid: number }> = []
+
+    if (!options.json) {
+      console.log(chalk.gray(`Waiting for ${sessions.length} worker(s)...`))
+    }
+
+    // Poll until all processes complete or timeout
+    while (sessions.length > 0) {
+      // Check timeout
+      if (timeout && Date.now() - startTime > timeout) {
+        if (options.json) {
+          console.log(JSON.stringify({
+            completed,
+            timedOut: sessions.map(s => ({ taskId: s.taskId, pid: s.pid })),
+          }))
+        } else {
+          console.log(chalk.yellow(`Timeout: ${sessions.length} worker(s) still running`))
+        }
+        process.exit(1)
+      }
+
+      // Check each process
+      for (let i = sessions.length - 1; i >= 0; i--) {
+        const session = sessions[i]
+        const isRunning = isProcessRunning(session.pid!)
+
+        if (!isRunning) {
+          completed.push({ taskId: session.taskId!, pid: session.pid! })
+          sessions.splice(i, 1)
+
+          // Clear PID from session
+          await sessionService.clearProcessInfo(session.id)
+
+          if (!options.json) {
+            console.log(chalk.green(`✓ Task #${session.taskId} worker completed (PID: ${session.pid})`))
+          }
+        }
+      }
+
+      if (sessions.length > 0) {
+        await sleep(interval)
+      }
+    }
+
+    if (options.json) {
+      console.log(JSON.stringify({ completed, timedOut: [] }))
+    } else {
+      console.log('')
+      console.log(chalk.green(`✓ All ${completed.length} worker(s) completed`))
+    }
+  })
+
+// worker stop - Stop background worker processes
+workerCommand
+  .command('stop <taskIds...>')
+  .description('Stop background Worker AI processes')
+  .option('--force', 'Force kill (SIGKILL instead of SIGTERM)')
+  .option('--json', 'JSON output')
+  .action(async (taskIds: string[], options) => {
+    ensureInitialized()
+    const { sessionService } = getServices()
+
+    const results: Array<{ taskId: number; pid: number; stopped: boolean; error?: string }> = []
+
+    for (const taskIdStr of taskIds) {
+      const taskId = parseInt(taskIdStr)
+      const session = await sessionService.findByTask(taskId)
+
+      if (!session) {
+        results.push({ taskId, pid: 0, stopped: false, error: 'Session not found' })
+        continue
+      }
+
+      if (!session.pid) {
+        results.push({ taskId, pid: 0, stopped: false, error: 'No running process' })
+        continue
+      }
+
+      const pid = session.pid
+
+      try {
+        // Send signal
+        const signal = options.force ? 'SIGKILL' : 'SIGTERM'
+        process.kill(pid, signal)
+
+        // Clear PID from session
+        await sessionService.clearProcessInfo(session.id)
+
+        results.push({ taskId, pid, stopped: true })
+      } catch (error) {
+        const errMsg = error instanceof Error ? error.message : 'Unknown error'
+        results.push({ taskId, pid, stopped: false, error: errMsg })
+      }
+    }
+
+    if (options.json) {
+      console.log(JSON.stringify({ results }))
+      return
+    }
+
+    for (const result of results) {
+      if (result.stopped) {
+        console.log(chalk.green(`✓ Task #${result.taskId} worker stopped (PID: ${result.pid})`))
+      } else {
+        console.log(chalk.red(`✗ Task #${result.taskId}: ${result.error}`))
+      }
+    }
+  })
+
+// worker status - Show status of workers (enhanced for detach mode)
+workerCommand
+  .command('status [taskId]')
+  .description('Show status of worker(s)')
+  .option('--json', 'JSON output')
+  .action(async (taskId: string | undefined, options) => {
+    ensureInitialized()
+    const { sessionService, taskService, worktreeService } = getServices()
+
+    if (taskId) {
+      // Show status for specific task
+      const session = await sessionService.findByTask(parseInt(taskId))
+      const task = await taskService.findById(parseInt(taskId))
+      const worktree = worktreeService.getInfo(parseInt(taskId))
+
+      if (!task) {
+        console.error(chalk.red(`Task #${taskId} not found`))
+        process.exit(5)
+      }
+
+      const isRunning = session?.pid ? isProcessRunning(session.pid) : false
+
+      const status = {
+        task: { id: task.id, title: task.title, status: task.status },
+        session: session ? {
+          id: session.id,
+          status: session.status,
+          agentName: session.agentName,
+          pid: session.pid,
+          isRunning,
+        } : null,
+        worktree: worktree.exists ? worktree : null,
+      }
+
+      if (options.json) {
+        console.log(JSON.stringify(status, null, 2))
+        return
+      }
+
+      console.log('')
+      console.log(chalk.bold.cyan(`Task #${task.id}: ${task.title}`))
+      console.log(chalk.gray(`Status: ${task.status}`))
+      if (session) {
+        console.log('')
+        console.log(chalk.gray('Session:'))
+        console.log(chalk.gray(`  Agent:  ${session.agentName}`))
+        console.log(chalk.gray(`  Status: ${session.status}`))
+        if (session.pid) {
+          const runningIcon = isRunning ? chalk.green('●') : chalk.gray('○')
+          console.log(chalk.gray(`  PID:    ${session.pid} ${runningIcon} ${isRunning ? 'running' : 'stopped'}`))
+        }
+      }
+      if (worktree.exists) {
+        console.log('')
+        console.log(chalk.gray('Worktree:'))
+        console.log(chalk.gray(`  Path:   ${worktree.path}`))
+        console.log(chalk.gray(`  Branch: ${worktree.branchName}`))
+      }
+      console.log('')
+      return
+    }
+
+    // Show status for all running sessions
+    const running = await sessionService.findRunning()
+
+    if (options.json) {
+      const statuses = await Promise.all(running.map(async session => {
+        const task = session.taskId ? await taskService.findById(session.taskId) : null
+        const isRunning = session.pid ? isProcessRunning(session.pid) : false
+        return {
+          session: {
+            id: session.id,
+            status: session.status,
+            agentName: session.agentName,
+            pid: session.pid,
+            isRunning,
+          },
+          task: task ? { id: task.id, title: task.title, status: task.status } : null,
+        }
+      }))
+      console.log(JSON.stringify({ sessions: statuses }, null, 2))
+      return
+    }
+
+    if (running.length === 0) {
+      console.log(chalk.gray('No running workers.'))
+      return
+    }
+
+    console.log(chalk.bold('Running Workers:'))
+    console.log('')
+
+    for (const session of running) {
+      const task = session.taskId ? await taskService.findById(session.taskId) : null
+      const isRunning = session.pid ? isProcessRunning(session.pid) : false
+      const runningIcon = session.pid ? (isRunning ? chalk.green('●') : chalk.gray('○')) : ''
+
+      console.log(chalk.cyan(`Task #${session.taskId}:`), task?.title || '(unknown)')
+      console.log(chalk.gray(`  Agent:   ${session.agentName}`))
+      console.log(chalk.gray(`  Session: #${session.id}`))
+      if (session.pid) {
+        console.log(chalk.gray(`  PID:     ${session.pid} ${runningIcon} ${isRunning ? 'running' : 'stopped'}`))
+      }
+      console.log('')
+    }
+  })
+
+// ============================================
+// Helper Functions
+// ============================================
+
+function isProcessRunning(pid: number): boolean {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch {
+    return false
+  }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
 
 // ============================================
 // Prompt Building

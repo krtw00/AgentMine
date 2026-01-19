@@ -199,10 +199,23 @@ agentmine memory add [options]           # 決定事項追加
 agentmine memory preview                 # コンテキストプレビュー
 ```
 
-### Worker Support
+### Worker Management
 
 ```bash
-agentmine worker command <task-id>       # Worker起動コマンド生成
+# Workerの起動（環境準備 + AI起動）
+agentmine worker run <task-id> --exec           # Worker AIを起動
+agentmine worker run <task-id> --exec --detach  # バックグラウンドで起動
+
+# 並列実行
+agentmine worker run 1 --exec --detach
+agentmine worker run 2 --exec --detach
+agentmine worker wait 1 2                       # 両方の完了を待機
+
+# Workerの管理
+agentmine worker status [task-id]               # 状態確認
+agentmine worker stop <task-ids...>             # 停止
+agentmine worker done <task-id>                 # 完了・クリーンアップ
+agentmine worker list                           # アクティブWorker一覧
 ```
 
 ### Other
@@ -229,21 +242,26 @@ agentmineは**Blackboard設計**を採用しています。
 │  - ユーザーとの会話                                                 │
 │  - タスク分解・計画                                                 │
 │  - agentmineでタスク・セッション管理                                │
-│  - git worktree作成（直接gitコマンド使用）                          │
-│  - Worker起動・監視                                                 │
+│  - Worker起動・監視（agentmine worker run --exec）                  │
 │  - 成果物の検証・マージ判定                                         │
 │                                                                     │
 │  【Worker（サブエージェント）の責務】                               │
 │  - 与えられたタスクの実装                                           │
 │  - コード作成・テスト                                               │
 │  - git commit                                                       │
-│  ※ agentmineにはアクセスしない                                     │
+│  ※ agentmineにはアクセスしない（隔離されたworktreeで作業）         │
 │                                                                     │
 │  【agentmineの責務】                                                 │
 │  - データの永続化（タスク、セッション）                             │
+│  - Worker環境の準備（worktree作成、スコープ適用）                   │
 │  - Memory Bankの管理                                                │
 │  - CLI / MCP / Web UIの提供                                         │
 │  ※ 判断・制御はしない（Blackboard）                                │
+│                                                                     │
+│  【並列実行】                                                       │
+│  agentmine worker run 1 --exec --detach  # バックグラウンド起動     │
+│  agentmine worker run 2 --exec --detach                             │
+│  agentmine worker wait 1 2               # 完了待機                 │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
 ```

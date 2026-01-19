@@ -2,21 +2,29 @@
 
 ## Design Philosophy
 
-**agentmineはAIが使うツール**であり、AIを制御するシステムではない。
+**agentmineはBlackboard設計**を採用。データ層のみを提供し、判断・制御は行わない。
 
 ```
 Human (ユーザー)
     ↓ 会話
 AI as Orchestrator (Claude Code等のメインエージェント)
-    ↓ タスク割り振り・worktree作成
+    ↓ agentmineでタスク管理、Worker起動
 AI as Worker (サブエージェント)
-    ↓ agentmine を使う
-agentmine (データ層・状態管理)
+    ↓ 隔離されたworktreeで作業（agentmineにはアクセスしない）
+Git (成果物)
 ```
 
-- **Orchestrator**: ユーザーと会話し、タスクを分解・割り振るAI
-- **Worker**: 実際にコードを書くAI（Orchestratorが起動するサブエージェント）
-- **agentmine**: タスク・セッション・Memory Bankを管理するデータ層
+- **Orchestrator**: ユーザーと会話し、タスク分解・Worker起動・監視を行うAI
+- **Worker**: 隔離されたworktreeでコードを書くAI（agentmineにアクセスしない）
+- **agentmine**: タスク・セッション・Memory Bankを管理するデータ層（Blackboard）
+
+### 重要な設計原則
+
+1. **Blackboard設計**: agentmineはデータ永続化のみ、判断・制御しない
+2. **Observable Facts**: ステータスはexit code, merge状態等の客観事実で判定
+3. **Worker隔離**: Workerはagentmineにアクセスしない、隔離されたworktreeで作業
+4. **スコープ制御**: sparse-checkoutで物理的にファイルアクセスを制限
+5. **非対話Worker**: Workerは自動承認モードで動作
 
 ## System Overview
 
@@ -58,12 +66,48 @@ agentmine (データ層・状態管理)
 │  │  ├── data.db          # SQLiteデータベース                        │   │
 │  │  ├── agents/          # エージェント定義（YAML）                  │   │
 │  │  ├── prompts/         # Workerへの詳細指示（Markdown）           │   │
-│  │  └── memory/          # Memory Bank（プロジェクト決定事項）       │   │
+│  │  ├── memory/          # Memory Bank（プロジェクト決定事項）       │   │
+│  │  └── worktrees/       # Worker用隔離作業領域                     │   │
+│  │       └── task-<id>/  # タスク毎のgit worktree                   │   │
 │  └─────────────────────────────────────────────────────────────────┘   │
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Note:** Executor/Workerの起動・管理はagentmineの責務ではない。Orchestrator（AIクライアント）が行う。
+## Worker Execution Flow
+
+Orchestratorは`agentmine worker`コマンドでWorkerを起動・管理する。
+
+```bash
+# 単一Worker起動（フォアグラウンド）
+agentmine worker run <taskId> --exec
+
+# 並列実行（バックグラウンド）
+agentmine worker run 1 --exec --detach
+agentmine worker run 2 --exec --detach
+agentmine worker wait 1 2    # 完了待機
+
+# Worker管理
+agentmine worker status      # 状態確認
+agentmine worker stop 1      # 停止
+agentmine worker done 1      # 完了・クリーンアップ
+```
+
+**worker runの動作:**
+1. Git worktree作成（`.agentmine/worktrees/task-<id>/`）
+2. ブランチ作成（`task-<id>`）
+3. スコープ適用
+   - `exclude`: sparse-checkoutで物理的に除外
+   - `write`: 対象外ファイルをchmodで読み取り専用に
+4. セッション開始（DBに記録）
+5. Worker AI起動
+   - `--exec`: フォアグラウンドで起動、完了を待機
+   - `--exec --detach`: バックグラウンドで起動、PIDを記録して即座に戻る
+
+**対応AIクライアント:**
+- claude-code: `--dangerously-skip-permissions`
+- codex: `--full-auto`
+- aider: `--yes`
+- gemini: `-y`
 
 ## Package Structure
 
