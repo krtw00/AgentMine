@@ -299,13 +299,9 @@ agentmineは以下のプロジェクトから着想を得ています：
 
 ---
 
-## Contributing
-
-Contributions are welcome! Please read our [Contributing Guide](./CONTRIBUTING.md) first.
-
 ## License
 
-MIT License - see [LICENSE](./LICENSE) for details.
+MIT License
 
 ---
 
