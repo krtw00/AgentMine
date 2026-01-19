@@ -83,10 +83,8 @@ agentmine/
 │   │   │   │   ├── server.ts
 │   │   │   │   ├── tools.ts
 │   │   │   │   └── resources.ts
-│   │   │   └── worktree/       # Worktree管理（Orchestrator向けユーティリティ）
-│   │   │       ├── create.ts   # worktree作成 + スコープ適用
-│   │   │       ├── scope.ts    # 物理的スコープ制御
-│   │   │       └── cleanup.ts  # worktree削除
+│   │   │   └── utils/          # ユーティリティ
+│   │   │       └── output.ts   # 出力フォーマット
 │   │   └── package.json
 │   │
 │   ├── web/                    # Web UI

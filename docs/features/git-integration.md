@@ -18,7 +18,7 @@ Git操作とPR連携の設計。
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-**Note:** agentmineはworktree作成・削除の支援を行うが、実際のGit操作（push, PR作成等）はOrchestratorが実行。
+**Note:** agentmineはworktreeコマンドを提供しない。Orchestratorがgitを直接使用してworktree作成・削除・Git操作（push, PR作成等）を実行する。
 
 ## ブランチ戦略
 
@@ -60,7 +60,7 @@ agentmine はWorkerのツールを制御できないため、
 │      Orchestrator      │
 └──────┬───────┘
        │ 1. develop から task-{id} ブランチ作成
-       │ 2. agentmine worktree create でworktree作成
+       │ 2. git worktree add でworktree作成
        │ 3. Worker起動（Task tool等）
        ▼
 ┌──────────────┐
@@ -73,11 +73,11 @@ agentmine はWorkerのツールを制御できないため、
        ▼
 ┌──────────────┐
 │      Orchestrator      │
-│              │ 7. 完了検知（成果物ベース）
+│              │ 7. 完了検知（exit code + merge状態）
 │              │ 8. コミットメッセージ整形（Memory Bank 規約）
 │              │ 9. git push origin task-{id}
 │              │ 10. gh pr create --base develop
-│              │ 11. agentmine task update → review
+│              │ 11. PRマージ → タスク done
 └──────────────┘
 ```
 
@@ -161,16 +161,19 @@ GitHub の機能を使用:
 
 | イベント | タスク状態 |
 |----------|-----------|
-| PR作成 | → review |
+| Worker実行中 | in_progress |
 | PRマージ | → done |
-| PRクローズ | → cancelled または open に戻す |
+| PRクローズ | → open に戻す |
+| Worker異常終了 | → failed |
+
+**Note:** `review`, `blocked` ステータスは存在しない。ステータスはobservable facts（exit code, merge状態）で判定。
 
 ## コンフリクト対応
 
 ### 方針
 
 ```
-コンフリクト検知 → タスクを blocked に → 人間に通知
+コンフリクト検知 → セッションをfailed終了 → 人間に通知
 自動解消はしない
 ```
 
@@ -188,14 +191,12 @@ Orchestrator: git push
 コンフリクト発生
     ↓
 Orchestrator:
-  1. agentmine task update --status blocked
-  2. エラー内容を記録
-  3. 人間に通知
+  1. agentmine session end --exit-code 1 --error '{"type":"conflict",...}'
+  2. 人間に通知
     ↓
 人間:
   1. 手動でコンフリクト解消
-  2. agentmine task update --status open
-  3. Orchestratorが再実行
+  2. Orchestratorが新セッションで再実行
 ```
 
 ## Worktree対応
@@ -248,25 +249,28 @@ execution:
       cleanup: true      # 完了後に自動削除
 ```
 
-## CLI
+## Orchestratorの操作
+
+agentmineはworktreeコマンドを提供しない。Orchestratorがgitを直接使用する。
 
 ```bash
-# worktree作成（Orchestratorが実行）
-agentmine worktree create 42 --agent coder
-  → task-42 ブランチ作成、worktree作成、スコープ適用
-
-# worktree一覧
-agentmine worktree list
+# worktree作成（Orchestratorがgitを直接使用）
+git branch task-42 develop
+git worktree add --sparse .worktrees/task-42 task-42
+git -C .worktrees/task-42 sparse-checkout set src/ tests/
 
 # worktree削除
-agentmine worktree cleanup 42
+git worktree remove .worktrees/task-42
 
-# タスクステータス更新（Orchestratorが実行）
-agentmine task update 42 --status review
-agentmine task update 42 --status blocked
+# セッション管理（agentmine経由）
+agentmine session start 42 --agent coder
+agentmine session end 123 --exit-code 0 --dod-result merged
+
+# タスクステータスはobservable factsで自動判定
+# 明示的なステータス更新は不要
 ```
 
-**Note:** `git push`, `gh pr create` などのGit操作はOrchestratorが直接実行。agentmineはworktree管理とタスク状態管理を担当。
+**Note:** agentmineはデータ層のみ。Git操作（worktree, push, PR作成）はすべてOrchestratorが直接実行。
 
 ## References
 
