@@ -275,21 +275,21 @@ const normalizeConfig = (input: Record<string, unknown>): Config => {
 const parseConfigYaml = (yaml: string) => {
   try {
     if (!yaml.trim()) {
-      return { error: 'YAML is empty.' };
+      return { error: 'YAMLが空です。' };
     }
 
     const parsed = parseYamlObject(yaml);
     const git = parsed.git as Record<string, unknown> | undefined;
     if (!git || typeof git.baseBranch !== 'string') {
-      return { error: 'git.baseBranch is required.' };
+      return { error: 'git.baseBranch は必須です。' };
     }
     if (!parsed.project || typeof parsed.project !== 'object') {
-      return { error: 'project section is required.' };
+      return { error: 'project セクションは必須です。' };
     }
     return { config: normalizeConfig(parsed) };
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : 'Unable to parse YAML.',
+      error: error instanceof Error ? error.message : 'YAMLを解析できません。',
     };
   }
 };
@@ -324,7 +324,7 @@ export default function SettingsPage() {
   const handleSave = () => {
     if (mode === 'yaml') {
       if (!yamlStatus.config || yamlStatus.error) {
-        setYamlError(yamlStatus.error ?? 'Unable to parse YAML.');
+        setYamlError(yamlStatus.error ?? 'YAMLを解析できません。');
         return;
       }
       const normalized = yamlStatus.config;
@@ -357,22 +357,21 @@ export default function SettingsPage() {
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-[0.35em] text-muted-foreground">
-            Settings
+            設定
           </p>
           <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-            Configure your agentmine runtime
+            agentmine の実行環境を設定
           </h1>
           <p className="max-w-2xl text-sm text-muted-foreground">
-            Edit configuration with a structured UI or switch to raw YAML when
-            you need full control.
+            構造化UIで設定を編集するか、細かく調整したい場合は生のYAMLに切り替えます。
           </p>
         </div>
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
           <Button variant="outline" size="sm" onClick={handleReset}>
-            Discard Changes
+            変更を破棄
           </Button>
           <Button size="sm" onClick={handleSave}>
-            Save Configuration
+            設定を保存
           </Button>
         </div>
       </div>
@@ -385,7 +384,7 @@ export default function SettingsPage() {
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-                    Config Editor
+                    設定エディタ
                   </p>
                   <h2 className="text-lg font-semibold">config.yaml</h2>
                 </div>
@@ -395,14 +394,14 @@ export default function SettingsPage() {
                     variant={mode === 'ui' ? 'default' : 'outline'}
                     onClick={() => setMode('ui')}
                   >
-                    UI Editor
+                    UIエディタ
                   </Button>
                   <Button
                     size="sm"
                     variant={mode === 'yaml' ? 'default' : 'outline'}
                     onClick={() => setMode('yaml')}
                   >
-                    YAML Editor
+                    YAMLエディタ
                   </Button>
                 </div>
               </div>
@@ -411,15 +410,15 @@ export default function SettingsPage() {
                 <div className="mt-6 space-y-6">
                   <div className="rounded-xl border bg-background/70 p-4">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-semibold">Project</h3>
+                      <h3 className="text-sm font-semibold">プロジェクト</h3>
                       <span className="text-xs text-muted-foreground">
-                        Required
+                        必須
                       </span>
                     </div>
                     <div className="mt-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
                       <label className="space-y-2 text-sm">
                         <span className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                          Name
+                          名前
                         </span>
                         <Input
                           value={draft.project.name}
@@ -437,7 +436,7 @@ export default function SettingsPage() {
                       </label>
                       <label className="space-y-2 text-sm">
                         <span className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                          Description
+                          説明
                         </span>
                         <Input
                           value={draft.project.description}
@@ -459,9 +458,9 @@ export default function SettingsPage() {
                   <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
                     <div className="rounded-xl border bg-background/70 p-4">
                       <div className="flex items-center justify-between">
-                        <h3 className="text-sm font-semibold">Database</h3>
+                        <h3 className="text-sm font-semibold">データベース</h3>
                         <span className="text-xs text-muted-foreground">
-                          Optional
+                          任意
                         </span>
                       </div>
                       <label className="mt-4 block space-y-2 text-sm">
@@ -485,9 +484,9 @@ export default function SettingsPage() {
 
                     <div className="rounded-xl border bg-background/70 p-4">
                       <div className="flex items-center justify-between">
-                        <h3 className="text-sm font-semibold">Session Log</h3>
+                        <h3 className="text-sm font-semibold">セッションログ</h3>
                         <span className="text-xs text-muted-foreground">
-                          Retention
+                          保持期間
                         </span>
                       </div>
                       <div className="mt-4 flex items-center justify-between gap-4">
@@ -508,11 +507,11 @@ export default function SettingsPage() {
                               })
                             }
                           />
-                          Enable retention
+                          保持を有効化
                         </label>
                         <label className="flex items-center gap-2 text-sm">
                           <span className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                            Days
+                            日数
                           </span>
                           <Input
                             type="number"
@@ -543,7 +542,7 @@ export default function SettingsPage() {
                     <div className="mt-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
                       <label className="space-y-2 text-sm">
                         <span className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                          Base Branch
+                          ベースブランチ
                         </span>
                         <Input
                           value={draft.git.baseBranch}
@@ -561,7 +560,7 @@ export default function SettingsPage() {
                       </label>
                       <label className="space-y-2 text-sm">
                         <span className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                          Branch Prefix
+                          ブランチ接頭辞
                         </span>
                         <Input
                           value={draft.git.branchPrefix}
@@ -596,12 +595,12 @@ export default function SettingsPage() {
                               },
                             })
                           }
-                        />
-                        Enable commit convention
+                          />
+                        コミット規約を有効化
                       </label>
                       <label className="flex items-center gap-2 text-sm">
                         <span className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                          Format
+                          形式
                         </span>
                         <select
                           value={draft.git.commitConvention.format}
@@ -619,9 +618,9 @@ export default function SettingsPage() {
                           }
                           className={selectClassName}
                         >
-                          <option value="conventional">conventional</option>
-                          <option value="simple">simple</option>
-                          <option value="custom">custom</option>
+                          <option value="conventional">規約準拠</option>
+                          <option value="simple">シンプル</option>
+                          <option value="custom">カスタム</option>
                         </select>
                       </label>
                     </div>
@@ -629,9 +628,9 @@ export default function SettingsPage() {
 
                   <div className="rounded-xl border bg-background/70 p-4">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-semibold">Execution</h3>
+                      <h3 className="text-sm font-semibold">実行</h3>
                       <span className="text-xs text-muted-foreground">
-                        Parallel workers
+                        並列ワーカー
                       </span>
                     </div>
                     <div className="mt-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
@@ -651,12 +650,12 @@ export default function SettingsPage() {
                               },
                             })
                           }
-                        />
-                        Enable parallel execution
+                          />
+                        並列実行を有効化
                       </label>
                       <label className="flex items-center gap-2 text-sm">
                         <span className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                          Max Workers
+                          最大ワーカー数
                         </span>
                         <Input
                           type="number"
@@ -682,7 +681,7 @@ export default function SettingsPage() {
                     <div className="mt-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
                       <label className="space-y-2 text-sm">
                         <span className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                          Worktree Path
+                          ワークツリーのパス
                         </span>
                         <Input
                           value={draft.execution.parallel.worktree.path}
@@ -722,8 +721,8 @@ export default function SettingsPage() {
                               },
                             })
                           }
-                        />
-                        Cleanup worktrees after completion
+                          />
+                        完了後にワークツリーを削除
                       </label>
                     </div>
                   </div>
@@ -751,7 +750,7 @@ export default function SettingsPage() {
                     <p className="text-xs text-muted-foreground">
                       {yamlStatus.error
                         ? yamlStatus.error
-                        : 'YAML validated. Press save to apply changes.'}
+                        : 'YAMLは有効です。保存して反映してください。'}
                     </p>
                   )}
                 </div>
@@ -759,34 +758,34 @@ export default function SettingsPage() {
 
               <div className="mt-6 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
                 <span className="rounded-full border bg-background/80 px-3 py-1">
-                  {dirty ? 'Unsaved changes' : 'In sync'}
+                  {dirty ? '未保存の変更' : '保存済み'}
                 </span>
                 <span className="rounded-full border bg-background/80 px-3 py-1">
                   {mode === 'yaml'
                     ? yamlStatus.error
-                      ? 'YAML invalid'
-                      : 'YAML valid'
-                    : 'UI ready'}
+                      ? 'YAMLエラー'
+                      : 'YAML有効'
+                    : 'UI準備完了'}
                 </span>
                 <Button variant="ghost" size="sm" onClick={handleDefaults}>
-                  Restore Defaults
+                  既定値に戻す
                 </Button>
               </div>
             </div>
 
             <div className="rounded-2xl border bg-background/80 p-4 backdrop-blur">
-              <h3 className="text-sm font-semibold">Config Preview</h3>
+              <h3 className="text-sm font-semibold">設定プレビュー</h3>
               <div className="mt-4 grid gap-3 text-xs text-muted-foreground">
                 <div className="flex items-center justify-between rounded-lg border bg-background/80 px-3 py-2">
-                  <span>Project</span>
+                  <span>プロジェクト</span>
                   <span className="font-mono text-foreground">
-                    {previewConfig.project.name || 'unnamed'}
+                    {previewConfig.project.name || '未設定'}
                   </span>
                 </div>
                 <div className="flex items-center justify-between rounded-lg border bg-background/80 px-3 py-2">
-                  <span>Database</span>
+                  <span>データベース</span>
                   <span className="font-mono text-foreground">
-                    {previewConfig.database.url || 'not set'}
+                    {previewConfig.database.url || '未設定'}
                   </span>
                 </div>
                 <div className="flex items-center justify-between rounded-lg border bg-background/80 px-3 py-2">
@@ -796,17 +795,17 @@ export default function SettingsPage() {
                   </span>
                 </div>
                 <div className="flex items-center justify-between rounded-lg border bg-background/80 px-3 py-2">
-                  <span>Parallel</span>
+                  <span>並列</span>
                   <span className="font-mono text-foreground">
-                    {previewConfig.execution.parallel.enabled ? 'on' : 'off'} ·{' '}
-                    {previewConfig.execution.parallel.maxWorkers} workers
+                    {previewConfig.execution.parallel.enabled ? '有効' : '無効'} ·{' '}
+                    {previewConfig.execution.parallel.maxWorkers} ワーカー
                   </span>
                 </div>
                 <div className="flex items-center justify-between rounded-lg border bg-background/80 px-3 py-2">
-                  <span>Retention</span>
+                  <span>保持</span>
                   <span className="font-mono text-foreground">
-                    {previewConfig.sessionLog.retention.enabled ? 'on' : 'off'} ·{' '}
-                    {previewConfig.sessionLog.retention.days} days
+                    {previewConfig.sessionLog.retention.enabled ? '有効' : '無効'} ·{' '}
+                    {previewConfig.sessionLog.retention.days} 日
                   </span>
                 </div>
               </div>
@@ -815,53 +814,53 @@ export default function SettingsPage() {
 
           <aside className="space-y-4">
             <div className="rounded-2xl border bg-background/80 p-4 backdrop-blur">
-              <h3 className="text-sm font-semibold">File Details</h3>
+              <h3 className="text-sm font-semibold">ファイル情報</h3>
               <div className="mt-4 space-y-3 text-xs text-muted-foreground">
                 <div className="flex items-center justify-between">
-                  <span>Path</span>
+                  <span>パス</span>
                   <span className="font-mono text-foreground">
                     .agentmine/config.yaml
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span>Format</span>
+                  <span>形式</span>
                   <span className="rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase">
                     YAML
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span>Editor</span>
-                  <span>{mode === 'yaml' ? 'Raw YAML' : 'UI Form'}</span>
+                  <span>エディタ</span>
+                  <span>{mode === 'yaml' ? '生YAML' : 'UIフォーム'}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span>Status</span>
+                  <span>状態</span>
                   <span className={cn(
                     'rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase',
                     dirty ? 'border-amber-400/40 text-amber-600' : 'border-emerald-400/40 text-emerald-600'
                   )}>
-                    {dirty ? 'Unsaved' : 'Saved'}
+                    {dirty ? '未保存' : '保存済み'}
                   </span>
                 </div>
               </div>
             </div>
 
             <div className="rounded-2xl border bg-background/80 p-4 backdrop-blur">
-              <h3 className="text-sm font-semibold">Validation</h3>
+              <h3 className="text-sm font-semibold">検証</h3>
               <div className="mt-4 space-y-3 text-xs text-muted-foreground">
                 <div className="flex items-center justify-between">
                   <span>YAML</span>
                   <span className={yamlStatus.error ? 'text-destructive' : 'text-emerald-600'}>
-                    {yamlStatus.error ? 'Needs attention' : 'Valid'}
+                    {yamlStatus.error ? '要確認' : '有効'}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span>Base Branch</span>
+                  <span>ベースブランチ</span>
                   <span className="font-mono text-foreground">
-                    {previewConfig.git.baseBranch || 'missing'}
+                    {previewConfig.git.baseBranch || '未設定'}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span>Commit Format</span>
+                  <span>コミット形式</span>
                   <span className="font-mono text-foreground">
                     {previewConfig.git.commitConvention.format}
                   </span>
@@ -869,17 +868,17 @@ export default function SettingsPage() {
                 <div className="rounded-lg border bg-background/70 p-3 text-[11px]">
                   {yamlStatus.error
                     ? yamlStatus.error
-                    : 'Configuration matches expected schema.'}
+                    : '設定は想定スキーマに一致しています。'}
                 </div>
               </div>
             </div>
 
             <div className="rounded-2xl border bg-background/80 p-4 backdrop-blur">
-              <h3 className="text-sm font-semibold">Hints</h3>
+              <h3 className="text-sm font-semibold">ヒント</h3>
               <ul className="mt-4 space-y-2 text-xs text-muted-foreground">
-                <li>Use YAML mode to paste settings from another workspace.</li>
-                <li>Parallel execution needs a worktree path to avoid conflicts.</li>
-                <li>Retention runs during session log cleanup on startup.</li>
+                <li>YAMLモードで他のワークスペースの設定を貼り付けられます。</li>
+                <li>並列実行には衝突回避のためワークツリーのパスが必要です。</li>
+                <li>保持処理は起動時のセッションログクリーンアップで実行されます。</li>
               </ul>
             </div>
           </aside>
