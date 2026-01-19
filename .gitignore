@@ -45,3 +45,6 @@ build/
 # Test
 coverage/
 *.cover
+
+# agentmine project data
+.agentmine/
