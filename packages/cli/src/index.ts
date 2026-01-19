@@ -7,6 +7,7 @@ import { sessionCommand } from './commands/session.js'
 import { workerCommand } from './commands/worker.js'
 import { memoryCommand } from './commands/memory.js'
 import { mcpCommand } from './commands/mcp.js'
+import { dbCommand } from './commands/db.js'
 
 const program = new Command()
 
@@ -23,5 +24,6 @@ program.addCommand(sessionCommand)
 program.addCommand(workerCommand)
 program.addCommand(memoryCommand)
 program.addCommand(mcpCommand)
+program.addCommand(dbCommand)
 
 program.parse()
