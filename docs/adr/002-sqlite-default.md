@@ -61,13 +61,12 @@ database:
 
 agentmineの将来機能でベクトル検索が必要：
 
-- **Memory Bankのセマンティック検索**: 過去セッションの類似検索
+- **Memory Bankのセマンティック検索**: プロジェクト決定事項の類似検索
 - **タスク類似検索**: 「似たタスクを探す」
-- **スキル推薦**: コンテキストに合ったスキル提案
 
 ```sql
 -- pgvectorによるセマンティック検索
-SELECT * FROM memory_entries
+SELECT * FROM project_decisions
 ORDER BY embedding <-> $query_embedding
 LIMIT 10;
 ```
@@ -127,16 +126,12 @@ agentmine db import --file backup.sql
 ### pgvector統合
 
 ```sql
--- Memory Bankのベクトル検索
-CREATE TABLE memory_entries (
-  id SERIAL PRIMARY KEY,
-  session_id INTEGER REFERENCES sessions(id),
-  content TEXT,
-  embedding VECTOR(1536),  -- OpenAI text-embedding-3-small
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
+-- Memory Bank（プロジェクト決定事項）のベクトル検索
+-- 詳細は data-model.md の PostgreSQL拡張セクションを参照
+ALTER TABLE project_decisions
+ADD COLUMN embedding VECTOR(1536);
 
-CREATE INDEX ON memory_entries 
+CREATE INDEX ON project_decisions
 USING hnsw (embedding vector_cosine_ops);
 ```
 

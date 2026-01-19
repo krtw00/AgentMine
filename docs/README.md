@@ -24,10 +24,6 @@
 - [Task Decomposition](./features/task-decomposition.md) - PRD→タスク分解
 - [MCP Integration](./features/mcp-integration.md) - MCPサーバー
 
-## API
-
-- [MCP API](./api/mcp-api.md) - MCP Tools/Resources定義
-
 ## Decisions
 
 アーキテクチャ決定記録（ADR）：

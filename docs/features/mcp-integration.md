@@ -92,7 +92,7 @@ agentmine mcp serve --verbose
     properties: {
       status: {
         type: "string",
-        enum: ["open", "in_progress", "review", "done", "cancelled"],
+        enum: ["open", "in_progress", "review", "done", "blocked", "cancelled"],
         description: "Filter by status"
       },
       assignee: {
@@ -299,26 +299,6 @@ agentmine mcp serve --verbose
 }
 ```
 
-### skill_run
-
-スキルを実行。
-
-```typescript
-{
-  name: "skill_run",
-  description: "Run a skill",
-  inputSchema: {
-    type: "object",
-    properties: {
-      name: { type: "string" },
-      taskId: { type: "number" },
-      params: { type: "object" }
-    },
-    required: ["name"]
-  }
-}
-```
-
 ## MCP Resources
 
 ### project://context
@@ -381,7 +361,6 @@ export async function startMcpServer() {
       taskDoneTool,
       contextLoadTool,
       contextSaveTool,
-      skillRunTool,
     ],
   }));
 
