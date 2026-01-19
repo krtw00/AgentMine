@@ -301,7 +301,7 @@ agentmineは以下のプロジェクトから着想を得ています：
 
 ## License
 
-MIT License
+[MIT License](./LICENSE)
 
 ---
 
