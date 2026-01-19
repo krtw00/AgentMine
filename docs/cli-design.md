@@ -57,8 +57,13 @@ agentmine
 ├── agent                   # エージェント定義管理
 │   ├── list
 │   └── show
-├── worker                  # Worker起動支援（Orchestrator向け）
-│   └── command
+├── worker                  # Worker環境管理（エージェント非依存）
+│   ├── run                 # worktree作成＋指示表示
+│   ├── done                # タスク完了＋クリーンアップ
+│   ├── list                # アクティブworktree一覧
+│   ├── cleanup             # worktree削除
+│   ├── prompt              # プロンプト生成
+│   └── context             # タスクコンテキスト表示
 ├── session                 # セッション管理
 │   ├── list
 │   ├── show
@@ -278,54 +283,181 @@ Config:
   promptFile: ../prompts/coder.md
 ```
 
-### worker command
+### worker run
 
 ```bash
-agentmine worker command <task-id> [options]
+agentmine worker run <task-id> [options]
 
 Arguments:
   task-id             タスクID
 
 Options:
-  --agent <name>      エージェント名 (default: coder)
-  --client <name>     AIクライアント (claude-code | codex | gemini-cli)
-  --auto              自動承認フラグを付与
-  --shell             シェル実行可能形式で出力
+  -a, --agent <name>  エージェント名 (default: coder)
+  --no-worktree       worktree作成をスキップ（カレントディレクトリで作業）
+  --json              JSON出力
 
 Examples:
-  agentmine worker command 1 --agent coder
-  agentmine worker command 1 --client codex --auto
-  agentmine worker command 1 --shell
+  agentmine worker run 1
+  agentmine worker run 1 --agent reviewer
+  agentmine worker run 1 --no-worktree
 ```
 
 **動作:**
 1. タスク情報取得
-2. エージェント定義取得
-3. AIクライアント別の起動コマンド生成
+2. Git worktree作成（`.agentmine/worktrees/task-<id>/`）
+3. ブランチ作成（`task-<id>`）
+4. セッション開始（DBに記録）
+5. 各AIクライアント向けの起動コマンドを表示
 
 **出力例:**
 
 ```
-# Claude Code
-cd /project/.worktrees/task-1 && claude --print "$(cat <<'PROMPT'
-# Worker: coder
-You are a coder worker...
+✓ Worker environment ready
 
-## Task
-ID: #1
-Title: 認証機能実装
-...
-PROMPT
-)"
+Worktree:  /project/.agentmine/worktrees/task-1
+Branch:    task-1
+Session:   #1
+Task:      #1: 認証機能実装
 
-# Codex
-codex exec -C /project/.worktrees/task-1 --full-auto "..."
+To start working:
 
-# Gemini CLI
-cd /project/.worktrees/task-1 && gemini -y "..."
+  cd /project/.agentmine/worktrees/task-1
+
+  # Claude Code
+  claude --print "# Task #1: 認証機能実装..."
+
+  # Codex
+  codex "Task #1: 認証機能実装"
+
+  # OpenCode
+  opencode "Task #1: 認証機能実装"
+
+  # Aider
+  aider --message "Task #1: 認証機能実装"
+
+When done:
+  agentmine worker done 1
 ```
 
-**Note:** コマンドを生成するのみ。実行はOrchestratorが行う。
+**設計思想:** agentmineはエージェント非依存。環境を準備し、どのAIクライアントでも使える指示を表示する。AIの実行はユーザーが行う。
+
+### worker done
+
+```bash
+agentmine worker done <task-id> [options]
+
+Arguments:
+  task-id             タスクID
+
+Options:
+  --status <status>   終了ステータス (completed | failed) (default: completed)
+  --no-cleanup        worktreeを残す
+  --json              JSON出力
+
+Examples:
+  agentmine worker done 1
+  agentmine worker done 1 --status failed
+  agentmine worker done 1 --no-cleanup
+```
+
+**動作:**
+1. セッション終了（DBに記録）
+2. タスクステータス更新（done | failed）
+3. worktree削除（--no-cleanupでスキップ）
+4. マージ手順を表示
+
+**出力例:**
+
+```
+✓ Task #1 marked as done
+✓ Session #1 ended
+✓ Worktree removed
+
+To merge changes:
+  git merge task-1
+  or create a PR
+```
+
+### worker list
+
+```bash
+agentmine worker list [options]
+
+Options:
+  --json              JSON出力
+
+Examples:
+  agentmine worker list
+  agentmine worker list --json
+```
+
+**出力例:**
+
+```
+Active Worktrees:
+
+Task #1: 認証機能実装
+  Branch:   task-1
+  Path:     /project/.agentmine/worktrees/task-1
+  Session:  #1 (running)
+
+Task #3: APIリファクタ
+  Branch:   task-3
+  Path:     /project/.agentmine/worktrees/task-3
+  Session:  #2 (running)
+```
+
+### worker cleanup
+
+```bash
+agentmine worker cleanup <task-id> [options]
+
+Arguments:
+  task-id             タスクID
+
+Options:
+  --force             未コミット変更があっても強制削除
+  --json              JSON出力
+
+Examples:
+  agentmine worker cleanup 1
+  agentmine worker cleanup 1 --force
+```
+
+### worker prompt
+
+```bash
+agentmine worker prompt <task-id> [options]
+
+Arguments:
+  task-id             タスクID
+
+Options:
+  --json              JSON出力
+
+Examples:
+  agentmine worker prompt 1
+  agentmine worker prompt 1 --json
+```
+
+**動作:** タスク情報とMemory Bankコンテキストからプロンプトを生成して表示。
+
+### worker context
+
+```bash
+agentmine worker context <task-id> [options]
+
+Arguments:
+  task-id             タスクID
+
+Options:
+  --json              JSON出力
+
+Examples:
+  agentmine worker context 1
+```
+
+**動作:** タスクの詳細情報（親タスク、サブタスク、セッション、worktree状態）を表示。
 
 ### memory list
 
