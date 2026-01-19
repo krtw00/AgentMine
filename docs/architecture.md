@@ -1,5 +1,23 @@
 # Architecture
 
+## Design Philosophy
+
+**agentmineはAIが使うツール**であり、AIを制御するシステムではない。
+
+```
+Human (ユーザー)
+    ↓ 会話
+AI as Orchestrator (Claude Code等のメインエージェント)
+    ↓ タスク割り振り・worktree作成
+AI as Worker (サブエージェント)
+    ↓ agentmine を使う
+agentmine (データ層・状態管理)
+```
+
+- **Orchestrator**: ユーザーと会話し、タスクを分解・割り振るAI
+- **Worker**: 実際にコードを書くAI（Orchestratorが起動するサブエージェント）
+- **agentmine**: タスク・セッション・Memory Bankを管理するデータ層
+
 ## System Overview
 
 ```
@@ -7,13 +25,13 @@
 │                              agentmine                                    │
 ├──────────────────────────────────────────────────────────────────────────┤
 │                                                                          │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐    │
-│  │   CLI       │  │  Web UI     │  │ MCP Server  │  │  Executor   │    │
-│  │             │  │  (Next.js)  │  │             │  │  (Worker)   │    │
-│  │  @cli       │  │  @web       │  │  @cli/mcp   │  │  @cli/exec  │    │
-│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘    │
-│         │                │                │                │            │
-│         └────────────────┴────────────────┴────────────────┘            │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                     │
+│  │   CLI       │  │  Web UI     │  │ MCP Server  │                     │
+│  │             │  │  (Next.js)  │  │             │                     │
+│  │  @cli       │  │  @web       │  │  @cli/mcp   │                     │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘                     │
+│         │                │                │                             │
+│         └────────────────┴────────────────┘                             │
 │                                   │                                      │
 │                                   ▼                                      │
 │                    ┌──────────────────────────────┐                     │
@@ -38,10 +56,14 @@
 │  │  .agentmine/                                                     │   │
 │  │  ├── config.yaml      # プロジェクト設定                          │   │
 │  │  ├── data.db          # SQLiteデータベース                        │   │
-│  │  └── memory/          # Memory Bank（コンテキスト）               │   │
+│  │  ├── agents/          # エージェント定義（YAML）                  │   │
+│  │  ├── prompts/         # Workerへの詳細指示（Markdown）           │   │
+│  │  └── memory/          # Memory Bank（プロジェクト決定事項）       │   │
 │  └─────────────────────────────────────────────────────────────────┘   │
 └──────────────────────────────────────────────────────────────────────────┘
 ```
+
+**Note:** Executor/Workerの起動・管理はagentmineの責務ではない。Orchestrator（AIクライアント）が行う。
 
 ## Package Structure
 
@@ -61,10 +83,10 @@ agentmine/
 │   │   │   │   ├── server.ts
 │   │   │   │   ├── tools.ts
 │   │   │   │   └── resources.ts
-│   │   │   └── executor/       # エージェント実行エンジン
-│   │   │       ├── runner.ts
-│   │   │       ├── parallel.ts
-│   │   │       └── sandbox.ts
+│   │   │   └── worktree/       # Worktree管理（Orchestrator向けユーティリティ）
+│   │   │       ├── create.ts   # worktree作成 + スコープ適用
+│   │   │       ├── scope.ts    # 物理的スコープ制御
+│   │   │       └── cleanup.ts  # worktree削除
 │   │   └── package.json
 │   │
 │   ├── web/                    # Web UI
@@ -73,7 +95,7 @@ agentmine/
 │   │   │   │   ├── layout.tsx
 │   │   │   │   ├── page.tsx    # Dashboard
 │   │   │   │   ├── tasks/      # タスク管理
-│   │   │   │   ├── agents/     # エージェント管理
+│   │   │   │   ├── agents/     # エージェント定義閲覧
 │   │   │   │   └── api/        # API Routes
 │   │   │   └── components/     # UIコンポーネント
 │   │   │       ├── kanban/
@@ -90,11 +112,10 @@ agentmine/
 │       │   │   └── migrate.ts  # マイグレーション
 │       │   ├── models/         # ドメインモデル
 │       │   │   ├── task.ts
-│       │   │   ├── agent.ts
 │       │   │   └── session.ts
 │       │   ├── services/       # ビジネスロジック
 │       │   │   ├── task-service.ts
-│       │   │   ├── agent-service.ts
+│       │   │   ├── agent-service.ts   # YAML読み込み、定義提供
 │       │   │   └── memory-service.ts
 │       │   ├── config/         # 設定管理
 │       │   │   ├── parser.ts   # YAML解析
@@ -107,6 +128,8 @@ agentmine/
 ├── turbo.json
 └── package.json
 ```
+
+**Note:** `executor/` は削除。Worker起動・実行はOrchestrator（AIクライアント）の責務。
 
 ## Data Flow
 
@@ -259,7 +282,7 @@ interface AgentminePlugin {
   hooks: {
     onTaskCreate?: (task: Task) => void;
     onTaskComplete?: (task: Task) => void;
-    onSessionStart?: (session: Session) => void;
+    onWorktreeCreate?: (worktree: Worktree) => void;
   };
   commands?: Command[];
   mcpTools?: MCPTool[];
@@ -268,14 +291,22 @@ interface AgentminePlugin {
 
 ### 2. Custom Agents
 
+エージェント定義は `.agentmine/agents/` ディレクトリにYAMLファイルとして配置。
+
 ```yaml
-# .agentmine/config.yaml
-agents:
-  custom-agent:
-    description: "カスタムエージェント"
-    model: claude-sonnet
-    tools: [Read, Write]
-    config:
-      temperature: 0.7
-      maxTokens: 4096
+# .agentmine/agents/custom-agent.yaml
+name: custom-agent
+description: "カスタムエージェント"
+client: claude-code
+model: sonnet
+scope:
+  read: ["**/*"]
+  write: ["src/**"]
+  exclude: ["**/*.env"]
+config:
+  temperature: 0.7
+  maxTokens: 4096
+  promptFile: "../prompts/custom-agent.md"
 ```
+
+詳細は [Agent System](./features/agent-system.md) を参照。

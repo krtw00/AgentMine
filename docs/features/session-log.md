@@ -1,6 +1,6 @@
 # Session Log
 
-セッションログの設計。エージェント実行の記録と監査。
+セッションログの設計。Worker実行の記録と監査。
 
 ## 概要
 
@@ -23,16 +23,18 @@
 ### Orchestrator が観測可能な範囲のみ
 
 ```
-Agent 内部はブラックボックス
+Worker 内部はブラックボックス
   → トークン使用量: 測定不可
   → ツール呼び出し: 測定不可
 
-Orchestrator が観測可能
+Orchestrator が観測可能（agentmineに記録）
   → セッション開始/終了
   → 実行時間
   → 成果物（ファイル変更）
   → 結果（成功/失敗）
 ```
+
+**Note:** Orchestratorが `agentmine session start` / `agentmine session end` を呼び出して記録。
 
 ### 記録項目
 
@@ -71,9 +73,11 @@ export const sessions = sqliteTable('sessions', {
   completedAt: integer('completed_at', { mode: 'timestamp' }),
   durationMs: integer('duration_ms'),
 
-  // 成果物
+  // 成果物（変更されたファイルパスの配列）
+  // パス形式: worktreeルートからの相対パス（例: "src/auth.ts"）
+  // Orchestratorがworktree内でgit diffから収集
   artifacts: text('artifacts', { mode: 'json' })
-    .$type<string[]>()  // 変更されたファイルパスの配列
+    .$type<string[]>()
     .default([]),
 
   // エラー情報
@@ -148,7 +152,7 @@ async function cleanupOldSessions(config: Config): Promise<void> {
 | デバッグ | 開発者 | 失敗したセッションの詳細、エラー内容 |
 | 監査 | 管理者 | いつ誰が何をしたか |
 | 振り返り | チーム | タスクの実行履歴 |
-| コスト把握 | PM | 実行時間の傾向 |
+| コスト把握 | Orchestrator | 実行時間の傾向 |
 
 ## CLI
 
@@ -165,22 +169,42 @@ agentmine session show 123
 agentmine session cleanup --days 90
 ```
 
+## 責務分担
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                     セッション記録の責務分担                          │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  【Orchestratorの責務】                                              │
+│  - Worker起動前に agentmine session start                           │
+│  - Worker終了後に agentmine session end --artifacts ...             │
+│  - エラー時は --error オプションでエラー情報を記録                  │
+│                                                                     │
+│  【agentmineの責務】                                                 │
+│  - セッション情報の永続化（sessions テーブル）                       │
+│  - セッション一覧・詳細の提供（CLI, MCP, Web UI）                   │
+│  - 古いセッションの自動クリーンアップ（設定時）                     │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
 ## API
 
 ### SessionService
 
 ```typescript
 export class SessionService {
-  // セッション開始
+  // セッション開始（PMが呼び出し）
   async startSession(taskId: number, agentName: string): Promise<Session>;
 
-  // セッション完了
+  // セッション完了（PMが呼び出し）
   async completeSession(
     sessionId: number,
     artifacts: string[],
   ): Promise<void>;
 
-  // セッション失敗
+  // セッション失敗（PMが呼び出し）
   async failSession(
     sessionId: number,
     error: SessionError,

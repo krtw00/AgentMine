@@ -106,6 +106,34 @@ await memoryService.addDecision({
 });
 ```
 
+### コンテキスト注入タイミング
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                   Memory Bank 注入タイミング                          │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  【注入タイミング】                                                  │
+│  agentmine worker command 実行時にプロンプトに含める                │
+│                                                                     │
+│  Orchestrator                                                       │
+│    │                                                                │
+│    │ agentmine worker command <task-id>                             │
+│    ▼                                                                │
+│  agentmine                                                          │
+│    │ 1. タスク情報取得                                              │
+│    │ 2. Memory Bank全件取得                                         │
+│    │ 3. プロンプト生成（Memory Bank + Task）                        │
+│    ▼                                                                │
+│  Worker起動コマンド出力                                              │
+│                                                                     │
+│  【Worker実行中の変更】                                              │
+│  Worker実行中にMemory Bankが更新されても、                          │
+│  そのWorkerには反映されない（次回Worker起動時に反映）               │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
 ### エージェントへの注入
 
 ```typescript
@@ -231,27 +259,6 @@ export class MemoryService {
 ```
 
 ## 将来の拡張
-
-### ベクトル検索（Phase 2）
-
-必要に応じて、決定事項のセマンティック検索を追加可能。
-
-```typescript
-// PostgreSQL + pgvector
-export const projectDecisions = pgTable('project_decisions', {
-  // ... 既存フィールド
-
-  // ベクトル埋め込み（将来追加）
-  embedding: vector('embedding', { dimensions: 1536 }),
-});
-
-// 類似検索
-const similar = await db.execute(sql`
-  SELECT * FROM project_decisions
-  ORDER BY embedding <=> ${queryVector}
-  LIMIT 5
-`);
-```
 
 ### Session Log（別機能）
 

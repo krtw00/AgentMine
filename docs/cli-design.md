@@ -50,25 +50,20 @@ agentmine
 ├── task                    # タスク管理
 │   ├── add
 │   ├── list
+│   ├── get
 │   ├── show
 │   ├── update
-│   ├── delete
-│   ├── assign
-│   ├── start
-│   ├── done
-│   ├── retry
-│   ├── resume
-│   ├── parse-prd
-│   ├── expand
-│   ├── analyze
-│   └── run
-├── agent                   # エージェント管理
+│   └── delete
+├── agent                   # エージェント定義管理
 │   ├── list
-│   ├── show
-│   └── run
+│   └── show
+├── worker                  # Worker起動支援（Orchestrator向け）
+│   └── command
 ├── session                 # セッション管理
 │   ├── list
 │   ├── show
+│   ├── start
+│   ├── end
 │   └── cleanup
 ├── memory                  # Memory Bank（プロジェクト決定事項）
 │   ├── list
@@ -76,29 +71,21 @@ agentmine
 │   ├── edit
 │   ├── remove
 │   └── preview
-├── errors                  # エラー管理
-│   ├── list
-│   ├── show
-│   └── resolve
-├── user                    # ユーザー管理（Phase 2）
-│   ├── list
-│   ├── add
-│   └── remove
-├── auth                    # 認証（Phase 2）
-│   ├── key
-│   │   ├── create
-│   │   ├── list
-│   │   └── revoke
-│   └── whoami
 ├── db                      # データベース管理
 │   ├── migrate
 │   └── reset
-├── mcp                     # MCPサーバー
+├── mcp                     # MCPサーバー（CLIラッパー）
 │   └── serve
 └── ui                      # Web UI起動
 ```
 
-**Note:** `skill` コマンドは削除。スキル管理は agentmine の範囲外。
+**Note:**
+- `skill` コマンドは削除。スキル管理は agentmine の範囲外。
+- `agent run` コマンドは削除。Worker起動はOrchestrator（AIクライアント）の責務。
+- `task run` コマンドは削除。Orchestratorが直接Workerを起動する。
+- `worktree` コマンドは削除。Orchestratorがgitを直接使用。
+- `task start/done/assign` コマンドは削除。ステータス更新はobservable factsに基づく。
+- `errors` コマンドは削除。sessionsテーブルで管理。
 
 ## Command Details
 
@@ -170,7 +157,7 @@ Created task #1: 認証機能実装
 agentmine task list [options]
 
 Options:
-  -s, --status <status>     open | in_progress | review | done | cancelled
+  -s, --status <status>     open | in_progress | done | failed | cancelled
   -p, --priority <level>    low | medium | high | critical
   -t, --type <type>         task | feature | bug | refactor
   --assignee <name>         担当者でフィルタ
@@ -221,145 +208,6 @@ Examples:
   agentmine task show 1 --with-sessions
 ```
 
-### task start
-
-```bash
-agentmine task start <id> [options]
-
-Arguments:
-  id                  タスクID
-
-Options:
-  --no-branch         ブランチを作成しない
-  --branch <name>     カスタムブランチ名
-
-Examples:
-  agentmine task start 1
-  agentmine task start 1 --branch feature/custom-auth
-```
-
-**動作:**
-1. ステータスを `in_progress` に変更
-2. Gitブランチ作成: `task-{id}-{slug}`
-3. ブランチにチェックアウト
-
-### task done
-
-```bash
-agentmine task done <id> [options]
-
-Arguments:
-  id                  タスクID
-
-Options:
-  --no-pr             PRを作成しない
-  --draft             ドラフトPRとして作成
-  --title <text>      PRタイトル
-  --body <text>       PR本文
-
-Examples:
-  agentmine task done 1
-  agentmine task done 1 --draft
-```
-
-**動作:**
-1. 変更をコミット（未コミットがあれば）
-2. リモートにプッシュ
-3. PR作成
-4. ステータスを `review` に変更
-
-### task parse-prd
-
-```bash
-agentmine task parse-prd <file> [options]
-
-Arguments:
-  file                PRDファイルパス
-
-Options:
-  --dry-run           実際には作成せず結果のみ表示
-  --parent <id>       親タスクID
-  --assignee <name>   デフォルト担当者
-
-Examples:
-  agentmine task parse-prd ./docs/prd.md
-  agentmine task parse-prd ./docs/auth-spec.md --parent 1
-```
-
-**動作:**
-1. PRDファイル読み込み
-2. AIでタスク分解
-3. タスク一括作成
-
-### task expand
-
-```bash
-agentmine task expand <id> [options]
-
-Arguments:
-  id                  タスクID
-
-Options:
-  --depth <n>         展開深度 (default: 1)
-  --dry-run           実際には作成せず結果のみ表示
-
-Examples:
-  agentmine task expand 3
-  agentmine task expand 3 --depth 2 --dry-run
-```
-
-### task analyze
-
-```bash
-agentmine task analyze <id> [options]
-
-Arguments:
-  id                  タスクID
-
-Options:
-  --json              JSON出力
-
-Examples:
-  agentmine task analyze 3
-```
-
-**出力例:**
-
-```
-Task #3: 認証機能実装
-
-Complexity: 7/10
-Estimated subtasks: 4
-Dependencies: None detected
-
-Suggested approach:
-1. JWTライブラリ選定・セットアップ
-2. 認証エンドポイント実装
-3. ミドルウェア作成
-4. テスト作成
-
-Risks:
-- セキュリティ考慮事項が多い
-- 既存コードとの統合が必要
-```
-
-### task run
-
-```bash
-agentmine task run [options]
-
-Options:
-  --parallel <n>      並列実行数 (default: 1)
-  --status <status>   対象ステータス (default: open)
-  --agent <names>     使用エージェント（カンマ区切り）
-  --compare           同一タスクを複数エージェントで比較
-  --dry-run           実際には実行せず計画のみ表示
-
-Examples:
-  agentmine task run --parallel 3
-  agentmine task run --agent coder,reviewer --compare
-```
-
 ### agent list
 
 ```bash
@@ -375,31 +223,98 @@ Examples:
 **出力例:**
 
 ```
-Name       Model          Tools                        Skills
-coder      claude-sonnet  Read,Write,Edit,Bash,...    implement,test,debug
-reviewer   claude-haiku   Read,Grep                   review,security-check
-planner    claude-opus    Read,WebSearch,Grep         analyze,design
+Name       Client        Model    Scope
+───────────────────────────────────────────────────────────────
+planner    claude-code   opus     **/* (read-only)
+coder      claude-code   sonnet   src/**, tests/** (write)
+reviewer   claude-code   haiku    **/* (read-only)
+writer     claude-code   sonnet   docs/**, *.md (write)
 ```
 
-### agent run
+### agent show
 
 ```bash
-agentmine agent run <name> [prompt] [options]
+agentmine agent show <name> [options]
 
 Arguments:
   name                エージェント名
-  prompt              プロンプト（省略時はstdinから）
 
 Options:
-  --task <id>         タスクに紐づけ
-  --context           前回のコンテキストを読み込み
-  --json              JSON出力
+  --format <type>     出力形式 (default | yaml | json)
 
 Examples:
-  agentmine agent run coder "認証機能を実装してください"
-  agentmine agent run coder --task 1 "続きを実装してください"
-  echo "レビューしてください" | agentmine agent run reviewer
+  agentmine agent show coder
+  agentmine agent show coder --format yaml
 ```
+
+**出力例:**
+
+```
+Agent: coder
+
+Description: コード実装担当
+Client: claude-code
+Model: sonnet
+
+Scope:
+  Read: **/*
+  Write: src/**, tests/**, package.json
+  Exclude: **/*.env, **/secrets/**
+
+Config:
+  temperature: 0.3
+  maxTokens: 8192
+  promptFile: ../prompts/coder.md
+```
+
+### worker command
+
+```bash
+agentmine worker command <task-id> [options]
+
+Arguments:
+  task-id             タスクID
+
+Options:
+  --agent <name>      エージェント名 (default: coder)
+  --client <name>     AIクライアント (claude-code | codex | gemini-cli)
+  --auto              自動承認フラグを付与
+  --shell             シェル実行可能形式で出力
+
+Examples:
+  agentmine worker command 1 --agent coder
+  agentmine worker command 1 --client codex --auto
+  agentmine worker command 1 --shell
+```
+
+**動作:**
+1. タスク情報取得
+2. エージェント定義取得
+3. AIクライアント別の起動コマンド生成
+
+**出力例:**
+
+```
+# Claude Code
+cd /project/.worktrees/task-1 && claude --print "$(cat <<'PROMPT'
+# Worker: coder
+You are a coder worker...
+
+## Task
+ID: #1
+Title: 認証機能実装
+...
+PROMPT
+)"
+
+# Codex
+codex exec -C /project/.worktrees/task-1 --full-auto "..."
+
+# Gemini CLI
+cd /project/.worktrees/task-1 && gemini -y "..."
+```
+
+**Note:** コマンドを生成するのみ。実行はOrchestratorが行う。
 
 ### memory list
 
@@ -466,30 +381,75 @@ Examples:
   agentmine session show 123
 ```
 
-### errors list
+### session start
 
 ```bash
-agentmine errors list [options]
+agentmine session start <task-id> [options]
+
+Arguments:
+  task-id             タスクID
 
 Options:
-  --task <id>         タスクでフィルタ
-  --category <cat>    agent | infra | external
-  --unresolved        未解決のみ
-  --json              JSON出力
+  --agent <name>      エージェント名
 
 Examples:
-  agentmine errors list
-  agentmine errors list --unresolved
+  agentmine session start 1 --agent coder
 ```
 
-### errors resolve
+**動作:**
+1. 新規セッションレコード作成
+2. ステータスを `running` に設定
+3. セッションIDを返す
+
+**Note:** OrchestratorがWorker起動前に呼び出す。実際のWorker起動はOrchestratorの責務。
+
+### session end
 
 ```bash
-agentmine errors resolve <id>
+agentmine session end <session-id> [options]
+
+Arguments:
+  session-id          セッションID
+
+Options:
+  --exit-code <code>  Workerプロセスの終了コード
+  --signal <signal>   終了シグナル（SIGTERM等、あれば）
+  --dod-result <res>  DoD結果: pending | merged | timeout | error
+  --artifacts <json>  成果物（JSON配列、worktree相対パス）
+  --error <json>      エラー情報（失敗時）
 
 Examples:
-  agentmine errors resolve 1
+  # 正常終了・マージ済み
+  agentmine session end 123 \
+    --exit-code 0 \
+    --dod-result merged \
+    --artifacts '["src/auth.ts", "tests/auth.test.ts"]'
+
+  # タイムアウト
+  agentmine session end 123 \
+    --exit-code 124 \
+    --dod-result timeout \
+    --error '{"type":"timeout","message":"Worker exceeded 5 minute limit"}'
+
+  # Worker異常終了
+  agentmine session end 123 \
+    --exit-code 1 \
+    --error '{"type":"crash","message":"Process exited with code 1"}'
+
+  # シグナルで終了
+  agentmine session end 123 \
+    --exit-code 137 \
+    --signal SIGKILL \
+    --error '{"type":"signal","message":"Process killed"}'
 ```
+
+**動作:**
+1. セッションステータス更新（exit-codeに基づく）
+2. 終了時刻・duration記録
+3. 成果物/エラー情報保存
+4. タスクステータス更新（必要に応じて）
+
+**Note:** OrchestratorがWorker終了後に呼び出す。
 
 ### mcp serve
 
@@ -535,15 +495,19 @@ Global Options:
 
 ## Exit Codes
 
-| Code | Meaning |
-|------|---------|
-| 0 | 成功 |
-| 1 | 一般エラー |
-| 2 | 引数エラー |
-| 3 | 設定エラー（config.yaml不正等） |
-| 4 | データベースエラー |
-| 5 | Git操作エラー |
-| 6 | ネットワークエラー |
+| Code | Meaning | 例 |
+|------|---------|-----|
+| 0 | 成功 | 正常終了 |
+| 1 | 一般エラー | 予期しないエラー |
+| 2 | 引数エラー | 必須引数不足、不正な値 |
+| 3 | 設定エラー | config.yaml不正、baseBranch未設定 |
+| 4 | データベースエラー | DB接続失敗、マイグレーション失敗 |
+| 5 | リソース不存在 | TaskNotFound, AgentNotFound, SessionNotFound |
+| 6 | 状態エラー | InvalidStatus, SessionAlreadyRunning |
+
+**Note:**
+- MCPはCLIのラッパーとして動作し、同じexit codeを使用
+- Worker（AIクライアント）のexit codeは別管理（sessions.exit_codeに記録）
 
 ## Environment Variables
 
@@ -564,7 +528,12 @@ Global Options:
 import { Command } from 'commander';
 import { taskCommand } from './commands/task';
 import { agentCommand } from './commands/agent';
-// ...
+import { workerCommand } from './commands/worker';
+import { sessionCommand } from './commands/session';
+import { memoryCommand } from './commands/memory';
+import { mcpCommand } from './commands/mcp';
+import { uiCommand } from './commands/ui';
+import { dbCommand } from './commands/db';
 
 const program = new Command();
 
@@ -584,9 +553,11 @@ program
 // Subcommands
 program.addCommand(taskCommand);
 program.addCommand(agentCommand);
-program.addCommand(skillCommand);
-program.addCommand(contextCommand);
+program.addCommand(workerCommand);
+program.addCommand(sessionCommand);
+program.addCommand(memoryCommand);
 program.addCommand(mcpCommand);
+program.addCommand(dbCommand);
 program.addCommand(uiCommand);
 
 program.parse();

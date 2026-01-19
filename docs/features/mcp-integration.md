@@ -7,12 +7,34 @@ Model Context Protocol (MCP) によるエディタ連携。
 MCPサーバーを提供し、Cursor/Windsurf/Claude Desktop等の
 MCP対応クライアントからagentmineを操作可能にする。
 
+## Design Philosophy
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    MCP = CLIラッパー                                 │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  【方針】                                                            │
+│  MCPは独自実装ではなく、CLIコマンドのラッパーとして動作する          │
+│  MCP Tool → agentmine CLI → 結果返却                                │
+│                                                                     │
+│  【理由】                                                            │
+│  - 現在の主流はSkills/CLIベースの操作                               │
+│  - CLIとMCPで二重実装を避ける                                       │
+│  - CLIのexit codeとエラー処理を統一                                 │
+│                                                                     │
+│  【Worktree管理】                                                    │
+│  Orchestratorがgitを直接使用するため、MCPでは提供しない             │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
 ## 設計目標
 
-1. **シームレス連携**: エディタから離れずにタスク管理
-2. **双方向**: タスク取得だけでなく更新も可能
-3. **コンテキスト共有**: Memory Bankとの連携
-4. **リアルタイム**: 変更の即時反映
+1. **CLIラッパー**: 各MCPツールは対応するCLIコマンドを呼び出す
+2. **シームレス連携**: エディタから離れずにタスク管理
+3. **Memory Bank連携**: プロジェクト決定事項の参照・追加
+4. **コード共有**: CLI/MCP間でロジックを共有
 
 ## MCP Protocol
 
@@ -22,13 +44,15 @@ MCP対応クライアントからagentmineを操作可能にする。
 ┌─────────────────┐                    ┌─────────────────┐
 │  MCP Client     │                    │  MCP Server     │
 │  (Cursor etc.)  │◄──── JSON-RPC ────►│  (agentmine)    │
-└─────────────────┘     over stdio     └─────────────────┘
+│                 │     over stdio     │                 │
+│  Orchestrator (AI)        │                    │  Blackboard     │
+└─────────────────┘                    └─────────────────┘
 ```
 
 ### 通信フロー
 
 ```
-Client                              Server
+Client (Orchestrator)                         Server (agentmine)
   │                                    │
   │  initialize                        │
   │ ──────────────────────────────────►│
@@ -39,13 +63,13 @@ Client                              Server
   │  tools/list                        │
   │ ──────────────────────────────────►│
   │                                    │
-  │  tools: [task_list, task_create..] │
+  │  tools: [task_*, worktree_*, ...]  │
   │ ◄──────────────────────────────────│
   │                                    │
-  │  tools/call: task_list             │
+  │  tools/call: worktree_create       │
   │ ──────────────────────────────────►│
   │                                    │
-  │  result: [{id: 1, title: ...}]     │
+  │  result: { path: ".worktrees/..." }│
   │ ◄──────────────────────────────────│
 ```
 
@@ -79,7 +103,9 @@ agentmine mcp serve --verbose
 
 ## MCP Tools
 
-### task_list
+### タスク管理
+
+#### task_list
 
 タスク一覧を取得。
 
@@ -92,7 +118,7 @@ agentmine mcp serve --verbose
     properties: {
       status: {
         type: "string",
-        enum: ["open", "in_progress", "review", "done", "blocked", "cancelled"],
+        enum: ["open", "in_progress", "done", "failed", "cancelled"],
         description: "Filter by status"
       },
       assignee: {
@@ -123,7 +149,7 @@ agentmine mcp serve --verbose
 }
 ```
 
-### task_get
+#### task_get
 
 タスク詳細を取得。
 
@@ -144,7 +170,7 @@ agentmine mcp serve --verbose
 }
 ```
 
-### task_create
+#### task_create
 
 タスクを作成。
 
@@ -157,18 +183,18 @@ agentmine mcp serve --verbose
     properties: {
       title: { type: "string" },
       description: { type: "string" },
-      priority: { 
-        type: "string", 
-        enum: ["low", "medium", "high", "critical"] 
+      priority: {
+        type: "string",
+        enum: ["low", "medium", "high", "critical"]
       },
-      type: { 
-        type: "string", 
-        enum: ["task", "feature", "bug", "refactor"] 
+      type: {
+        type: "string",
+        enum: ["task", "feature", "bug", "refactor"]
       },
       assignee: { type: "string" },
-      assigneeType: { 
-        type: "string", 
-        enum: ["ai", "human"] 
+      assigneeType: {
+        type: "string",
+        enum: ["ai", "human"]
       }
     },
     required: ["title"]
@@ -176,7 +202,7 @@ agentmine mcp serve --verbose
 }
 ```
 
-### task_update
+#### task_update
 
 タスクを更新。
 
@@ -199,69 +225,34 @@ agentmine mcp serve --verbose
 }
 ```
 
-### task_start
+### Worker起動コマンド（Orchestrator向け）
 
-タスクを開始（ブランチ作成）。
+#### worker_command
 
-```typescript
-{
-  name: "task_start",
-  description: "Start working on a task (creates branch)",
-  inputSchema: {
-    type: "object",
-    properties: {
-      id: { type: "number" }
-    },
-    required: ["id"]
-  }
-}
-
-// Response
-{
-  success: true,
-  branchName: "task-1-auth",
-  message: "Checked out to task-1-auth"
-}
-```
-
-### task_done
-
-タスクを完了（PR作成）。
+Worker起動用のコマンドを生成（実行はOrchestratorが行う）。
 
 ```typescript
 {
-  name: "task_done",
-  description: "Complete a task (creates PR)",
-  inputSchema: {
-    type: "object",
-    properties: {
-      id: { type: "number" },
-      draft: { type: "boolean", default: false }
-    },
-    required: ["id"]
-  }
-}
-
-// Response
-{
-  success: true,
-  prUrl: "https://github.com/user/repo/pull/12"
-}
-```
-
-### context_load
-
-コンテキストを読み込み。
-
-```typescript
-{
-  name: "context_load",
-  description: "Load context for a task",
+  name: "worker_command",
+  description: "Generate worker launch command for a task",
   inputSchema: {
     type: "object",
     properties: {
       taskId: { type: "number" },
-      includeProject: { type: "boolean", default: true }
+      agent: {
+        type: "string",
+        description: "Agent name (default: from task or 'coder')"
+      },
+      client: {
+        type: "string",
+        enum: ["claude-code", "codex", "gemini-cli"],
+        description: "AI client (default: from agent definition)"
+      },
+      auto: {
+        type: "boolean",
+        description: "Add auto-approval flags",
+        default: false
+      }
     },
     required: ["taskId"]
   }
@@ -269,72 +260,349 @@ agentmine mcp serve --verbose
 
 // Response
 {
-  context: "# Task Context\n\n## Previous Work\n..."
+  command: "cd /project/.worktrees/task-5 && claude --print \"$(cat <<'PROMPT'\n# Worker: coder\n...\nPROMPT\n)\"",
+  client: "claude-code",
+  worktree: ".worktrees/task-5",
+  agent: "coder",
+  task: {
+    id: 5,
+    title: "認証機能実装",
+    branch: "task-5-auth"
+  }
 }
 ```
 
-### context_save
+### セッション管理（Orchestrator向け）
 
-コンテキストを保存。
+#### session_start
+
+セッションを開始（Worker起動前にOrchestratorが呼び出す）。
 
 ```typescript
 {
-  name: "context_save",
-  description: "Save context for current session",
+  name: "session_start",
+  description: "Start a new session for a task",
   inputSchema: {
     type: "object",
     properties: {
-      summary: { type: "string" },
-      decisions: { 
-        type: "array", 
-        items: { type: "object" } 
+      taskId: { type: "number" },
+      agent: { type: "string" }
+    },
+    required: ["taskId", "agent"]
+  }
+}
+
+// Response
+{
+  sessionId: 123,
+  startedAt: "2024-01-15T10:30:00Z"
+}
+```
+
+#### session_end
+
+セッションを終了（Worker終了後にOrchestratorが呼び出す）。
+
+```typescript
+{
+  name: "session_end",
+  description: "End a session",
+  inputSchema: {
+    type: "object",
+    properties: {
+      sessionId: { type: "number" },
+      exitCode: {
+        type: "number",
+        description: "Worker process exit code"
       },
-      nextSteps: { 
-        type: "array", 
-        items: { type: "string" } 
+      signal: {
+        type: "string",
+        description: "Termination signal (SIGTERM, SIGKILL, etc.)"
+      },
+      dodResult: {
+        type: "string",
+        enum: ["pending", "merged", "timeout", "error"],
+        description: "Definition of Done result"
+      },
+      artifacts: {
+        type: "array",
+        items: { type: "string" },
+        description: "List of modified file paths (worktree relative)"
+      },
+      error: {
+        type: "object",
+        description: "Error details if failed",
+        properties: {
+          type: { type: "string", enum: ["timeout", "crash", "signal", "unknown"] },
+          message: { type: "string" }
+        }
       }
     },
-    required: ["summary"]
+    required: ["sessionId", "exitCode"]
   }
+}
+
+// CLI wrapper
+// → agentmine session end <sessionId> --exit-code <code> --dod-result <result> ...
+```
+
+#### session_list
+
+セッション一覧を取得。
+
+```typescript
+{
+  name: "session_list",
+  description: "List sessions",
+  inputSchema: {
+    type: "object",
+    properties: {
+      taskId: { type: "number" },
+      status: { type: "string" }
+    }
+  }
+}
+```
+
+### エージェント定義
+
+#### agent_list
+
+エージェント定義一覧を取得。
+
+```typescript
+{
+  name: "agent_list",
+  description: "List agent definitions",
+  inputSchema: {
+    type: "object",
+    properties: {}
+  }
+}
+
+// Response
+{
+  agents: [
+    {
+      name: "coder",
+      client: "claude-code",
+      model: "sonnet",
+      scope: { read: ["**/*"], write: ["src/**"], exclude: ["**/*.env"] }
+    },
+    {
+      name: "reviewer",
+      client: "claude-code",
+      model: "haiku",
+      scope: { read: ["**/*"], write: [], exclude: [] }
+    }
+  ]
+}
+```
+
+#### agent_get
+
+エージェント定義詳細を取得。
+
+```typescript
+{
+  name: "agent_get",
+  description: "Get agent definition details",
+  inputSchema: {
+    type: "object",
+    properties: {
+      name: { type: "string" }
+    },
+    required: ["name"]
+  }
+}
+```
+
+### Memory Bank
+
+#### memory_list
+
+プロジェクト決定事項一覧を取得。
+
+```typescript
+{
+  name: "memory_list",
+  description: "List project decisions (Memory Bank)",
+  inputSchema: {
+    type: "object",
+    properties: {
+      category: {
+        type: "string",
+        enum: ["architecture", "tooling", "convention", "rule"]
+      }
+    }
+  }
+}
+
+// Response
+{
+  decisions: [
+    {
+      id: 1,
+      category: "tooling",
+      title: "テストフレームワーク",
+      decision: "Vitest",
+      reason: "高速、Vite互換"
+    }
+  ]
+}
+```
+
+#### memory_add
+
+決定事項を追加。
+
+```typescript
+{
+  name: "memory_add",
+  description: "Add a project decision to Memory Bank",
+  inputSchema: {
+    type: "object",
+    properties: {
+      category: {
+        type: "string",
+        enum: ["architecture", "tooling", "convention", "rule"]
+      },
+      title: { type: "string" },
+      decision: { type: "string" },
+      reason: { type: "string" }
+    },
+    required: ["category", "title", "decision"]
+  }
+}
+```
+
+#### memory_preview
+
+AIに渡されるコンテキストをプレビュー。
+
+```typescript
+{
+  name: "memory_preview",
+  description: "Preview the context that will be passed to AI",
+  inputSchema: {
+    type: "object",
+    properties: {}
+  }
+}
+
+// Response
+{
+  context: "# Project Decisions\n\n## Architecture\n- ..."
 }
 ```
 
 ## MCP Resources
 
-### project://context
+### project://memory
 
-プロジェクトコンテキスト。
+Memory Bankの内容。
 
 ```typescript
 {
-  uri: "project://context",
-  name: "Project Context",
-  description: "Current project context and state",
+  uri: "project://memory",
+  name: "Memory Bank",
+  description: "Project decisions and conventions",
   mimeType: "text/markdown"
 }
+
+// コンテンツ形式（memory preview と同一）
+// カテゴリ順: architecture → tooling → convention → rule
+`
+## プロジェクト決定事項
+
+### アーキテクチャ
+- **データベース**: PostgreSQL（本番）、SQLite（ローカル）
+  - 理由: pgvectorによるAI機能の親和性
+
+### ツール
+- **テストフレームワーク**: Vitest
+  - 理由: 高速、Vite互換
+
+### 規約
+- **コミット形式**: Conventional Commits
+
+### ルール
+- **テスト必須**: バグ修正時はregression testを追加
+`
 ```
 
 ### task://{id}
 
-タスクのコンテキスト。
+タスクの詳細情報。
 
 ```typescript
 {
   uri: "task://5",
-  name: "Task #5 Context",
-  description: "Context for task #5",
-  mimeType: "text/markdown"
+  name: "Task #5",
+  description: "Task details for #5",
+  mimeType: "application/json"
 }
+
+// コンテンツ形式
+{
+  "id": 5,
+  "title": "認証機能実装",
+  "description": "JWT認証を実装する",
+  "status": "in_progress",
+  "priority": "high",
+  "type": "feature",
+  "assigneeType": "ai",
+  "assigneeName": "coder",
+  "branchName": "task-5-auth",
+  "prUrl": null,
+  "createdAt": "2024-01-15T10:00:00Z",
+  "updatedAt": "2024-01-15T12:00:00Z",
+  // セッション履歴は含まない（別途 session_list で取得）
+}
+```
+
+### agent://{name}
+
+エージェント定義。
+
+```typescript
+{
+  uri: "agent://coder",
+  name: "Agent: coder",
+  description: "Agent definition for coder",
+  mimeType: "application/yaml"
+}
+
+// コンテンツ形式（YAMLファイルの内容そのまま）
+// promptFile の内容は含まない（パスのみ）
+`
+name: coder
+description: コード実装担当
+client: claude-code
+model: sonnet
+scope:
+  read:
+    - "**/*"
+  write:
+    - "src/**"
+    - "tests/**"
+  exclude:
+    - "**/*.env"
+config:
+  temperature: 0.3
+  promptFile: ../prompts/coder.md
+`
 ```
 
 ## 実装
 
-### MCPサーバー
+### MCPサーバー（CLIラッパー）
 
 ```typescript
 // packages/cli/src/mcp/server.ts
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { execSync } from 'child_process';
 
 export async function startMcpServer() {
   const server = new Server(
@@ -350,49 +618,58 @@ export async function startMcpServer() {
     }
   );
 
-  // Tools
+  // Tools（全てCLIラッパー）
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
     tools: [
-      taskListTool,
-      taskGetTool,
-      taskCreateTool,
-      taskUpdateTool,
-      taskStartTool,
-      taskDoneTool,
-      contextLoadTool,
-      contextSaveTool,
+      // Task management
+      taskListTool,      // → agentmine task list --json
+      taskGetTool,       // → agentmine task get <id> --json
+      taskCreateTool,    // → agentmine task add ...
+      taskUpdateTool,    // → agentmine task update <id> ...
+      // Worker command (Orchestrator)
+      workerCommandTool, // → agentmine worker command <taskId>
+      // Session management (Orchestrator)
+      sessionStartTool,  // → agentmine session start <taskId>
+      sessionEndTool,    // → agentmine session end <id> --exit-code ...
+      sessionListTool,   // → agentmine session list --json
+      // Agent definitions
+      agentListTool,     // → agentmine agent list --json
+      agentGetTool,      // → agentmine agent show <name> --format json
+      // Memory Bank
+      memoryListTool,    // → agentmine memory list --json
+      memoryAddTool,     // → agentmine memory add ...
+      memoryPreviewTool, // → agentmine memory preview
     ],
   }));
 
+  // CLIラッパー実行
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
-    
-    switch (name) {
-      case 'task_list':
-        return handleTaskList(args);
-      case 'task_create':
-        return handleTaskCreate(args);
-      // ...
-    }
+    return executeCLIWrapper(name, args);
   });
 
   // Resources
   server.setRequestHandler(ListResourcesRequestSchema, async () => ({
     resources: [
-      { uri: 'project://context', name: 'Project Context' },
+      { uri: 'project://memory', name: 'Memory Bank' },
     ],
   }));
 
   server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
     const { uri } = request.params;
-    
-    if (uri === 'project://context') {
-      return { contents: [{ text: await getProjectContext() }] };
+
+    if (uri === 'project://memory') {
+      return { contents: [{ text: await getMemoryBankContent() }] };
     }
-    
+
     if (uri.startsWith('task://')) {
       const taskId = parseInt(uri.replace('task://', ''));
-      return { contents: [{ text: await getTaskContext(taskId) }] };
+      return { contents: [{ text: JSON.stringify(await getTask(taskId)) }] };
+    }
+
+    if (uri.startsWith('agent://')) {
+      const agentName = uri.replace('agent://', '');
+      return { contents: [{ text: await getAgentDefinition(agentName) }] };
     }
   });
 
@@ -400,72 +677,102 @@ export async function startMcpServer() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }
+
+// CLIラッパー実行
+async function executeCLIWrapper(toolName: string, args: Record<string, any>) {
+  const cliCommand = buildCLICommand(toolName, args);
+
+  try {
+    const result = execSync(cliCommand, {
+      encoding: 'utf-8',
+      cwd: process.cwd(),
+    });
+    return { content: [{ type: 'text', text: result }] };
+  } catch (error) {
+    const exitCode = error.status;
+    const stderr = error.stderr?.toString() || error.message;
+    throw cliExitCodeToMcpError(exitCode, stderr);
+  }
+}
+
+// ツール名 → CLIコマンド変換
+function buildCLICommand(toolName: string, args: Record<string, any>): string {
+  switch (toolName) {
+    case 'task_list':
+      return `agentmine task list --json ${args.status ? `--status ${args.status}` : ''}`;
+    case 'task_get':
+      return `agentmine task get ${args.id} --json`;
+    case 'session_end':
+      return `agentmine session end ${args.sessionId} --exit-code ${args.exitCode} ${
+        args.dodResult ? `--dod-result ${args.dodResult}` : ''
+      } ${args.signal ? `--signal ${args.signal}` : ''}`;
+    // ...
+  }
+}
 ```
 
 ## 使用例
 
-### Cursorでの使用
+### Orchestratorによる並列実行準備
 
 ```
-User: 現在のタスク一覧を教えて
-AI: <tool_use: task_list>
+Orchestrator: 3つのタスクを並列実行します。
 
-現在のタスクは以下の通りです：
+<tool_use: task_list status="open">
+→ Tasks: #3, #4, #5
 
-| ID | Title | Status | Priority |
-|----|-------|--------|----------|
-| #1 | 認証機能実装 | open | high |
-| #2 | API設計 | in_progress | medium |
-| #3 | ダッシュボード | open | medium |
+# Worktreeは Orchestrator が git を直接使用して作成
+$ git worktree add .worktrees/task-3 -b task-3
+$ git worktree add .worktrees/task-4 -b task-4
 
-User: タスク#1を開始して
+<tool_use: session_start taskId=3 agent="coder">
+→ Session started: id=101
 
-AI: <tool_use: task_start id=1>
+<tool_use: worker_command taskId=3 agent="coder">
+→ Command: claude-code exec "..."
 
-タスク#1を開始しました。
-ブランチ `task-1-auth` にチェックアウトしました。
+Orchestrator: Workerを起動します（サブプロセス）
 ```
 
-### Claude Desktopでの使用
+### Memory Bank参照
 
 ```
-User: プロジェクトのコンテキストを読み込んで
+Orchestrator: プロジェクトの決定事項を確認します。
 
-AI: <resource_read: project://context>
+<tool_use: memory_list>
+→ Decisions:
+  - [tooling] テストフレームワーク: Vitest
+  - [architecture] データベース: PostgreSQL
+  - [convention] コミット形式: Conventional Commits
 
-プロジェクトの現在の状態：
-- 完了: ユーザー認証基盤
-- 進行中: API設計
-- 次: ダッシュボード実装
+Orchestrator: 新しい決定事項を追加します。
 
-前回の決定事項：
-- JWT認証を採用
-- PostgreSQLを使用
-
-User: タスク#2の作業を保存して
-
-AI: <tool_use: context_save>
-  summary: "API設計のエンドポイント定義を完了"
-  decisions:
-    - title: "REST vs GraphQL"
-      decision: "RESTを採用"
-      reason: "シンプルさ優先"
-  nextSteps:
-    - "エンドポイントの実装"
-    - "Swagger定義の作成"
-
-コンテキストを保存しました。
+<tool_use: memory_add category="tooling" title="Linter" decision="ESLint + Biome" reason="高速かつ厳格">
+→ Added decision #5
 ```
 
 ## エラーハンドリング
 
 ```typescript
-// MCPエラーコード
+// MCPエラーコード（CLIのexit codeと対応）
 const ErrorCodes = {
+  // CLI exit code 5: リソース不存在
   TaskNotFound: -32001,
-  InvalidStatus: -32002,
-  GitError: -32003,
-  PermissionDenied: -32004,
+  AgentNotFound: -32002,
+  SessionNotFound: -32003,
+
+  // CLI exit code 6: 状態エラー
+  InvalidStatus: -32004,
+  SessionAlreadyRunning: -32005,
+
+  // CLI exit code 3: 設定エラー
+  ConfigError: -32006,
+
+  // CLI exit code 2: 引数エラー
+  ValidationError: -32007,
+
+  // CLI exit code 5: Git操作エラー
+  GitError: -32008,
 };
 
 // エラーレスポンス
@@ -474,6 +781,21 @@ const ErrorCodes = {
     code: -32001,
     message: "Task not found",
     data: { taskId: 999 }
+  }
+}
+
+// CLIエラーからの変換
+function cliExitCodeToMcpError(exitCode: number, stderr: string): McpError {
+  switch (exitCode) {
+    case 5: // リソース不存在
+      if (stderr.includes('Task')) return { code: -32001, message: stderr };
+      if (stderr.includes('Agent')) return { code: -32002, message: stderr };
+      if (stderr.includes('Session')) return { code: -32003, message: stderr };
+      return { code: -32008, message: stderr }; // Git error
+    case 6: // 状態エラー
+      if (stderr.includes('already running')) return { code: -32005, message: stderr };
+      return { code: -32004, message: stderr };
+    // ...
   }
 }
 ```
@@ -490,3 +812,9 @@ tail -f .agentmine/logs/mcp.log
 # テスト呼び出し
 echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | agentmine mcp serve
 ```
+
+## References
+
+- [Architecture](../architecture.md)
+- [Agent Execution](./agent-execution.md)
+- [Memory Bank](./memory-bank.md)

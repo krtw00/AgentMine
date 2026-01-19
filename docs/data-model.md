@@ -14,34 +14,30 @@ Drizzle ORMにより、両DBで共通のクエリAPIを使用。スキーマ定�
 ## ER Diagram
 
 ```
-┌─────────────────┐       ┌─────────────────┐
-│     Project     │       │      Agent      │
-├─────────────────┤       ├─────────────────┤
-│ id          PK  │       │ id          PK  │
-│ name            │       │ name            │
-│ description     │       │ description     │
-│ created_at      │       │ model           │
-│ updated_at      │       │ tools       []  │
-└────────┬────────┘       │ config      {}  │
-         │                │ created_at      │
-         │                └────────┬────────┘
-         │                         │
-         │    ┌────────────────────┤
-         │    │                    │
-         ▼    ▼                    │
-┌─────────────────┐                │
-│      Task       │                │
-├─────────────────┤                │
-│ id          PK  │                │
-│ project_id  FK  │                │
-│ parent_id   FK  │──┐ (self-ref)  │
-│ title           │  │             │
-│ description     │  │             │
-│ status          │◄─┘             │
-│ priority        │                │
-│ type            │                │
-│ assignee_type   │                │
-│ assignee_name   │────────────────┘
+┌─────────────────┐
+│     Project     │
+├─────────────────┤
+│ id          PK  │
+│ name            │
+│ description     │
+│ created_at      │
+│ updated_at      │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│      Task       │
+├─────────────────┤
+│ id          PK  │
+│ project_id  FK  │
+│ parent_id   FK  │──┐ (self-ref)
+│ title           │  │
+│ description     │  │
+│ status          │◄─┘
+│ priority        │
+│ type            │
+│ assignee_type   │
+│ assignee_name   │
 │ branch_name     │
 │ pr_url          │
 │ complexity      │
@@ -63,9 +59,14 @@ Drizzle ORMにより、両DBで共通のクエリAPIを使用。スキーマ定�
 │ artifacts   []  │       │ updated_at        │
 │ error       {}  │       └───────────────────┘
 └─────────────────┘
+
+※ Agent定義はDBではなくYAMLファイルで管理
+  (.agentmine/agents/*.yaml)
 ```
 
-**Note:** スキル管理は agentmine の範囲外（各AIツールに委ねる）
+**Note:**
+- スキル管理は agentmine の範囲外（各AIツールに委ねる）
+- ツール制限も agentmine では制御不可（AIクライアント側の責務）
 
 ## Schema Definition (Drizzle)
 
@@ -78,12 +79,13 @@ export const tasks = sqliteTable('tasks', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   projectId: integer('project_id').references(() => projects.id),
   parentId: integer('parent_id').references(() => tasks.id),
-  
+  // Note: 循環依存はアプリケーション層で防止（DB制約では不可）
+
   title: text('title').notNull(),
   description: text('description'),
   
   status: text('status', {
-    enum: ['open', 'in_progress', 'review', 'done', 'blocked', 'cancelled']
+    enum: ['open', 'in_progress', 'done', 'failed', 'cancelled']
   }).notNull().default('open'),
   
   priority: text('priority', { 
@@ -118,30 +120,33 @@ export type NewTask = typeof tasks.$inferInsert;
 
 ### agents
 
+**Note:** エージェント定義はYAMLファイル（`.agentmine/agents/*.yaml`）で管理。DBには保存しない。
+
+詳細は [Agent System](./features/agent-system.md) を参照。
+
 ```typescript
-export const agents = sqliteTable('agents', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-
-  name: text('name').notNull().unique(),
-  description: text('description'),
-  model: text('model').notNull(), // claude-opus, claude-sonnet, etc.
-
-  tools: text('tools', { mode: 'json' }).$type<string[]>().default([]),
-  config: text('config', { mode: 'json' }).$type<AgentConfig>().default({}),
-
-  createdAt: integer('created_at', { mode: 'timestamp' })
-    .notNull()
-    .default(sql`(unixepoch())`),
-});
-
-interface AgentConfig {
-  temperature?: number;
-  maxTokens?: number;
-  systemPrompt?: string;
+// YAMLから読み込まれる型定義
+interface Agent {
+  name: string;
+  description: string;
+  client: string;          // claude-code, opencode, codex等
+  model: string;           // opus, sonnet, gpt-5等
+  scope: {
+    read: string[];        // 参照可能（globパターン）
+    write: string[];       // 編集可能（globパターン）
+    exclude: string[];     // アクセス不可（globパターン）
+  };
+  config: {
+    temperature?: number;
+    maxTokens?: number;
+    promptFile?: string;   // プロンプトファイルパス
+  };
 }
 ```
 
-**Note:** `skills` フィールドは削除。スキル管理は agentmine の範囲外。
+**Note:**
+- `tools` フィールドは削除。ツール制限はAIクライアント側の責務。
+- `skills` フィールドも削除。スキル管理は agentmine の範囲外。
 
 ### sessions
 
@@ -149,7 +154,9 @@ interface AgentConfig {
 export const sessions = sqliteTable('sessions', {
   id: integer('id').primaryKey({ autoIncrement: true }),
 
-  taskId: integer('task_id').references(() => tasks.id),
+  taskId: integer('task_id')
+    .references(() => tasks.id)
+    .unique(),  // 1タスク1セッション制約
   agentName: text('agent_name').notNull(),
 
   status: text('status', {
@@ -163,7 +170,16 @@ export const sessions = sqliteTable('sessions', {
   completedAt: integer('completed_at', { mode: 'timestamp' }),
   durationMs: integer('duration_ms'),
 
-  // 成果物（変更されたファイルパス）
+  // Worker終了情報（観測可能な事実）
+  exitCode: integer('exit_code'),     // プロセス終了コード
+  signal: text('signal'),              // 終了シグナル（SIGTERM等）
+
+  // DoD判定結果
+  dodResult: text('dod_result', {
+    enum: ['pending', 'merged', 'timeout', 'error']
+  }).default('pending'),
+
+  // 成果物（変更されたファイルパス、worktreeルートからの相対パス）
   artifacts: text('artifacts', { mode: 'json' })
     .$type<string[]>()
     .default([]),
@@ -175,13 +191,15 @@ export const sessions = sqliteTable('sessions', {
 });
 
 interface SessionError {
-  type: string;      // timeout, crash, etc.
+  type: 'timeout' | 'crash' | 'signal' | 'unknown';
   message: string;
   details?: Record<string, any>;
 }
 ```
 
-**Note:** `tokenUsage` は測定不可のため削除。Orchestrator が観測可能な範囲のみ記録。
+**Note:**
+- `tokenUsage` は測定不可のため削除。Orchestrator が観測可能な範囲のみ記録。
+- `taskId` にUNIQUE制約を追加。1タスク1セッションをDB層で保証。
 
 ### project_decisions (Memory Bank)
 
@@ -213,27 +231,38 @@ export const projectDecisions = sqliteTable('project_decisions', {
 ### Task Status
 
 ```
-                    ┌─────────────┐
-                    │             │
-                    ▼             │
-┌──────┐      ┌───────────┐      │     ┌──────┐
-│ open │─────▶│in_progress│──────┼────▶│ done │
-└──────┘      └───────────┘      │     └──────┘
-                    │            │
-                    ▼            │
-              ┌──────────┐       │
-              │  review  │───────┘
-              └──────────┘
+┌──────┐      ┌───────────┐      ┌──────┐
+│ open │─────▶│in_progress│─────▶│ done │
+└──────┘      └───────────┘      └──────┘
                     │
-                    │ (reject)
+                    │ (Worker異常終了)
                     ▼
-              ┌───────────┐
-              │in_progress│
-              └───────────┘
+              ┌──────────┐
+              │  failed  │
+              └──────────┘
 
-in_progress → blocked (コンフリクト等)
-blocked → open (解消後)
 Any state → cancelled
+failed → open (再試行時)
+```
+
+### ステータス判定ロジック
+
+```
+Orchestratorもworkerも「完了」を報告する権限を持たない。
+ステータスは以下の観測可能な事実に基づいて判定する：
+
+【done判定】
+  ブランチがbaseBranchにマージされた
+  → git log --oneline baseBranch..task-branch が空
+
+【failed判定】
+  Worker プロセスが異常終了した
+  → exit code != 0
+  → シグナル受信（SIGTERM, SIGKILL等）
+  → タイムアウト（設定時間超過）
+
+【in_progress判定】
+  Worker起動後、done/failedどちらでもない状態
 ```
 
 ### Session Status
@@ -251,6 +280,46 @@ Any state → cancelled
 
 running → cancelled (manual stop)
 ```
+
+## 制約・検証
+
+### タスク循環依存の防止
+
+親子関係による循環依存（A→B→A）はアプリケーション層で防止する。
+
+```typescript
+// packages/core/src/services/task-service.ts
+async function setParent(taskId: number, parentId: number): Promise<void> {
+  // 循環チェック
+  if (await wouldCreateCycle(taskId, parentId)) {
+    throw new Error('Circular dependency detected');
+  }
+  // ...
+}
+
+async function wouldCreateCycle(taskId: number, parentId: number): Promise<boolean> {
+  let current = parentId;
+  const visited = new Set<number>();
+
+  while (current !== null) {
+    if (current === taskId || visited.has(current)) {
+      return true;
+    }
+    visited.add(current);
+    const parent = await db.query.tasks.findFirst({
+      where: eq(tasks.id, current),
+      columns: { parentId: true }
+    });
+    current = parent?.parentId ?? null;
+  }
+  return false;
+}
+```
+
+### 同時更新の扱い
+
+SQLiteの制約上、同時書き込みは直列化される（WALモード使用時）。
+`updatedAt`フィールドは記録用であり、楽観的ロックには使用しない。
 
 ## Indexes
 
@@ -271,32 +340,36 @@ CREATE INDEX idx_decisions_category ON project_decisions(category);
 
 ## Configuration Schema (YAML)
 
-### .agentmine/config.yaml
+### ファイル構造
+
+```
+.agentmine/
+├── config.yaml           # 基本設定
+├── agents/               # エージェント定義（1ファイル1エージェント）
+│   ├── coder.yaml
+│   ├── reviewer.yaml
+│   └── ...
+└── prompts/              # 詳細指示（Markdown）
+    ├── coder.md
+    ├── reviewer.md
+    └── ...
+```
+
+### config.yaml
 
 ```yaml
 # Project configuration
 project:
-  name: string          # required
+  name: string          # optional（1プロジェクト=1agentmine）
   description: string   # optional
 
 # Database configuration
 database:
   url: string           # file:./data.db or postgres://...
 
-# Agent definitions
-agents:
-  [name]:
-    description: string
-    model: string       # claude-opus | claude-sonnet | claude-haiku | ...
-    tools: string[]     # Read, Write, Edit, Bash, Grep, Glob, WebSearch
-    config:
-      temperature: number    # 0.0 - 1.0
-      maxTokens: number
-      systemPrompt: string
-
 # Git integration
 git:
-  baseBranch: string    # default: "develop"
+  baseBranch: string    # required（マージ先ブランチ）
   branchPrefix: string  # default: "task-"
   commitConvention:
     enabled: boolean    # default: true
@@ -317,6 +390,26 @@ sessionLog:
     enabled: boolean    # default: false
     days: number        # 保持日数
 ```
+
+### agents/*.yaml
+
+```yaml
+# .agentmine/agents/coder.yaml
+name: string              # required, unique
+description: string
+client: string            # claude-code | opencode | codex | ...
+model: string             # opus | sonnet | haiku | gpt-5 | ...
+scope:
+  read: string[]          # 参照可能（globパターン）
+  write: string[]         # 編集可能（globパターン）
+  exclude: string[]       # アクセス不可（globパターン）
+config:
+  temperature: number     # 0.0 - 1.0
+  maxTokens: number
+  promptFile: string      # プロンプトファイルパス（相対パス）
+```
+
+詳細は [Agent System](./features/agent-system.md) を参照。
 
 ## Migration Strategy
 

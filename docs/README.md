@@ -20,8 +20,7 @@
 - [Memory Bank](./features/memory-bank.md) - プロジェクト決定事項の永続化
 - [Parallel Execution](./features/parallel-execution.md) - 並列タスク実行
 - [Session Log](./features/session-log.md) - セッションログ・監査
-- [Skill System](./features/skill-system.md) - スキルの位置づけ（管理外）
-- [Task Decomposition](./features/task-decomposition.md) - PRD→タスク分解
+- [Worktree & Scope](./features/worktree-scope.md) - Worktree隔離・スコープ制御
 - [MCP Integration](./features/mcp-integration.md) - MCPサーバー
 
 ## Decisions

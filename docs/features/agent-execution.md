@@ -1,547 +1,435 @@
 # Agent Execution Flow
 
-エージェント実行の詳細設計。
+Orchestrator/Workerモデルによるタスク実行フロー。
 
-## Overview
+## Design Philosophy
+
+**AIがオーケストレーター**であり、agentmineはデータ層（Blackboard）として機能する。
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                    agentmine Agent Execution                        │
+│                    Orchestrator/Worker Execution Model              │
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                     │
 │  【設計方針】                                                        │
-│  - ツール非依存: Claude Code, Codex, OpenCode等を統一的に扱う       │
-│  - 客観判定: エージェントの発言ではなく成果物で完了を判定           │
-│  - 3階層ゴール: DoD + タイプルール + AC で検証                      │
-│  - Orchestrator + Blackboard: 中央制御 + 共有状態                  │
+│  - AI as Orchestrator: Orchestrator（メインAI）がタスク分解・Worker管理│
+│  - agentmine as Blackboard: データ層・状態管理のみ                  │
+│  - Workerはagentmineにアクセスしない: タスク情報はプロンプトで渡す  │
+│  - 客観判定: 観測可能な事実（exit code, マージ状態）で判定          │
+│  - sparse-checkoutでスコープ制御: 物理削除ではなくgit機能を使用     │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Architecture
 
-### ツール非依存アダプタ層
+### Orchestrator/Worker モデル
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                      Agent Executor                                  │
-├─────────────────────────────────────────────────────────────────────┤
 │                                                                     │
-│  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐              │
-│  │ Claude  │  │  Codex  │  │  Open   │  │ Custom  │              │
-│  │  Code   │  │   CLI   │  │  Code   │  │  Agent  │              │
-│  │ Adapter │  │ Adapter │  │ Adapter │  │ Adapter │              │
-│  └────┬────┘  └────┬────┘  └────┬────┘  └────┬────┘              │
-│       └────────────┴────────────┴─────────────┘                   │
-│                           │                                        │
-│                           ▼                                        │
-│              ┌──────────────────────┐                              │
-│              │   AgentAdapter       │                              │
-│              │   (共通Interface)    │                              │
-│              └──────────────────────┘                              │
-│                           │                                        │
-│                           ▼                                        │
-│              ┌──────────────────────┐                              │
-│              │    Sandbox Layer     │                              │
-│              │  (Docker/Worktree)   │                              │
-│              └──────────────────────┘                              │
+│  Human (ユーザー)                                                    │
+│    │                                                                │
+│    ▼                                                                │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │  AI as Orchestrator (Claude Code, Codex等)                             │   │
+│  │                                                               │   │
+│  │  責務:                                                        │   │
+│  │  - ユーザーとの会話                                           │   │
+│  │  - タスク分解・計画                                           │   │
+│  │  - Worker起動・監視                                           │   │
+│  │  - 結果確認・マージ                                           │   │
+│  │  - PR作成                                                     │   │
+│  └──────────────────────────┬──────────────────────────────────┘   │
+│                             │                                       │
+│          ┌──────────────────┼──────────────────┐                   │
+│          ▼                  ▼                  ▼                   │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐            │
+│  │   Worker    │    │   Worker    │    │   Worker    │            │
+│  │  (Task #1)  │    │  (Task #2)  │    │  (Task #3)  │            │
+│  │  worktree-1 │    │  worktree-2 │    │  worktree-3 │            │
+│  └──────┬──────┘    └──────┬──────┘    └──────┬──────┘            │
+│         │                  │                  │                    │
+│         └──────────────────┴──────────────────┘                    │
+│                            │                                        │
+│                            ▼                                        │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                   agentmine (Blackboard)                      │   │
+│  │                                                               │   │
+│  │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────────┐ │   │
+│  │  │  Tasks   │  │ Sessions │  │ Agents   │  │  Memory Bank │ │   │
+│  │  │  状態    │  │  履歴    │  │  定義    │  │  決定事項    │ │   │
+│  │  └──────────┘  └──────────┘  └──────────┘  └──────────────┘ │   │
+│  └─────────────────────────────────────────────────────────────┘   │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-### AgentAdapter Interface
+### agentmineの責務
 
-```typescript
-interface AgentAdapter {
-  name: string;  // "claude-code", "codex", "opencode", "custom"
-  
-  // エージェント起動
-  start(config: AgentStartConfig): Promise<AgentProcess>;
-  
-  // タスク実行（成果物を返す）
-  execute(process: AgentProcess, task: TaskInput): Promise<ExecutionResult>;
-  
-  // プロセス状態確認
-  getStatus(process: AgentProcess): Promise<ProcessStatus>;
-  
-  // 停止
-  stop(process: AgentProcess): Promise<void>;
-}
+| 責務 | 内容 |
+|------|------|
+| タスク管理 | CRUD、ステータス遷移、親子関係 |
+| エージェント定義 | YAML読み込み、定義提供 |
+| セッション記録 | 実行履歴、成果物記録 |
+| Memory Bank | プロジェクト決定事項の永続化 |
+| Workerコマンド生成 | タスク実行用のコマンド出力（`agentmine worker command`） |
 
-interface AgentStartConfig {
-  task: Task;
-  workdir: string;              // サンドボックス内の作業ディレクトリ
-  tools: string[];              // 許可するツール
-  timeout: number;              // タイムアウト（ms）
-  env: Record<string, string>;  // 環境変数
-}
+### Orchestratorの責務（agentmine外）
 
-interface ExecutionResult {
-  exitCode: number;
-  artifacts: Artifact[];        // 生成された成果物
-  duration: number;
-  logs: string;                 // 実行ログ（デバッグ用）
-}
-```
+| 責務 | 内容 |
+|------|------|
+| タスク分解 | PRDやユーザー指示からタスク生成 |
+| Worktree作成 | git worktree add + sparse-checkout設定 |
+| Worker起動 | サブプロセスとしてAIクライアントを起動 |
+| 進捗監視 | Worker状態の確認（exit code, signal） |
+| 結果マージ | ブランチのマージ、コンフリクト解決 |
+| PR作成 | 完了タスクのPR作成 |
+| Worktree削除 | 完了/失敗後にgit worktree remove |
 
-### アダプタ実装例
+## Execution Flow
 
-```typescript
-// Claude Code Adapter
-class ClaudeCodeAdapter implements AgentAdapter {
-  name = 'claude-code';
-  
-  async execute(process: AgentProcess, task: TaskInput): Promise<ExecutionResult> {
-    const startTime = Date.now();
-    
-    // claude --print でタスク実行
-    const result = await execInSandbox(process.sandbox, 
-      `claude --print "${escapePrompt(task.prompt)}"`,
-      { cwd: process.workdir, timeout: process.timeout }
-    );
-    
-    // 成果物を収集（git diff等から）
-    const artifacts = await collectArtifacts(process.workdir);
-    
-    return {
-      exitCode: result.exitCode,
-      artifacts,
-      duration: Date.now() - startTime,
-      logs: result.stdout + result.stderr,
-    };
-  }
-}
-
-// Codex Adapter
-class CodexAdapter implements AgentAdapter {
-  name = 'codex';
-  
-  async execute(process: AgentProcess, task: TaskInput): Promise<ExecutionResult> {
-    const result = await execInSandbox(process.sandbox,
-      `codex exec "${escapePrompt(task.prompt)}"`,
-      { cwd: process.workdir, timeout: process.timeout }
-    );
-    
-    const artifacts = await collectArtifacts(process.workdir);
-    
-    return {
-      exitCode: result.exitCode,
-      artifacts,
-      duration: Date.now() - startTime,
-      logs: result.stdout + result.stderr,
-    };
-  }
-}
-```
-
-## Orchestrator + Blackboard
-
-### アーキテクチャ
+### 1. タスク作成〜Worker起動
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                     Orchestrator + Blackboard                        │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                     │
-│  ┌───────────────────────────────────────────────────────────────┐ │
-│  │                     Orchestrator                               │ │
-│  │  - タスク分解・分配                                            │ │
-│  │  - Worker監視                                                  │ │
-│  │  - 結果集約・マージ                                            │ │
-│  │  - 人間エスカレーション                                        │ │
-│  └───────────────────────────────────────────────────────────────┘ │
-│                              │                                       │
-│          ┌───────────────────┼───────────────────┐                  │
-│          ▼                   ▼                   ▼                  │
-│  ┌─────────────┐     ┌─────────────┐     ┌─────────────┐          │
-│  │   Worker    │     │   Worker    │     │   Worker    │          │
-│  │  (Agent A)  │     │  (Agent B)  │     │  (Agent C)  │          │
-│  │  Sandbox    │     │  Sandbox    │     │  Sandbox    │          │
-│  └──────┬──────┘     └──────┬──────┘     └──────┬──────┘          │
-│         │                   │                   │                   │
-│         └───────────────────┴───────────────────┘                   │
-│                             │                                        │
-│                             ▼                                        │
-│  ┌───────────────────────────────────────────────────────────────┐ │
-│  │                    Blackboard (DB)                             │ │
-│  │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────────┐  │ │
-│  │  │  Tasks   │  │ Sessions │  │ Messages │  │  Artifacts   │  │ │
-│  │  │  状態    │  │  進捗    │  │  通信    │  │   成果物     │  │ │
-│  │  └──────────┘  └──────────┘  └──────────┘  └──────────────┘  │ │
-│  └───────────────────────────────────────────────────────────────┘ │
-│                                                                     │
-└─────────────────────────────────────────────────────────────────────┘
+Orchestrator                    agentmine                      Git
+ │                                  │                           │
+ │  1. タスク作成                    │                           │
+ │ ─────────────────────────────────>│                           │
+ │  agentmine task add "..."         │                           │
+ │                                   │                           │
+ │  2. Workerコマンド取得            │                           │
+ │ ─────────────────────────────────>│                           │
+ │  agentmine worker command 1       │                           │
+ │  (Memory Bank + タスク情報 → プロンプト生成)│                 │
+ │                                   │                           │
+ │  3. セッション開始記録            │                           │
+ │ ─────────────────────────────────>│                           │
+ │  agentmine session start 1 --agent coder                     │
+ │                                   │                           │
+ │  4. Worktree作成                  │                           │
+ │ ────────────────────────────────────────────────────────────>│
+ │  git worktree add .worktrees/task-1 -b task-1                │
+ │  git sparse-checkout set (スコープ適用)                       │
+ │                                   │                           │
+ │  5. Worker起動（サブプロセス）                                 │
+ │  claude-code --worktree .worktrees/task-1 --prompt "..."     │
+ │                                   │                           │
 ```
 
-### Orchestrator
+### 2. Worker作業〜完了
 
-```typescript
-interface Orchestrator {
-  // タスク分解・分配
-  decompose(task: Task): Promise<SubTask[]>;
-  assign(subTask: SubTask, adapter: AgentAdapter): Promise<Worker>;
-  
-  // Worker管理
-  startWorker(subTask: SubTask): Promise<Worker>;
-  monitorWorkers(): AsyncGenerator<WorkerEvent>;
-  
-  // 結果集約
-  collectArtifacts(taskId: number): Promise<Artifact[]>;
-  mergeBranches(taskId: number): Promise<MergeResult>;
-  
-  // エスカレーション
-  escalateToHuman(issue: Issue): Promise<void>;
-}
+```
+Orchestrator                    agentmine                    Worker
+ │                                  │                           │
+ │                                  │  ※ Workerはagentmineに    │
+ │                                  │    アクセスしない          │
+ │                                  │                           │
+ │  (Workerプロセスを監視)                                       │
+ │                                  │                     (作業)│
+ │                                  │                     commit│
+ │                                  │                     push  │
+ │                                  │                           │
+ │  6. Worker終了検知                │                       exit│
+ │<─────────────────────────────────────────────────────────────│
+ │  exit code / signal を取得       │                           │
+ │                                   │                           │
+ │  7. セッション終了記録            │                           │
+ │ ─────────────────────────────────>│                           │
+ │  agentmine session end <id>       │                           │
+ │    --exit-code 0 --artifacts ...  │                           │
+ │                                   │                           │
+ │  8. ステータス判定・更新          │                           │
+ │ ─────────────────────────────────>│                           │
+ │  (exit code == 0 && マージ可能 → done)                       │
+ │  (exit code != 0 → failed)        │                           │
+ │                                   │                           │
+ │  9. Worktree削除                  │                           │
+ │  git worktree remove .worktrees/task-1                       │
+ │                                   │                           │
 ```
 
-### Blackboard通信（DevHive互換）
+## Worktree + スコープ制御
 
-```typescript
-// メッセージテーブル（並列実行の詳細実装時に data-model.md へ追加）
-export const messages = sqliteTable('messages', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  
-  fromSessionId: integer('from_session_id').references(() => sessions.id),
-  toSessionId: integer('to_session_id').references(() => sessions.id),
-  
-  type: text('type', { 
-    enum: ['instruction', 'handover', 'broadcast'] 
-  }).notNull(),
-  
-  content: text('content').notNull(),
-  
-  status: text('status', { 
-    enum: ['pending', 'read', 'resolved'] 
-  }).default('pending'),
-  
-  createdAt: integer('created_at', { mode: 'timestamp' })
-    .default(sql`(unixepoch())`),
-});
+### sparse-checkoutによるスコープ適用
+
+```bash
+# Orchestratorが直接gitコマンドを実行
+
+# 1. worktree作成
+git worktree add .worktrees/task-1 -b task-1-auth
+
+# 2. sparse-checkout有効化
+cd .worktrees/task-1
+git sparse-checkout init --cone
+
+# 3. スコープ適用（exclude→read→writeの優先順位）
+#    エージェント定義のscopeに基づいてOrchestratorが設定
+git sparse-checkout set src/ tests/ docs/ package.json
+# excludeパターン（.env, secrets/等）は自動的に除外される
+
+# 4. AIクライアント設定を配置
+cp -r ~/.agentmine/client-configs/claude-code/ .worktrees/task-1/.claude/
+# promptFile → CLAUDE.md に変換
 ```
 
-## 完了判定システム
+### スコープ優先順位
+
+```
+exclude → read → write
+
+【exclude】最優先。マッチしたファイルはsparse-checkoutで除外
+【read】  次に評価。マッチしたファイルは参照可能
+【write】 明示的に指定されたファイルのみ編集可能
+
+※ writeに明示的にマッチしないファイルはread-only扱い
+  （タスク分割時に編集対象を明確にするため）
+```
+
+### Worktree構造
+
+```
+.worktrees/
+├── task-1/                     # タスク#1用
+│   ├── .claude/                # Claude Code設定
+│   │   ├── settings.json
+│   │   └── CLAUDE.md           # promptFileから生成
+│   ├── src/                    # write可能（スコープで指定時）
+│   ├── tests/                  # write可能（スコープで指定時）
+│   ├── docs/                   # read専用（sparse-checkoutに含まれるが編集不可）
+│   └── package.json            # read専用
+│   # .env, secrets/ は sparse-checkout で除外済み
+│
+├── task-2/                     # タスク#2用
+│   └── ...
+```
+
+## 完了判定（Definition of Done）
 
 ### 基本原則
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                       完了判定の原則                                 │
+│                     観測可能な事実のみで判定                          │
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                     │
-│  【エージェントの発言は判定に使わない】                              │
+│  【判定に使わないもの】                                              │
+│  ✗ Workerの発言 "完了しました" → 無視                               │
+│  ✗ Orchestratorの判断 "これでOK" → 無視                             │
 │                                                                     │
-│  ✗ "完了しました" → 無視                                            │
-│  ✗ "失敗しました" → 無視                                            │
-│  ✗ "〇〇を実装しました" → 無視                                      │
-│                                                                     │
-│  【成果物とゴールのみで客観判定】                                    │
-│                                                                     │
-│  完了 = 成果物が存在 ∧ ゴール検証がパス                             │
+│  【判定に使うもの（観測可能な事実）】                                │
+│  ✓ プロセスのexit code                                              │
+│  ✓ プロセスが受信したsignal                                         │
+│  ✓ ブランチのマージ状態                                             │
+│  ✓ タイムアウト                                                     │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-### 成果物（Artifact）
+### ステータス判定ロジック
 
 ```typescript
-// 検証可能な物理的存在
-// Note: PR は Orchestrator が作成するため、Agent の成果物には含まない
-type Artifact =
-  | { type: 'commit'; sha: string; branch: string }
-  | { type: 'file'; path: string; checksum: string }
-  | { type: 'branch'; name: string; baseBranch: string }
-  ;
+// Orchestratorがこのロジックを実行
+// agentmineはステータスの永続化のみ担当
 
-// 成果物テーブル（詳細実装時に data-model.md へ追加）
-export const artifacts = sqliteTable('artifacts', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+type TaskStatus = 'open' | 'in_progress' | 'done' | 'failed' | 'cancelled';
 
-  sessionId: integer('session_id').references(() => sessions.id),
-  taskId: integer('task_id').references(() => tasks.id),
-
-  type: text('type', {
-    enum: ['commit', 'file', 'branch']
-  }).notNull(),
-  
-  // 検証用データ
-  data: text('data', { mode: 'json' }).$type<ArtifactData>(),
-  
-  createdAt: integer('created_at', { mode: 'timestamp' })
-    .default(sql`(unixepoch())`),
-});
-
-// 期待される成果物（タスクタイプ別）
-const expectedArtifacts: Record<TaskType, ArtifactType[]> = {
-  feature: ['commit', 'branch'],
-  bug: ['commit', 'branch'],
-  refactor: ['commit', 'branch'],
-  docs: ['commit'],
-  test: ['commit'],
-};
-```
-
-### ゴール3階層
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        ゴール階層構造                                │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                     │
-│  Level 1: Definition of Done (プロジェクト全体)                     │
-│  ┌─────────────────────────────────────────────────────────────┐   │
-│  │  .agentmine/config.yaml で定義                              │   │
-│  │  例:                                                        │   │
-│  │  - lint_passes: npm run lint                                │   │
-│  │  - build_succeeds: npm run build                            │   │
-│  │  - no_secrets: gitleaks detect                              │   │
-│  └─────────────────────────────────────────────────────────────┘   │
-│                              ↓ 継承                                 │
-│  Level 2: タスクタイプ別ルール (組み込み)                           │
-│  ┌─────────────────────────────────────────────────────────────┐   │
-│  │  feature: files_changed(src/**)                             │   │
-│  │  bug: test_added(*.test.*)                                  │   │
-│  │  refactor: tests_pass(npm test)                             │   │
-│  │  test: test_file_exists(*.test.*)                           │   │
-│  └─────────────────────────────────────────────────────────────┘   │
-│                              ↓ 継承                                 │
-│  Level 3: Acceptance Criteria (タスク固有)                          │
-│  ┌─────────────────────────────────────────────────────────────┐   │
-│  │  タスク作成時に定義（人間 or AI推論）                        │   │
-│  │  例:                                                        │   │
-│  │  - endpoint_responds: POST /api/login → 200                 │   │
-│  │  - response_contains: $.token exists                        │   │
-│  └─────────────────────────────────────────────────────────────┘   │
-│                                                                     │
-│  【完了判定】                                                        │
-│  Level 1 ∧ Level 2 ∧ Level 3 = TRUE → done                        │
-│                                       FALSE → rejected              │
-│                                                                     │
-└─────────────────────────────────────────────────────────────────────┘
-```
-
-### ゴールスキーマ
-
-```typescript
-// ゴール定義（Goal Verification 詳細実装時に data-model.md へ追加）
-export const taskGoals = sqliteTable('task_goals', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  taskId: integer('task_id').references(() => tasks.id),
-  
-  level: text('level', { 
-    enum: ['dod', 'type_rule', 'acceptance_criteria'] 
-  }).notNull(),
-  
-  type: text('type', { 
-    enum: [
-      'lint_passes',      // リンター通過
-      'build_succeeds',   // ビルド成功
-      'tests_pass',       // テスト成功
-      'test_added',       // テスト追加
-      'files_changed',    // ファイル変更
-      'file_exists',      // ファイル存在
-      'no_secrets',       // 機密情報なし
-      'endpoint_responds',// エンドポイント応答
-      'response_contains',// レスポンス内容
-      'custom_script',    // カスタムスクリプト
-    ] 
-  }).notNull(),
-  
-  condition: text('condition', { mode: 'json' }).$type<GoalCondition>(),
-  required: integer('required', { mode: 'boolean' }).default(true),
-  
-  source: text('source', { 
-    enum: ['project_config', 'type_default', 'ai_inferred', 'human_defined'] 
-  }).notNull(),
-});
-
-// ゴール検証結果（Goal Verification 詳細実装時に data-model.md へ追加）
-export const goalResults = sqliteTable('goal_results', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  goalId: integer('goal_id').references(() => taskGoals.id),
-  sessionId: integer('session_id').references(() => sessions.id),
-  
-  passed: integer('passed', { mode: 'boolean' }).notNull(),
-  details: text('details'),
-  
-  verifiedAt: integer('verified_at', { mode: 'timestamp' })
-    .default(sql`(unixepoch())`),
-});
-```
-
-### 検証フロー
-
-```typescript
-async function verifyTaskCompletion(taskId: number, sessionId: number): Promise<VerifyResult> {
-  // 1. 成果物チェック
-  const artifacts = await getArtifacts(sessionId);
-  const task = await getTask(taskId);
-  const expected = expectedArtifacts[task.type];
-  
-  const missingArtifacts = expected.filter(
-    type => !artifacts.some(a => a.type === type)
-  );
-  
-  if (missingArtifacts.length > 0) {
-    return { 
-      status: 'rejected', 
-      reason: 'missing_artifacts',
-      details: { missing: missingArtifacts },
-    };
+function determineTaskStatus(session: Session, gitState: GitState): TaskStatus {
+  // 1. failed判定（異常終了）
+  if (session.exitCode !== 0) {
+    return 'failed';  // exit code != 0
   }
-  
-  // 2. ゴール検証（3階層）
-  const goals = await getAllGoals(taskId);  // L1 + L2 + L3
-  
-  const results: GoalResult[] = [];
-  for (const goal of goals) {
-    const result = await verifyGoal(goal, artifacts, task);
-    results.push(result);
-    await saveGoalResult(goal.id, sessionId, result);
+  if (session.signal) {
+    return 'failed';  // SIGTERM, SIGKILL等
   }
-  
-  // 3. 判定
-  const failedRequired = results.filter(r => !r.passed && r.goal.required);
-  
-  if (failedRequired.length > 0) {
-    return {
-      status: 'rejected',
-      reason: 'goals_not_met',
-      details: { failedGoals: failedRequired },
-    };
+  if (session.dodResult === 'timeout') {
+    return 'failed';  // タイムアウト
   }
-  
-  return { status: 'done' };
+
+  // 2. done判定（正常終了 && マージ済み）
+  const isMerged = gitState.branchMergedTo(task.branchName, config.baseBranch);
+  if (session.exitCode === 0 && isMerged) {
+    return 'done';
+  }
+
+  // 3. それ以外はin_progress維持
+  return 'in_progress';
 }
 ```
 
-### ゴール検証の実装例
+### DoD検証（Orchestratorが実行）
+
+```yaml
+# .agentmine/config.yaml
+
+# Definition of Done (プロジェクト全体)
+# Orchestratorがマージ前に検証
+dod:
+  timeout: 300  # 5分（秒）
+  checks:
+    - type: lint_passes
+      command: npm run lint
+    - type: build_succeeds
+      command: npm run build
+    - type: tests_pass
+      command: npm test
+
+# タスクタイプ別ルール
+task_types:
+  bug:
+    goals:
+      - type: test_added
+        pattern: "**/*.test.*"
+  feature:
+    goals:
+      - type: files_changed
+        pattern: "src/**/*"
+```
+
+### DoD実行タイミング
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                     DoD検証タイミング                                │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  Worker終了後、マージ前にOrchestratorが実行                         │
+│                                                                     │
+│  1. Worker終了（exit code 0）                                       │
+│  2. Orchestratorがworktreeでlint/build/testを実行                   │
+│  3. 全てパス → マージ実行                                           │
+│  4. マージ成功 → task status = done                                 │
+│                                                                     │
+│  ※ DoD失敗時はOrchestratorが判断（再試行 or failed）                │
+│  ※ agentmineはDoD実行しない（Blackboard）                           │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### セッション記録項目
 
 ```typescript
-async function verifyGoal(goal: Goal, artifacts: Artifact[], task: Task): Promise<GoalResult> {
-  switch (goal.type) {
-    case 'lint_passes':
-      return runCommand(goal.condition.command || 'npm run lint');
-    
-    case 'build_succeeds':
-      return runCommand(goal.condition.command || 'npm run build');
-    
-    case 'tests_pass':
-      return runCommand(goal.condition.command || 'npm test');
-    
-    case 'test_added':
-      const testFiles = await glob(goal.condition.pattern || '**/*.test.*');
-      const newTests = testFiles.filter(f => isNewInBranch(f, task.branchName));
-      return { passed: newTests.length > 0, details: { newTests } };
-    
-    case 'files_changed':
-      const changed = await getChangedFiles(task.branchName);
-      const matches = changed.filter(f => matchPattern(f, goal.condition.pattern));
-      return { passed: matches.length > 0, details: { changed: matches } };
-    
-    case 'endpoint_responds':
-      const response = await fetch(goal.condition.url, {
-        method: goal.condition.method,
-      });
-      return { 
-        passed: response.status === goal.condition.status,
-        details: { actualStatus: response.status },
-      };
-    
-    case 'custom_script':
-      return runCommand(goal.condition.script);
-    
-    default:
-      return { passed: false, details: { error: 'unknown goal type' } };
-  }
+// sessions テーブルに記録（観測可能な事実）
+interface SessionRecord {
+  exitCode: number | null;    // プロセス終了コード
+  signal: string | null;      // 終了シグナル（SIGTERM等）
+  dodResult: 'pending' | 'merged' | 'timeout' | 'error';
+  artifacts: string[];        // 変更ファイル（worktree相対パス）
+  error: SessionError | null; // エラー詳細
 }
 ```
 
 ## タスクステータス遷移
 
 ```
-┌──────┐     ┌───────────┐     ┌────────────┐
-│ open │────▶│in_progress│────▶│  (verify)  │  ← 内部処理
-└──────┘     └───────────┘     └─────┬──────┘
-                                     │
-                        ┌────────────┴────────────┐
-                        ▼                         ▼
-                 ┌──────────┐              ┌───────────┐
-                 │  review  │              │in_progress│ (再作業)
-                 └──────────┘              └───────────┘
+┌──────┐     ┌───────────┐     ┌──────┐
+│ open │────▶│in_progress│────▶│ done │
+└──────┘     └───────────┘     └──────┘
+                  │
+                  │ (Worker異常終了)
+                  ▼
+             ┌──────────┐
+             │  failed  │
+             └──────────┘
 
-※ verify（検証）は Orchestrator の内部処理。
-  タスクステータスは data-model.md の enum を使用:
-  open | in_progress | review | done | blocked | cancelled
+Any state → cancelled
+failed → open (再試行時)
 ```
 
-## レビューは別タスク
+| 遷移 | トリガー | 判定基準 |
+|------|----------|----------|
+| open → in_progress | Worker起動 | agentmine session start |
+| in_progress → done | マージ完了 | git log baseBranch..branch が空 |
+| in_progress → failed | Worker異常終了 | exit code != 0 or signal or timeout |
+| failed → open | 再試行指示 | 人間またはOrchestratorが明示的に指示 |
+| * → cancelled | キャンセル | 人間またはOrchestratorが明示的に指示 |
 
-```typescript
-// タスク完了後、必要に応じてレビュータスクを生成
-// Note: レビューも task type を使用（type enum: task | feature | bug | refactor）
-async function onTaskDone(task: Task): Promise<void> {
-  if (task.requiresReview) {
-    await createTask({
-      parentId: task.id,
-      title: `Review: ${task.title}`,
-      type: 'task',  // レビューは通常の task として作成
-      assigneeType: task.reviewerType || 'human',  // 人間 or AI
-      description: `Review artifacts from task #${task.id}`,
-    });
-  }
-}
+**Note:** review/blockedステータスは削除。Orchestratorの主観的判断に依存するため。
+
+## CLI コマンド
+
+### Orchestrator向けコマンド
+
+```bash
+# タスク管理
+agentmine task list --json
+agentmine task add "タイトル" -t feature
+agentmine task update <id> --status done
+
+# エージェント定義取得
+agentmine agent list
+agentmine agent show coder --format yaml
+
+# Workerコマンド生成（プロンプト出力）
+agentmine worker command <task-id> --agent coder
+
+# セッション記録
+agentmine session start <task-id> --agent coder
+agentmine session end <session-id> \
+  --exit-code 0 \
+  --signal "" \
+  --dod-result merged \
+  --artifacts '["src/auth.ts", "tests/auth.test.ts"]'
+
+# Memory Bank
+agentmine memory list --json
+agentmine memory preview
 ```
 
-## 設定例
+**Note:**
+- `agentmine worktree` コマンドは削除。Orchestratorがgitを直接使用。
+- Worker向けコマンドは存在しない。Workerはagentmineにアクセスしない。
 
-### .agentmine/config.yaml
+## Worker終了方針
 
-```yaml
-project:
-  name: my-project
+### 基本方針
 
-# Definition of Done (Level 1)
-dod:
-  - type: lint_passes
-    command: npm run lint
-  - type: build_succeeds
-    command: npm run build
-  - type: no_secrets
-    command: gitleaks detect
-
-# エージェント設定
-agents:
-  default:
-    adapter: claude-code
-    model: claude-sonnet
-    timeout: 1800000  # 30分
-    tools: [Read, Write, Edit, Bash, Grep, Glob]
-
-  codex:
-    adapter: codex
-    timeout: 1800000
-
-# タスクタイプ別設定（Level 2 のカスタマイズ）
-task_types:
-  bug:
-    goals:
-      - type: test_added
-        pattern: "**/*.test.*"
-        required: true
-    requires_review: true
-    reviewer_type: human
-  
-  feature:
-    goals:
-      - type: files_changed
-        pattern: "src/**/*"
-    requires_review: true
-    reviewer_type: ai
 ```
+exec mode + timeout の組み合わせ
+
+1. AIクライアントのexec/非対話モードで起動
+   → タスク完了時に自動終了
+2. タイムアウト設定（デフォルト5分）
+   → 無限ループ防止
+3. タイムアウト時はSIGTERMで graceful shutdown
+```
+
+### 実行例
+
+```bash
+# Orchestratorが実行
+cd .worktrees/task-1
+
+# プロンプト取得
+PROMPT=$(agentmine worker command 1)
+
+# exec modeで起動（タイムアウト付き）
+timeout --signal=SIGTERM 300 claude-code exec "$PROMPT"
+# または
+timeout --signal=SIGTERM 300 codex exec "$PROMPT"
+
+# exit code取得
+EXIT_CODE=$?
+
+# タイムアウト判定（exit code 124 = timeout）
+if [ $EXIT_CODE -eq 124 ]; then
+  agentmine session end $SESSION_ID --exit-code $EXIT_CODE --dod-result timeout
+else
+  agentmine session end $SESSION_ID --exit-code $EXIT_CODE
+fi
+```
+
+### AIクライアント別対応
+
+| クライアント | exec mode | コマンド例 |
+|-------------|-----------|------------|
+| Claude Code | `exec` サブコマンド | `claude-code exec "タスク"` |
+| Codex | `exec` サブコマンド | `codex exec "タスク"` |
+| Gemini CLI | `-i` なし | `gemini "タスク"` |
 
 ## References
 
-- [ADR-001: TypeScript Monorepo](../adr/001-typescript-monorepo.md)
-- [ADR-002: Database Strategy](../adr/002-sqlite-default.md)
+- [Architecture](../architecture.md)
 - [Agent System](./agent-system.md)
 - [Parallel Execution](./parallel-execution.md)
+- [Data Model](../data-model.md)
