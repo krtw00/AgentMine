@@ -398,24 +398,35 @@ exec mode + timeout の組み合わせ
 
 ```bash
 # Orchestratorが実行
-cd .worktrees/task-1
+TASK_ID=1
 
-# プロンプト取得
-PROMPT=$(agentmine worker command 1)
+# 1. セッション開始（Worker起動前）
+SESSION_ID=$(agentmine session start $TASK_ID --agent coder --quiet)
 
-# exec modeで起動（タイムアウト付き）
+# 2. worktreeに移動
+cd .worktrees/task-$TASK_ID
+
+# 3. プロンプト取得（agentmine worker commandでタスク情報を含むプロンプト生成）
+PROMPT=$(agentmine worker command $TASK_ID)
+
+# 4. exec modeで起動（タイムアウト付き）
 timeout --signal=SIGTERM 300 claude-code exec "$PROMPT"
 # または
 timeout --signal=SIGTERM 300 codex exec "$PROMPT"
 
-# exit code取得
+# 5. exit code取得
 EXIT_CODE=$?
 
-# タイムアウト判定（exit code 124 = timeout）
+# 6. セッション終了（結果記録）
 if [ $EXIT_CODE -eq 124 ]; then
+  # タイムアウト（exit code 124 = timeout）
   agentmine session end $SESSION_ID --exit-code $EXIT_CODE --dod-result timeout
+elif [ $EXIT_CODE -eq 0 ]; then
+  # 正常終了 → マージ判定はOrchestratorが別途行う
+  agentmine session end $SESSION_ID --exit-code $EXIT_CODE --dod-result pending
 else
-  agentmine session end $SESSION_ID --exit-code $EXIT_CODE
+  # 異常終了
+  agentmine session end $SESSION_ID --exit-code $EXIT_CODE --dod-result error
 fi
 ```
 

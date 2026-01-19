@@ -34,19 +34,22 @@ Orchestrator が観測可能（agentmineに記録）
   → 結果（成功/失敗）
 ```
 
-**Note:** Orchestratorが `agentmine session start` / `agentmine session end` を呼び出して記録。
+**Note:** Orchestratorが `agentmine session start` / `agentmine session end` を呼び出して記録。詳細なフローは [Agent Execution](./agent-execution.md) を参照。
 
 ### 記録項目
 
 | 項目 | 説明 |
 |------|------|
 | session_id | セッション識別子 |
-| task_id | 紐づくタスク |
+| task_id | 紐づくタスク（1 task = 1 session制約） |
 | agent_name | 使用エージェント |
 | started_at | 開始時刻 |
 | completed_at | 終了時刻 |
 | duration_ms | 実行時間（ミリ秒） |
-| status | running / completed / failed |
+| status | running / completed / failed / cancelled |
+| exit_code | Workerプロセスの終了コード |
+| signal | 終了シグナル（SIGTERM等、あれば） |
+| dod_result | DoD結果: pending / merged / timeout / error |
 | artifacts | 成果物一覧（変更ファイル） |
 | error | エラー情報（失敗時） |
 
@@ -58,8 +61,10 @@ Orchestrator が観測可能（agentmineに記録）
 export const sessions = sqliteTable('sessions', {
   id: integer('id').primaryKey({ autoIncrement: true }),
 
+  // 1 task = 1 session 制約
   taskId: integer('task_id')
-    .references(() => tasks.id),
+    .references(() => tasks.id)
+    .unique(),
   agentName: text('agent_name').notNull(),
 
   status: text('status', {
@@ -72,6 +77,13 @@ export const sessions = sqliteTable('sessions', {
     .default(sql`(unixepoch())`),
   completedAt: integer('completed_at', { mode: 'timestamp' }),
   durationMs: integer('duration_ms'),
+
+  // Worker終了情報（Orchestratorが記録）
+  exitCode: integer('exit_code'),         // プロセス終了コード
+  signal: text('signal'),                 // 終了シグナル（SIGTERM等）
+  dodResult: text('dod_result', {         // DoD結果
+    enum: ['pending', 'merged', 'timeout', 'error']
+  }),
 
   // 成果物（変更されたファイルパスの配列）
   // パス形式: worktreeルートからの相対パス（例: "src/auth.ts"）
@@ -87,7 +99,7 @@ export const sessions = sqliteTable('sessions', {
 });
 
 interface SessionError {
-  type: string;      // timeout, crash, etc.
+  type: string;      // timeout, crash, conflict, etc.
   message: string;
   details?: Record<string, any>;
 }

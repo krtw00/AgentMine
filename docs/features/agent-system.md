@@ -226,19 +226,23 @@ Orchestratorから割り当てられたタスクを実装してください。
 
 ### 物理的な強制方法
 
+スコープ優先順位: `exclude → read → write`
+
 ```bash
-# worktree作成後の処理
+# Orchestratorがworktree作成後に実行（agentmineコマンドなし）
 cd .worktrees/task-5
 
-# 1. exclude対象を削除（または sparse-checkout で除外）
-rm -rf .env secrets/
+# 1. exclude対象をsparse-checkoutで物理的に除外
+git sparse-checkout set --no-cone '/*' '!**/*.env' '!**/secrets/**'
 
-# 2. write対象外のファイルを読み取り専用に
+# 2. write対象外のファイルを読み取り専用に（chmod a-w）
 find . -type f \
   ! -path './src/*' \
   ! -path './tests/*' \
   -exec chmod a-w {} \;
 ```
+
+詳細は [Worktree & Scope Control](./worktree-scope.md) を参照。
 
 ### パターン構文
 
