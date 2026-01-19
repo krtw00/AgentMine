@@ -17,9 +17,9 @@
 │  プロジェクトの決定事項・ルールを保存し、                           │
 │  次回セッション開始時にAIに渡す。                                   │
 │                                                                     │
-│  【保存しないもの】                                                  │
-│  - セッションの詳細ログ（→ Session Log 機能で別途対応）             │
-│  - タスクの途中経過（→ AIがコードベースから推測可能）               │
+│  【保存形式】                                                        │
+│  ファイルベースのみ（DBテーブルなし）                               │
+│  → Gitで履歴管理可能、人間が直接編集可能                           │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -28,93 +28,68 @@
 
 1. **決定事項の永続化**: プロジェクトの「なぜ」を記録
 2. **AIへの自動注入**: セッション開始時にコンテキストとして渡す
-3. **人間可読**: 人間も確認・編集可能
-4. **シンプル**: 必要最小限の情報のみ保存
+3. **人間可読**: Markdownで人間も確認・編集可能
+4. **Git管理**: 変更履歴をGitで追跡可能
+5. **シンプル**: DBとの同期複雑性を回避
 
-## データモデル
+## ディレクトリ構造
 
-### プロジェクト決定事項
-
-```typescript
-// カテゴリ
-type DecisionCategory =
-  | 'architecture'  // アーキテクチャ（DB、フレームワーク等）
-  | 'tooling'       // ツール（テスト、リンター等）
-  | 'convention'    // 規約（コーディングスタイル等）
-  | 'rule'          // ルール（必須事項等）
-  ;
-
-// 決定事項
-interface ProjectDecision {
-  id: number;
-  category: DecisionCategory;
-  title: string;           // "データベース選定"
-  decision: string;        // "PostgreSQLを使用"
-  reason?: string;         // "pgvectorでAI機能が使えるため"
-  createdAt: Date;
-  updatedAt?: Date;
-}
+```
+.agentmine/memory/
+├── architecture/           # アーキテクチャ決定
+│   ├── 001-database.md
+│   └── 002-monorepo.md
+├── tooling/                # ツール選定
+│   ├── 001-test-framework.md
+│   └── 002-linter.md
+├── convention/             # 規約
+│   └── 001-commit-format.md
+└── rule/                   # ルール（必須事項）
+    └── 001-test-required.md
 ```
 
-### DBスキーマ
+## ファイル形式
 
-```typescript
-export const projectDecisions = sqliteTable('project_decisions', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+各決定事項は以下の形式のMarkdownファイル：
 
-  category: text('category', {
-    enum: ['architecture', 'tooling', 'convention', 'rule']
-  }).notNull(),
+```markdown
+---
+title: データベース選定
+category: architecture
+created: 2024-01-20
+updated: 2024-01-25
+---
 
-  title: text('title').notNull(),
-  decision: text('decision').notNull(),
-  reason: text('reason'),
+# データベース選定
 
-  // 関連情報
-  relatedTaskId: integer('related_task_id').references(() => tasks.id),
+## 決定
 
-  createdAt: integer('created_at', { mode: 'timestamp' })
-    .default(sql`(unixepoch())`),
-  updatedAt: integer('updated_at', { mode: 'timestamp' }),
-});
+PostgreSQL（本番）、SQLite（ローカル）
+
+## 理由
+
+- pgvectorによるAI機能の親和性
+- SQLiteはゼロ設定でローカル開発に最適
+- Drizzle ORMで両方をサポート可能
 ```
 
-## 使用例
+## カテゴリ
 
-### 決定事項の保存
+| カテゴリ | 説明 | 例 |
+|---------|------|-----|
+| `architecture` | アーキテクチャ | DB、フレームワーク、API設計 |
+| `tooling` | ツール選定 | テスト、リンター、ビルドツール |
+| `convention` | 規約 | コーディングスタイル、命名規則 |
+| `rule` | ルール | 必須事項、禁止事項 |
 
-```typescript
-// サービス経由で保存
-await memoryService.addDecision({
-  category: 'architecture',
-  title: 'データベース',
-  decision: 'PostgreSQL（本番）、SQLite（ローカル）',
-  reason: 'pgvectorによるAI機能の親和性',
-});
+## コンテキスト注入
 
-await memoryService.addDecision({
-  category: 'tooling',
-  title: '認証方式',
-  decision: 'JWT + Refresh Token',
-  reason: 'ステートレス、スケーラブル',
-});
-
-await memoryService.addDecision({
-  category: 'rule',
-  title: 'テスト必須',
-  decision: 'バグ修正時はregression testを追加すること',
-});
-```
-
-### コンテキスト注入タイミング
+### 注入タイミング
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                   Memory Bank 注入タイミング                          │
 ├─────────────────────────────────────────────────────────────────────┤
-│                                                                     │
-│  【注入タイミング】                                                  │
-│  agentmine worker command 実行時にプロンプトに含める                │
 │                                                                     │
 │  Orchestrator                                                       │
 │    │                                                                │
@@ -122,44 +97,12 @@ await memoryService.addDecision({
 │    ▼                                                                │
 │  agentmine                                                          │
 │    │ 1. タスク情報取得                                              │
-│    │ 2. Memory Bank全件取得                                         │
+│    │ 2. Memory Bankファイル全件読み込み                             │
 │    │ 3. プロンプト生成（Memory Bank + Task）                        │
 │    ▼                                                                │
 │  Worker起動コマンド出力                                              │
 │                                                                     │
-│  【Worker実行中の変更】                                              │
-│  Worker実行中にMemory Bankが更新されても、                          │
-│  そのWorkerには反映されない（次回Worker起動時に反映）               │
-│                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
-```
-
-### エージェントへの注入
-
-```typescript
-// タスク開始時に決定事項をコンテキストとして渡す
-async function buildAgentContext(task: Task): Promise<string> {
-  const decisions = await db.select().from(projectDecisions);
-
-  // カテゴリ別にグループ化
-  const grouped = groupBy(decisions, d => d.category);
-
-  return `
-## プロジェクト決定事項
-
-${Object.entries(grouped).map(([category, items]) => `
-### ${categoryLabel(category)}
-${items.map(d => `
-- **${d.title}**: ${d.decision}
-${d.reason ? `  - 理由: ${d.reason}` : ''}
-`).join('')}
-`).join('')}
-
-## タスク
-**${task.title}**
-${task.description || ''}
-`;
-}
 ```
 
 ### 生成されるコンテキスト例
@@ -168,12 +111,12 @@ ${task.description || ''}
 ## プロジェクト決定事項
 
 ### アーキテクチャ
-- **データベース**: PostgreSQL（本番）、SQLite（ローカル）
+- **データベース選定**: PostgreSQL（本番）、SQLite（ローカル）
   - 理由: pgvectorによるAI機能の親和性
 
 ### ツール
-- **認証方式**: JWT + Refresh Token
-  - 理由: ステートレス、スケーラブル
+- **テストフレームワーク**: Vitest
+  - 理由: 高速、Vite互換、Jest互換API
 
 ### ルール
 - **テスト必須**: バグ修正時はregression testを追加すること
@@ -190,18 +133,19 @@ POST /api/login でJWTトークンを返すAPIを実装してください。
 agentmine memory list
 agentmine memory list --category architecture
 
-# 決定事項追加
+# 決定事項追加（ファイル生成）
 agentmine memory add \
   --category tooling \
   --title "テストフレームワーク" \
   --decision "Vitest" \
   --reason "高速、Vite互換"
+# → .agentmine/memory/tooling/001-test-framework.md を生成
 
-# 決定事項編集
-agentmine memory edit 1 --decision "PostgreSQL + pgvector"
+# 決定事項編集（エディタで開く or 直接編集）
+agentmine memory edit tooling/001-test-framework.md
 
 # 決定事項削除
-agentmine memory remove 1
+agentmine memory remove tooling/001-test-framework.md
 
 # コンテキストプレビュー（AIに渡される内容を確認）
 agentmine memory preview
@@ -213,14 +157,58 @@ agentmine memory preview
 
 ```typescript
 export class MemoryService {
-  // 決定事項
-  async listDecisions(category?: DecisionCategory): Promise<ProjectDecision[]>;
-  async addDecision(decision: NewDecision): Promise<ProjectDecision>;
-  async updateDecision(id: number, updates: Partial<ProjectDecision>): Promise<void>;
-  async removeDecision(id: number): Promise<void>;
+  private memoryDir: string;  // .agentmine/memory/
+
+  // ファイル読み込み
+  async listDecisions(category?: DecisionCategory): Promise<MemoryFile[]>;
+  async readDecision(path: string): Promise<MemoryFile>;
+
+  // ファイル書き込み
+  async addDecision(decision: NewDecision): Promise<string>;  // 生成されたパスを返す
+  async removeDecision(path: string): Promise<void>;
 
   // コンテキスト生成
-  async buildContext(task: Task): Promise<string>;
+  async buildContext(): Promise<string>;
+}
+
+interface MemoryFile {
+  path: string;           // "architecture/001-database.md"
+  category: string;
+  title: string;
+  decision: string;
+  reason?: string;
+  created: Date;
+  updated?: Date;
+}
+```
+
+### ファイル読み込み実装
+
+```typescript
+async listDecisions(category?: DecisionCategory): Promise<MemoryFile[]> {
+  const categories = category
+    ? [category]
+    : ['architecture', 'tooling', 'convention', 'rule'];
+
+  const files: MemoryFile[] = [];
+
+  for (const cat of categories) {
+    const dir = path.join(this.memoryDir, cat);
+    if (!fs.existsSync(dir)) continue;
+
+    const mdFiles = fs.readdirSync(dir).filter(f => f.endsWith('.md'));
+    for (const file of mdFiles) {
+      const content = fs.readFileSync(path.join(dir, file), 'utf-8');
+      const parsed = this.parseMarkdown(content);
+      files.push({
+        path: `${cat}/${file}`,
+        category: cat,
+        ...parsed,
+      });
+    }
+  }
+
+  return files.sort((a, b) => a.path.localeCompare(b.path));
 }
 ```
 
@@ -230,7 +218,7 @@ export class MemoryService {
 // MCP Tool: memory_list
 {
   name: "memory_list",
-  description: "List project decisions",
+  description: "List project decisions from Memory Bank files",
   inputSchema: {
     type: "object",
     properties: {
@@ -245,7 +233,7 @@ export class MemoryService {
 // MCP Tool: memory_add
 {
   name: "memory_add",
-  description: "Add a project decision",
+  description: "Add a project decision (creates markdown file)",
   inputSchema: {
     type: "object",
     properties: {
@@ -256,19 +244,31 @@ export class MemoryService {
     },
   },
 }
+
+// MCP Tool: memory_preview
+{
+  name: "memory_preview",
+  description: "Preview the context that will be passed to Workers",
+  inputSchema: { type: "object", properties: {} },
+}
 ```
 
-## 将来の拡張
+## Git連携
 
-### Session Log（別機能）
+Memory Bankファイルは通常のソースコードと同様にGit管理される：
 
-セッションの詳細ログは別機能として実装予定。
+```bash
+# 変更履歴の確認
+git log --oneline .agentmine/memory/
 
-- 何をしたかの記録（人間向け）
-- デバッグ・監査用
-- Memory Bankとは独立
+# 差分確認
+git diff .agentmine/memory/
+
+# PRレビューで決定事項の変更も確認可能
+```
 
 ## References
 
-- [ADR-002: Database Strategy](../adr/002-sqlite-default.md)
+- [Data Model](../data-model.md)
 - [Agent Execution](./agent-execution.md)
+- [Session Log](./session-log.md)

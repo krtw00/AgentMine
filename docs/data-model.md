@@ -201,28 +201,45 @@ interface SessionError {
 - `tokenUsage` は測定不可のため削除。Orchestrator が観測可能な範囲のみ記録。
 - `taskId` にUNIQUE制約を追加。1タスク1セッションをDB層で保証。
 
-### project_decisions (Memory Bank)
+### Session 再実行フロー
 
-```typescript
-export const projectDecisions = sqliteTable('project_decisions', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+1タスク1セッション制約のため、タスクを再実行するにはセッションを削除する必要がある。
 
-  category: text('category', {
-    enum: ['architecture', 'tooling', 'convention', 'rule']
-  }).notNull(),
-
-  title: text('title').notNull(),
-  decision: text('decision').notNull(),
-  reason: text('reason'),
-
-  // 関連タスク（任意）
-  relatedTaskId: integer('related_task_id').references(() => tasks.id),
-
-  createdAt: integer('created_at', { mode: 'timestamp' })
-    .default(sql`(unixepoch())`),
-  updatedAt: integer('updated_at', { mode: 'timestamp' }),
-});
 ```
+タスク#1 (failed)
+    ↓
+1. agentmine session cleanup 123  # セッション削除
+    ↓
+2. agentmine session start 1 --agent coder  # 新セッション作成
+    ↓
+3. Worker起動（Orchestrator）
+```
+
+**複数クライアント競合時:**
+- DB制約（UNIQUE）によりエラー
+- リトライはOrchestratorの責務
+- agentmineは調停しない（Blackboard設計）
+
+### Memory Bank
+
+**ファイルベースのみ**（DBテーブルなし）
+
+```
+.agentmine/memory/
+├── architecture/
+│   └── 001-monorepo.md
+├── tooling/
+│   └── 001-vitest.md
+└── convention/
+    └── 001-commit-format.md
+```
+
+**理由:**
+- Markdownで人間も読める
+- Gitで履歴管理可能
+- DBとの同期複雑性を回避
+
+詳細は [Memory Bank](./features/memory-bank.md) を参照。
 
 **Note:** `skills` テーブルは削除。スキル管理は agentmine の範囲外。
 

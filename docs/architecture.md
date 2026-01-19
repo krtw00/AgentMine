@@ -246,6 +246,46 @@ Cursor/Windsurf
 - コメント記述可能
 - 既存ツール（Claude Code等）との親和性
 
+## Technology Stack
+
+### 確定スタック
+
+| カテゴリ | 技術 | 理由 |
+|---------|------|------|
+| パッケージマネージャ | **pnpm** | モノレポ最適、高速、ディスク効率 |
+| モノレポ管理 | **Turborepo** | キャッシュ、並列ビルド |
+| 言語 | **TypeScript** | 型安全、IDE支援 |
+| CLI | **Commander.js** | 標準的、ドキュメント充実 |
+| ORM | **Drizzle ORM** | 型安全、軽量、SQLite/PG両対応 |
+| マイグレーション | **Drizzle Kit** | スキーマから自動生成 |
+| Web UI | **Next.js 14+** (App Router) | React最新、SSR/SSG対応 |
+| UIコンポーネント | **shadcn/ui + Tailwind CSS** | カスタマイズ性、モダン |
+| テスト | **Vitest** | 高速、TypeScript対応、Jest互換 |
+| 配布 | **npm公開** | 標準的、`npx`対応 |
+
+### インストール方法（ユーザー向け）
+
+```bash
+# グローバルインストール
+npm install -g agentmine
+
+# または npx で直接実行
+npx agentmine init
+```
+
+### MCP設定例（Claude Code）
+
+```json
+{
+  "mcpServers": {
+    "agentmine": {
+      "command": "npx",
+      "args": ["agentmine", "mcp", "serve"]
+    }
+  }
+}
+```
+
 ## Security Considerations
 
 ### 1. Sandbox Execution（将来）

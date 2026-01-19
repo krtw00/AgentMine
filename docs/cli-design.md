@@ -108,7 +108,18 @@ Examples:
 1. `.agentmine/` ディレクトリ作成
 2. `config.yaml` 生成（インタラクティブ or テンプレート）
 3. `data.db` 初期化
-4. `memory/`, `skills/` ディレクトリ作成
+4. `agents/`, `prompts/`, `memory/` ディレクトリ作成
+5. `baseBranch` 存在チェック（警告のみ、エラーにはしない）
+
+**baseBranch警告例:**
+```
+$ agentmine init
+⚠ Warning: Branch 'develop' does not exist.
+  Orchestrator will fail when creating worktrees.
+  Create it with: git branch develop main
+
+✓ Initialized agentmine in .agentmine/
+```
 
 ### task add
 
