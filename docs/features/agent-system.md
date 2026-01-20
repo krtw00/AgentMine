@@ -113,6 +113,16 @@ promptContent: |
   ...
 ```
 
+### YAMLによる作成/編集
+
+人間とAIが扱いやすいよう、**YAMLを作成・編集フォーマット**として提供する。
+ただし、YAMLは**DBへ取り込まれる入力形式**であり、**単一の真実源はDB**。
+
+- Web UIのYAML編集モードはDBに保存される
+- CLIの`agent import`/`agent export`でYAMLスナップショットを入出力できる
+- `promptContent`はYAML内に直接記述可能
+- 互換性のため`promptFile`を指定した場合は、インポート時に内容を読み込み`promptContent`へ格納
+
 ### 組み込みエージェント（初期データ）
 
 `agentmine init` 実行時にDBに以下の初期エージェントを作成:
@@ -221,15 +231,15 @@ Orchestratorから割り当てられたタスクを実装してください。
 
 ### Worker起動時の展開
 
-Worker起動時、DBからworktreeへファイル出力:
+Worker起動時、DBのMemory Bankをworktreeへスナップショット出力する。
+エージェント定義とプロンプトは `worker run` が生成し、AIに直接渡す（ファイル出力しない）。
 
 ```
-.agentmine-worker/
-├── agent.yaml      # Agent定義
-├── prompt.md       # promptContent
-└── memory/         # Memory Bankスナップショット
-    ├── architecture/
-    └── tooling/
+.agentmine/memory/
+├── architecture/
+├── tooling/
+├── convention/
+└── rule/
 ```
 
 ## スコープ制御
@@ -379,23 +389,20 @@ interface AgentHistory {
 │     agentmine worker run <taskId> --exec                     │
 │       ├── worktree作成                                       │
 │       ├── DBからAgent定義取得                                 │
-│       ├── worktreeへファイル出力                              │
-│       │   └── .agentmine-worker/                             │
-│       │       ├── agent.yaml                                 │
-│       │       ├── prompt.md                                  │
-│       │       └── memory/                                    │
+│       ├── Memory Bankを `.agentmine/memory/` にスナップショット│
 │       ├── スコープ適用（sparse-checkout + chmod）             │
+│       ├── プロンプト生成（Agent定義 + Memory Bank）           │
 │       └── AIクライアント起動                                  │
 │                                                              │
 │  3. Worker作業                                                │
 │     - 隔離されたworktreeで作業                                │
-│     - .agentmine-worker/の情報を参照                         │
+│     - `.agentmine/memory/` を参照                            │
 │     - スコープ内でのみファイル編集可能                        │
 │                                                              │
 │  4. 完了                                                      │
 │     - Worker終了                                              │
 │     - worktreeクリーンアップ（設定による）                    │
-│     - DBステータス更新                                        │
+│     - セッション記録更新                                      │
 │                                                              │
 └──────────────────────────────────────────────────────────────┘
 ```

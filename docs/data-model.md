@@ -54,8 +54,8 @@ Drizzle ORMにより、両DBで共通のクエリAPIを使用。
 │ type            │  │ config      {}  │  │ created_at      │
 │ assignee_type   │  │ prompt_content  │  │ updated_at      │
 │ assignee_name   │  │ version         │  └────────┬────────┘
-│ branch_name     │  │ created_by      │           │
-│ pr_url          │  │ created_at      │           ▼
+│ selected_session│  │ created_by      │           │
+│ labels      []  │  │ created_at      │           ▼
 │ complexity      │  │ updated_at      │  ┌─────────────────┐
 │ created_at      │  └────────┬────────┘  │ MemoryHistory   │
 │ updated_at      │           │           ├─────────────────┤
@@ -72,6 +72,11 @@ Drizzle ORMにより、両DBで共通のクエリAPIを使用。
 │ started_at      │  │ change_summary  │
 │ completed_at    │  └─────────────────┘
 │ duration_ms     │
+│ session_group   │
+│ idempotency_key │
+│ branch_name     │
+│ pr_url          │
+│ worktree_path   │
 │ exit_code       │           ┌─────────────────┐
 │ dod_result      │           │   AuditLog      │
 │ artifacts   []  │           ├─────────────────┤
@@ -117,13 +122,21 @@ export const tasks = sqliteTable('tasks', {
     enum: ['task', 'feature', 'bug', 'refactor']
   }).notNull().default('task'),
 
+  // 担当者タイプ: ai（Worker起動）or human（Worker起動なし）
   assigneeType: text('assignee_type', {
     enum: ['ai', 'human']
   }),
+  // ai: Agent名（coder, reviewer等）, human: ユーザー名
   assigneeName: text('assignee_name'),
 
-  branchName: text('branch_name'),
-  prUrl: text('pr_url'),
+  // 採用されたセッション（比較結果の選択）
+  selectedSessionId: integer('selected_session_id')
+    .references(() => sessions.id),
+
+  // 柔軟な運用ラベル（statusとは別管理）
+  labels: text('labels', { mode: 'json' })
+    .$type<string[]>()
+    .default([]),
 
   complexity: integer('complexity'), // 1-10
 
@@ -138,6 +151,9 @@ export const tasks = sqliteTable('tasks', {
 export type Task = typeof tasks.$inferSelect;
 export type NewTask = typeof tasks.$inferInsert;
 ```
+
+**Note:** ブランチ名やPR URLはセッションごとに管理し、タスクには採用セッション（`selectedSessionId`）のみを保存する。  
+**Note:** `labels` は表示名をそのまま保存し、プロジェクト内で一意に扱う。ラベル定義はsettingsに保存し、デフォルトセットは削除/編集可能。
 
 ### agents（NEW: DBで管理）
 
@@ -325,8 +341,7 @@ export const sessions = sqliteTable('sessions', {
   id: integer('id').primaryKey({ autoIncrement: true }),
 
   taskId: integer('task_id')
-    .references(() => tasks.id)
-    .unique(),  // 1タスク1セッション制約
+    .references(() => tasks.id),
   agentName: text('agent_name').notNull(),
 
   status: text('status', {
@@ -339,6 +354,15 @@ export const sessions = sqliteTable('sessions', {
     .default(sql`(unixepoch())`),
   completedAt: integer('completed_at', { mode: 'timestamp' }),
   durationMs: integer('duration_ms'),
+
+  // 並列比較用
+  sessionGroupId: text('session_group_id'),
+  idempotencyKey: text('idempotency_key'),
+
+  // セッション固有のGit情報
+  branchName: text('branch_name'),
+  prUrl: text('pr_url'),
+  worktreePath: text('worktree_path'),
 
   // Worker終了情報（観測可能な事実）
   exitCode: integer('exit_code'),
@@ -369,49 +393,26 @@ interface SessionError {
 
 ## Worker用ファイル出力
 
-Worker実行時、DBからworktreeへ必要なファイルを出力する。
+Worker実行時、DBのMemory Bankをworktreeへスナップショット出力する。
 
 ```
 Worker起動時:
-1. DB から Agent定義を取得
-2. worktree に一時ファイルとして出力
-   └── .agentmine-worker/
-       ├── agent.yaml      # このWorker用のAgent定義
-       ├── prompt.md       # プロンプト
-       └── memory/         # 関連Memory（スナップショット）
-           ├── architecture/
-           └── tooling/
-3. Worker実行
-4. 完了後、一時ファイルは削除（設定による）
+1. DB から Memory Bank を取得
+2. worktree に `.agentmine/memory/` として出力（read-only）
+3. Workerプロンプトは `worker run` 内で生成しAIに直接渡す
+4. 完了後は再生成または削除（設定による）
 ```
 
 ```typescript
-// Worker起動時のファイル出力
-async function exportForWorker(taskId: number, worktreePath: string) {
-  const task = await taskService.get(taskId);
-  const agent = await agentService.getByName(task.assigneeName);
+// Worker起動時のMemory Bankスナップショット出力
+async function exportMemorySnapshot(worktreePath: string) {
   const memories = await memoryService.getAll();
 
-  const outputDir = path.join(worktreePath, '.agentmine-worker');
+  const outputDir = path.join(worktreePath, '.agentmine', 'memory');
   await fs.mkdir(outputDir, { recursive: true });
 
-  // Agent定義をYAML出力
-  await fs.writeFile(
-    path.join(outputDir, 'agent.yaml'),
-    yaml.stringify(agent)
-  );
-
-  // プロンプト出力
-  if (agent.promptContent) {
-    await fs.writeFile(
-      path.join(outputDir, 'prompt.md'),
-      agent.promptContent
-    );
-  }
-
-  // Memory出力
   for (const memory of memories) {
-    const memoryPath = path.join(outputDir, 'memory', memory.category);
+    const memoryPath = path.join(outputDir, memory.category);
     await fs.mkdir(memoryPath, { recursive: true });
     await fs.writeFile(
       path.join(memoryPath, `${memory.title}.md`),
@@ -430,15 +431,59 @@ async function exportForWorker(taskId: number, worktreePath: string) {
 │ open │─────▶│in_progress│─────▶│ done │
 └──────┘      └───────────┘      └──────┘
                     │
-                    │ (Worker異常終了)
+                    │ (Worker異常終了 - AIタスクのみ)
                     ▼
               ┌──────────┐
               │  failed  │
               └──────────┘
 
 Any state → cancelled
-failed → open (再試行時)
+failed → in_progress (再試行時)
 ```
+
+### ステータス判定ロジック（セッション集約 + Git判定）
+
+**AIタスクも人間タスクも同じGit判定で完了検出。** タスクは複数セッションを持てるため、status はセッション群を集約して決定する。
+`labels` は柔軟な運用用で、status には影響しない。
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Git判定（プラットフォーム非依存）                       │
+│                                                         │
+│  セッション branch が base にマージ済み → done           │
+│                                                         │
+│  GitHub/GitLab/Bitbucket/セルフホスト 全て対応          │
+└─────────────────────────────────────────────────────────┘
+```
+
+| 条件 | ステータス | 備考 |
+|------|-----------|------|
+| セッションなし | open | 初期状態 |
+| running セッションが1つ以上 | in_progress | 並列実行中も含む |
+| dod_result=merged のセッションが存在 | done | 採用済み |
+| runningなし、mergedなし、失敗/取消のみ | failed | 比較結果が不採用のみ |
+| 手動キャンセル | cancelled | 明示操作 |
+
+### 判定コマンド
+
+```bash
+# セッションのブランチがbaseBranchにマージされたか確認
+git log --oneline baseBranch..session-branch
+
+# 結果が空 → task-15の変更はmainに取り込まれている → done
+# 結果があり → まだマージされていない → in_progress (コミットがある場合)
+```
+
+### AIタスク vs 人間タスク
+
+| 項目 | AIタスク | 人間タスク |
+|------|---------|-----------|
+| Worker起動 | あり | なし |
+| worktree隔離 | あり | なし（通常のリポジトリで作業） |
+| スコープ制御 | あり | なし |
+| 自動承認モード | あり | 不要 |
+| 完了判定 | Git判定（マージ検出） | Git判定（マージ検出） |
+| failed発生 | 全セッション失敗時 | 手動設定のみ |
 
 ### Session Status
 
@@ -468,6 +513,8 @@ CREATE INDEX idx_tasks_parent ON tasks(parent_id);
 -- Session queries
 CREATE INDEX idx_sessions_task ON sessions(task_id);
 CREATE INDEX idx_sessions_status ON sessions(status);
+CREATE INDEX idx_sessions_group ON sessions(session_group_id);
+CREATE UNIQUE INDEX idx_sessions_idempotency ON sessions(idempotency_key);
 
 -- Agent queries
 CREATE UNIQUE INDEX idx_agents_name ON agents(project_id, name);

@@ -20,6 +20,8 @@
 
 ## 記録内容
 
+同一タスクで複数セッションを並列実行できるため、**1 task = N sessions** を前提とする。
+
 ### Orchestrator が観測可能な範囲のみ
 
 ```
@@ -41,11 +43,16 @@ Orchestrator が観測可能（agentmineに記録）
 | 項目 | 説明 |
 |------|------|
 | session_id | セッション識別子 |
-| task_id | 紐づくタスク（1 task = 1 session制約） |
+| task_id | 紐づくタスク（1 task = N sessions） |
 | agent_name | 使用エージェント |
 | started_at | 開始時刻 |
 | completed_at | 終了時刻 |
 | duration_ms | 実行時間（ミリ秒） |
+| session_group_id | 並列比較用のグループID |
+| idempotency_key | 重複開始防止キー |
+| branch_name | セッションのブランチ名 |
+| pr_url | セッションのPR URL |
+| worktree_path | worktreeパス |
 | status | running / completed / failed / cancelled |
 | exit_code | Workerプロセスの終了コード |
 | signal | 終了シグナル（SIGTERM等、あれば） |
@@ -61,10 +68,9 @@ Orchestrator が観測可能（agentmineに記録）
 export const sessions = sqliteTable('sessions', {
   id: integer('id').primaryKey({ autoIncrement: true }),
 
-  // 1 task = 1 session 制約
+  // 1 task = N sessions
   taskId: integer('task_id')
-    .references(() => tasks.id)
-    .unique(),
+    .references(() => tasks.id),
   agentName: text('agent_name').notNull(),
 
   status: text('status', {
@@ -77,6 +83,15 @@ export const sessions = sqliteTable('sessions', {
     .default(sql`(unixepoch())`),
   completedAt: integer('completed_at', { mode: 'timestamp' }),
   durationMs: integer('duration_ms'),
+
+  // 並列比較用
+  sessionGroupId: text('session_group_id'),
+  idempotencyKey: text('idempotency_key'),
+
+  // セッション固有のGit情報
+  branchName: text('branch_name'),
+  prUrl: text('pr_url'),
+  worktreePath: text('worktree_path'),
 
   // Worker終了情報（Orchestratorが記録）
   exitCode: integer('exit_code'),         // プロセス終了コード
@@ -135,7 +150,7 @@ agentmine でデフォルトは決めない
 ### 設定
 
 ```yaml
-# .agentmine/config.yaml
+# settings snapshot (import/export)
 sessionLog:
   retention:
     enabled: false    # デフォルト: 削除しない

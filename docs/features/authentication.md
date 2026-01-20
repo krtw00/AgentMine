@@ -42,7 +42,7 @@
 認証なし。全機能にアクセス可能。
 
 ```yaml
-# .agentmine/config.yaml
+# settings snapshot (import/export)
 auth:
   enabled: false  # デフォルト
 ```
@@ -210,7 +210,7 @@ agentmine auth whoami
 ### 設定
 
 ```yaml
-# .agentmine/config.yaml
+# settings snapshot (import/export)
 auth:
   enabled: true
 

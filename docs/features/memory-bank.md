@@ -18,8 +18,9 @@
 │  次回セッション開始時にAIに渡す。                                   │
 │                                                                     │
 │  【保存形式】                                                        │
-│  ファイルベースのみ（DBテーブルなし）                               │
-│  → Gitで履歴管理可能、人間が直接編集可能                           │
+│  DBマスター（memoriesテーブル）                                      │
+│  → ファイルはスナップショット/エクスポート用                         │
+│  → `.agentmine/` はデフォルトでgitignore                            │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -29,13 +30,16 @@
 1. **決定事項の永続化**: プロジェクトの「なぜ」を記録
 2. **AIへの自動注入**: セッション開始時にコンテキストとして渡す
 3. **人間可読**: Markdownで人間も確認・編集可能
-4. **Git管理**: 変更履歴をGitで追跡可能
-5. **シンプル**: DBとの同期複雑性を回避
+4. **エクスポート対応**: 必要時にファイルへ出力し、Git管理可能
+5. **一貫性**: DBを単一の真実源にして同期問題を回避
 
-## ディレクトリ構造
+## スナップショット出力
+
+Worker起動時やエクスポート時に、DBからスナップショットを生成する。
+`.agentmine/` はデフォルトでgitignoreされるため、必要ならエクスポート先を別ディレクトリにする。
 
 ```
-.agentmine/memory/
+.agentmine/memory/           # DBから生成されるスナップショット
 ├── architecture/           # アーキテクチャ決定
 │   ├── 001-database.md
 │   └── 002-monorepo.md
@@ -50,7 +54,7 @@
 
 ## ファイル形式
 
-各決定事項は以下の形式のMarkdownファイル：
+各決定事項は以下の形式のMarkdownファイル（スナップショット）：
 
 ```markdown
 ---
@@ -97,8 +101,9 @@ PostgreSQL（本番）、SQLite（ローカル）
 │    ▼                                                                │
 │  agentmine                                                          │
 │    │ 1. タスク情報取得                                              │
-│    │ 2. Memory Bankファイル全件読み込み                             │
-│    │ 3. プロンプト生成（Memory Bank + Task）                        │
+│    │ 2. DBからMemory Bank取得                                       │
+│    │ 3. 必要に応じてスナップショット出力                            │
+│    │ 4. プロンプト生成（Memory Bank + Task）                        │
 │    ▼                                                                │
 │  Worker起動コマンド出力                                              │
 │                                                                     │
@@ -106,6 +111,8 @@ PostgreSQL（本番）、SQLite（ローカル）
 ```
 
 ### 生成されるコンテキスト例
+
+（DBに保存された決定事項を要約して注入する例）
 
 ```markdown
 ## プロジェクト決定事項
@@ -133,22 +140,27 @@ POST /api/login でJWTトークンを返すAPIを実装してください。
 agentmine memory list
 agentmine memory list --category architecture
 
-# 決定事項追加（ファイル生成）
+# 決定事項追加（DBに保存）
 agentmine memory add \
   --category tooling \
   --title "テストフレームワーク" \
   --decision "Vitest" \
   --reason "高速、Vite互換"
-# → .agentmine/memory/tooling/001-test-framework.md を生成
 
-# 決定事項編集（エディタで開く or 直接編集）
-agentmine memory edit tooling/001-test-framework.md
+# 決定事項編集（DBを更新）
+agentmine memory edit <id>
 
-# 決定事項削除
-agentmine memory remove tooling/001-test-framework.md
+# 決定事項削除（DBから削除）
+agentmine memory remove <id>
 
 # コンテキストプレビュー（AIに渡される内容を確認）
 agentmine memory preview
+
+# スナップショット出力（バックアップ/共有用）
+agentmine memory export --output ./memory/
+
+# スナップショットのインポート（移行用）
+agentmine memory import --dir ./memory/
 ```
 
 ## API
@@ -157,22 +169,25 @@ agentmine memory preview
 
 ```typescript
 export class MemoryService {
-  private memoryDir: string;  // .agentmine/memory/
+  // DB読み込み
+  async listDecisions(category?: DecisionCategory): Promise<MemoryRecord[]>;
+  async getDecision(id: number): Promise<MemoryRecord | null>;
 
-  // ファイル読み込み
-  async listDecisions(category?: DecisionCategory): Promise<MemoryFile[]>;
-  async readDecision(path: string): Promise<MemoryFile>;
-
-  // ファイル書き込み
-  async addDecision(decision: NewDecision): Promise<string>;  // 生成されたパスを返す
-  async removeDecision(path: string): Promise<void>;
+  // DB書き込み
+  async addDecision(decision: NewDecision): Promise<MemoryRecord>;
+  async updateDecision(id: number, input: UpdateDecision): Promise<MemoryRecord>;
+  async removeDecision(id: number): Promise<void>;
 
   // コンテキスト生成
   async buildContext(): Promise<string>;
+
+  // スナップショット
+  async exportSnapshot(outputDir: string): Promise<void>;
+  async importSnapshot(inputDir: string): Promise<void>;
 }
 
-interface MemoryFile {
-  path: string;           // "architecture/001-database.md"
+interface MemoryRecord {
+  id: number;
   category: string;
   title: string;
   decision: string;
@@ -182,43 +197,13 @@ interface MemoryFile {
 }
 ```
 
-### ファイル読み込み実装
-
-```typescript
-async listDecisions(category?: DecisionCategory): Promise<MemoryFile[]> {
-  const categories = category
-    ? [category]
-    : ['architecture', 'tooling', 'convention', 'rule'];
-
-  const files: MemoryFile[] = [];
-
-  for (const cat of categories) {
-    const dir = path.join(this.memoryDir, cat);
-    if (!fs.existsSync(dir)) continue;
-
-    const mdFiles = fs.readdirSync(dir).filter(f => f.endsWith('.md'));
-    for (const file of mdFiles) {
-      const content = fs.readFileSync(path.join(dir, file), 'utf-8');
-      const parsed = this.parseMarkdown(content);
-      files.push({
-        path: `${cat}/${file}`,
-        category: cat,
-        ...parsed,
-      });
-    }
-  }
-
-  return files.sort((a, b) => a.path.localeCompare(b.path));
-}
-```
-
 ## MCP統合
 
 ```typescript
 // MCP Tool: memory_list
 {
   name: "memory_list",
-  description: "List project decisions from Memory Bank files",
+  description: "List project decisions from Memory Bank (DB)",
   inputSchema: {
     type: "object",
     properties: {
@@ -233,7 +218,7 @@ async listDecisions(category?: DecisionCategory): Promise<MemoryFile[]> {
 // MCP Tool: memory_add
 {
   name: "memory_add",
-  description: "Add a project decision (creates markdown file)",
+  description: "Add a project decision to Memory Bank (DB)",
   inputSchema: {
     type: "object",
     properties: {
@@ -255,14 +240,17 @@ async listDecisions(category?: DecisionCategory): Promise<MemoryFile[]> {
 
 ## Git連携
 
-Memory Bankファイルは通常のソースコードと同様にGit管理される：
+DBがマスター。必要時にスナップショットをエクスポートしてGit管理する：
 
 ```bash
+# エクスポート
+agentmine memory export --output ./memory/
+
 # 変更履歴の確認
-git log --oneline .agentmine/memory/
+git log --oneline ./memory/
 
 # 差分確認
-git diff .agentmine/memory/
+git diff ./memory/
 
 # PRレビューで決定事項の変更も確認可能
 ```

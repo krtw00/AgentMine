@@ -186,7 +186,7 @@ agentmine session retry 123
 失敗したタスクを自動的にキューに戻す（設定可能）。
 
 ```yaml
-# .agentmine/config.yaml
+# settings snapshot (import/export)
 errorHandling:
   autoRequeue:
     enabled: true
@@ -300,7 +300,7 @@ agentmine task retry --all-failed  # 全失敗タスクをリトライ
 ## 設定
 
 ```yaml
-# .agentmine/config.yaml
+# settings snapshot (import/export)
 errorHandling:
   # リトライ設定
   retry:

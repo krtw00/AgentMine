@@ -51,9 +51,9 @@ pnpm add -D drizzle-kit @types/better-sqlite3 typescript
 |---------|------|
 | `TaskService` | タスクCRUD、ステータス管理 |
 | `SessionService` | セッション管理、開始/終了 |
-| `AgentService` | YAML読み込み、定義提供 |
-| `MemoryService` | Memory Bankファイル操作 |
-| `ConfigService` | config.yaml 読み込み・検証 |
+| `AgentService` | DB読み込み、定義提供（YAMLはインポート/エクスポート用） |
+| `MemoryService` | Memory BankのDB管理（スナップショット入出力） |
+| `ConfigService` | settingsのDB管理（YAMLはインポート/エクスポート用） |
 
 **各Serviceの主要メソッド:**
 
@@ -80,22 +80,26 @@ interface SessionService {
 interface AgentService {
   findAll(): Promise<Agent[]>;
   findByName(name: string): Promise<Agent | null>;
-  // Note: CRUD はファイル操作（YAMLの読み書き）
+  // Note: CRUD はDB操作（YAMLはインポート/エクスポート用）
 }
 
 // MemoryService
 interface MemoryService {
   list(category?: string): Promise<MemoryEntry[]>;
   add(entry: NewMemoryEntry): Promise<MemoryEntry>;
-  edit(path: string, content: string): Promise<MemoryEntry>;
-  remove(path: string): Promise<void>;
+  update(id: number, content: string): Promise<MemoryEntry>;
+  remove(id: number): Promise<void>;
   preview(): Promise<string>; // AIに渡すフォーマット
+  exportSnapshot(outputDir: string): Promise<void>;
+  importSnapshot(inputDir: string): Promise<void>;
 }
 
 // ConfigService
 interface ConfigService {
-  load(): Promise<Config>;
-  validate(config: unknown): Config; // Zodでバリデーション
+  load(): Promise<Config>; // DBから取得
+  validate(config: unknown): Config; // スナップショット用Zod検証
+  importFromYaml(path: string): Promise<void>;
+  exportToYaml(path: string): Promise<void>;
   getBaseBranch(): string;
   getDbUrl(): string;
 }
@@ -116,7 +120,7 @@ export type AssigneeType = 'ai' | 'human';
 export type SessionStatus = 'running' | 'completed' | 'failed' | 'cancelled';
 export type DodResult = 'pending' | 'merged' | 'timeout' | 'error';
 
-// types/config.ts (Zod schema)
+// types/config.ts (settings snapshot schema)
 export const configSchema = z.object({
   project: z.object({
     name: z.string().optional(),

@@ -67,11 +67,11 @@
 │  ┌─────────────────────────────────────────────────────────────────┐   │
 │  │                        File System                               │   │
 │  │  .agentmine/                                                     │   │
-│  │  ├── config.yaml      # プロジェクト設定                          │   │
+│  │  ├── config.yaml      # 設定スナップショット（DBインポート用）    │   │
 │  │  ├── data.db          # SQLiteデータベース                        │   │
-│  │  ├── agents/          # エージェント定義（YAML）                  │   │
-│  │  ├── prompts/         # Workerへの詳細指示（Markdown）           │   │
-│  │  ├── memory/          # Memory Bank（プロジェクト決定事項）       │   │
+│  │  ├── agents/          # エージェント定義スナップショット（YAML）  │   │
+│  │  ├── prompts/         # プロンプトスナップショット（任意）        │   │
+│  │  ├── memory/          # Memory Bankスナップショット              │   │
 │  │  └── worktrees/       # Worker用隔離作業領域                     │   │
 │  │       └── task-<id>/  # タスク毎のgit worktree                   │   │
 │  └─────────────────────────────────────────────────────────────────┘   │
@@ -94,7 +94,7 @@ agentmine worker wait 1 2    # 完了待機
 # Worker管理
 agentmine worker status      # 状態確認
 agentmine worker stop 1      # 停止
-agentmine worker done 1      # 完了・クリーンアップ
+agentmine worker done 1      # セッション終了・クリーンアップ
 ```
 
 **worker runの動作:**
@@ -297,9 +297,9 @@ Cursor/Windsurf
 - 検索・フィルタリングが効率的
 
 **Worker用ファイル出力:**
-- Worker起動時にDBからworktreeへ一時ファイル出力
-- `.agentmine-worker/`ディレクトリに配置
-- 完了後は削除（設定による）
+- Worker起動時にDBから `.agentmine/memory/` をスナップショット生成（read-only）
+- worktreeには `.agentmine/memory/` のみ含め、エージェント/設定/プロンプトのスナップショットは除外
+- 再生成は `worker run` 実行時に行う（設定による）
 
 ### 4. YAML/Markdown エクスポート
 
@@ -391,10 +391,10 @@ interface AgentminePlugin {
 
 ### 2. Custom Agents
 
-エージェント定義は `.agentmine/agents/` ディレクトリにYAMLファイルとして配置。
+エージェント定義はDBに保存。YAMLは作成/編集・インポート/エクスポート用のスナップショット。
 
 ```yaml
-# .agentmine/agents/custom-agent.yaml
+# custom-agent.yaml (snapshot)
 name: custom-agent
 description: "カスタムエージェント"
 client: claude-code
@@ -406,7 +406,9 @@ scope:
 config:
   temperature: 0.7
   maxTokens: 4096
-  promptFile: "../prompts/custom-agent.md"
+promptContent: |
+  # カスタムエージェント
+  プロジェクトのガイドラインに従って作業すること。
 ```
 
 詳細は [Agent System](./features/agent-system.md) を参照。

@@ -316,7 +316,7 @@ Drizzle ORMで両対応は技術的に可能：
 │                                                             │
 │  本番環境: PostgreSQL のみ                                  │
 │                                                             │
-│  # config.yaml                                              │
+│  # settings snapshot (import/export)                       │
 │  database:                                                  │
 │    # SQLite（デフォルト）                                   │
 │    url: file:.agentmine/data.db                            │

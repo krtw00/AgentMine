@@ -28,7 +28,7 @@ agentmineはプロジェクト管理データ（タスク、セッション、�
 **SQLiteをローカル開発用デフォルト、PostgreSQLを本番環境用**とする。
 
 ```yaml
-# .agentmine/config.yaml
+# settings snapshot (import/export)
 
 # ローカル開発（デフォルト）
 database:
@@ -116,7 +116,7 @@ LIMIT 10;
 ```bash
 # SQLite → PostgreSQL移行
 agentmine db export --format sql > backup.sql
-# config.yamlのdatabase.urlを変更
+# settings（database.url）を変更
 agentmine db migrate
 agentmine db import --file backup.sql
 ```
