@@ -1,6 +1,8 @@
 import { createDb, initializeDb, MemoryService, type Memory } from '@agentmine/core';
 import MemoryClient from './memory-client';
 
+export const dynamic = 'force-dynamic';
+
 async function getMemories(): Promise<Memory[]> {
   const db = createDb();
   await initializeDb(db);

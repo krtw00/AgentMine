@@ -248,6 +248,29 @@ export async function initializeDb(db: Db): Promise<void> {
     if (!columns.includes('review_comment')) {
       await db.run(sql`ALTER TABLE sessions ADD COLUMN review_comment TEXT`)
     }
+
+    // Migration: Add parallel execution columns to sessions
+    if (!columns.includes('session_group_id')) {
+      await db.run(sql`ALTER TABLE sessions ADD COLUMN session_group_id TEXT`)
+    }
+    if (!columns.includes('idempotency_key')) {
+      await db.run(sql`ALTER TABLE sessions ADD COLUMN idempotency_key TEXT UNIQUE`)
+    }
+  } catch {
+    // Ignore errors if columns already exist
+  }
+
+  // Migration: Add new columns to tasks
+  try {
+    const taskInfo = await db.all(sql`PRAGMA table_info(tasks)`) as Array<{ name: string }>
+    const taskColumns = taskInfo.map((row) => row.name)
+
+    if (!taskColumns.includes('selected_session_id')) {
+      await db.run(sql`ALTER TABLE tasks ADD COLUMN selected_session_id INTEGER`)
+    }
+    if (!taskColumns.includes('labels')) {
+      await db.run(sql`ALTER TABLE tasks ADD COLUMN labels TEXT DEFAULT '[]'`)
+    }
   } catch {
     // Ignore errors if columns already exist
   }

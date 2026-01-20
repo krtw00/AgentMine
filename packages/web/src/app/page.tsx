@@ -1,5 +1,7 @@
 import { createDb, initializeDb, TaskService, SessionService, AgentService } from '@agentmine/core';
 
+export const dynamic = 'force-dynamic';
+
 async function getDashboardData() {
   const db = createDb();
   await initializeDb(db);

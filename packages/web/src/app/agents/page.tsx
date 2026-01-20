@@ -1,6 +1,8 @@
 import { createDb, initializeDb, AgentService, type Agent } from '@agentmine/core';
 import AgentsClient from './agents-client';
 
+export const dynamic = 'force-dynamic';
+
 async function getAgents(): Promise<Agent[]> {
   const db = createDb();
   await initializeDb(db);

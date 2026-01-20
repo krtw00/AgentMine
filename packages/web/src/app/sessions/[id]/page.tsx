@@ -2,6 +2,8 @@ import { createDb, initializeDb, SessionService, type Session } from '@agentmine
 import { notFound } from 'next/navigation';
 import SessionDetailClient from './session-detail-client';
 
+export const dynamic = 'force-dynamic';
+
 async function getSession(id: number): Promise<{ session: Session; task: any } | null> {
   const db = createDb();
   await initializeDb(db);

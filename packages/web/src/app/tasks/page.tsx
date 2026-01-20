@@ -1,6 +1,8 @@
 import { createDb, initializeDb, TaskService, type Task } from '@agentmine/core';
 import TasksClient from './tasks-client';
 
+export const dynamic = 'force-dynamic';
+
 async function getTasks(): Promise<Task[]> {
   const db = createDb();
   await initializeDb(db);
