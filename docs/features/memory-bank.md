@@ -28,7 +28,7 @@
 ## 設計目標
 
 1. **決定事項の永続化**: プロジェクトの「なぜ」を記録
-2. **AIへの自動注入**: 参照情報（ファイル一覧）を自動提示
+2. **AIへの自動注入**: 重要事項の要約 + 参照情報（ファイル一覧）
 3. **人間可読**: Markdownで人間も確認・編集可能
 4. **エクスポート対応**: 必要時にファイルへ出力し、Git管理可能
 5. **一貫性**: DBを単一の真実源にして同期問題を回避
@@ -103,7 +103,7 @@ PostgreSQL（本番）、SQLite（ローカル）
 │    │ 1. タスク情報取得                                              │
 │    │ 2. DBからMemory Bank取得                                       │
 │    │ 3. 必要に応じてスナップショット出力                            │
-│    │ 4. プロンプト生成（Memory Bank参照情報 + Task）                │
+│    │ 4. プロンプト生成（Memory Bank要約 + 参照情報 + Task）          │
 │    ▼                                                                │
 │  Worker起動コマンド出力/実行                                        │
 │                                                                     │
@@ -112,9 +112,14 @@ PostgreSQL（本番）、SQLite（ローカル）
 
 ### 生成されるコンテキスト例
 
-（DBに保存された決定事項の参照情報を注入する例）
+（DBに保存された決定事項の要約 + 参照情報を注入する例）
 
 ```markdown
+## Memory Bank Summary
+- ルール: バグ修正時は必ず回帰テストを追加
+- 規約: コミット形式はConventional Commits
+- アーキテクチャ: DBはPostgreSQL（本番）/ SQLite（ローカル）
+
 ## Project Context (Memory Bank)
 The following project decision files are available:
 - .agentmine/memory/architecture/001-database.md - データベース選定
@@ -128,7 +133,7 @@ Read these files in .agentmine/memory/ for details.
 POST /api/login でJWTトークンを返すAPIを実装してください。
 ```
 
-**Note:** デフォルトは参照のみ。内容を直接注入したい場合は、Orchestratorが要約してプロンプトに追加する。
+**Note:** デフォルトは「短い要約 + 参照一覧」。要約は10項目以内の簡潔な箇条書きを推奨する。
 
 ## CLI
 

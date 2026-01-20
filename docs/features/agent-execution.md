@@ -176,7 +176,13 @@ async function buildPromptFromTask(options: BuildPromptOptions): Promise<string>
   parts.push(`- Write: ${agent.scope.write.join(', ')}`);
   parts.push(`- Exclude: ${agent.scope.exclude.join(', ')}`);
 
-  // 5. Memory Bank（参照方式 - ファイルパスのみ）
+  // 5. Memory Bank（要約 + 参照一覧）
+  const memorySummary = memoryService.buildSummary({ maxItems: 5 });
+  if (memorySummary.length > 0) {
+    parts.push('## Memory Bank Summary');
+    parts.push(...memorySummary);
+  }
+
   const memoryFiles = memoryService.listFiles();
   if (memoryFiles.length > 0) {
     parts.push('## Project Context (Memory Bank)');
@@ -185,7 +191,7 @@ async function buildPromptFromTask(options: BuildPromptOptions): Promise<string>
       parts.push(`- ${file.path} - ${file.title}`);
     }
     parts.push('');
-    parts.push('Read these files in .agentmine/memory/ for detailed project decisions.');
+    parts.push('Read these files in .agentmine/memory/ for details.');
   }
 
   // 6. 基本指示
@@ -207,10 +213,10 @@ async function buildPromptFromTask(options: BuildPromptOptions): Promise<string>
 | Description | タスクの詳細説明 | tasks.description | 全文 |
 | Agent Instructions | エージェント固有の詳細指示 | agents.promptContent (DB) | 全文 |
 | Scope | ファイルアクセス範囲 | agents.scope (DB) | 全文 |
-| Project Context | プロジェクト決定事項 | Memory Bank（DB → .agentmine/memory） | **参照のみ** |
+| Project Context | プロジェクト決定事項 | Memory Bank（DB → .agentmine/memory） | **要約 + 参照一覧** |
 | Instructions | 共通の作業指示 | ハードコード | 全文 |
 
-**Note:** Memory BankはDBがマスター。`worker run` 実行時に `.agentmine/memory/` をスナップショット生成し、Workerはそこで詳細を参照する。
+**Note:** Memory BankはDBがマスター。`worker run` 実行時に `.agentmine/memory/` をスナップショット生成し、プロンプトには短い要約と参照一覧を注入する。詳細はファイルを参照する。
 
 ### コンテキスト不足による問題と対策
 
