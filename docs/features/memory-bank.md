@@ -15,7 +15,7 @@
 │                                                                     │
 │  【Memory Bankの役割】                                               │
 │  プロジェクトの決定事項・ルールを保存し、                           │
-│  次回セッション開始時にAIに渡す。                                   │
+│  次回セッション開始時に参照情報をAIに渡す。                         │
 │                                                                     │
 │  【保存形式】                                                        │
 │  DBマスター（memoriesテーブル）                                      │
@@ -28,7 +28,7 @@
 ## 設計目標
 
 1. **決定事項の永続化**: プロジェクトの「なぜ」を記録
-2. **AIへの自動注入**: セッション開始時にコンテキストとして渡す
+2. **AIへの自動注入**: 参照情報（ファイル一覧）を自動提示
 3. **人間可読**: Markdownで人間も確認・編集可能
 4. **エクスポート対応**: 必要時にファイルへ出力し、Git管理可能
 5. **一貫性**: DBを単一の真実源にして同期問題を回避
@@ -97,41 +97,38 @@ PostgreSQL（本番）、SQLite（ローカル）
 │                                                                     │
 │  Orchestrator                                                       │
 │    │                                                                │
-│    │ agentmine worker command <task-id>                             │
+│    │ agentmine worker run <task-id> [--exec]                        │
 │    ▼                                                                │
 │  agentmine                                                          │
 │    │ 1. タスク情報取得                                              │
 │    │ 2. DBからMemory Bank取得                                       │
 │    │ 3. 必要に応じてスナップショット出力                            │
-│    │ 4. プロンプト生成（Memory Bank + Task）                        │
+│    │ 4. プロンプト生成（Memory Bank参照情報 + Task）                │
 │    ▼                                                                │
-│  Worker起動コマンド出力                                              │
+│  Worker起動コマンド出力/実行                                        │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
 ### 生成されるコンテキスト例
 
-（DBに保存された決定事項を要約して注入する例）
+（DBに保存された決定事項の参照情報を注入する例）
 
 ```markdown
-## プロジェクト決定事項
+## Project Context (Memory Bank)
+The following project decision files are available:
+- .agentmine/memory/architecture/001-database.md - データベース選定
+- .agentmine/memory/tooling/001-test-framework.md - テストフレームワーク
+- .agentmine/memory/rule/001-test-required.md - テスト必須
 
-### アーキテクチャ
-- **データベース選定**: PostgreSQL（本番）、SQLite（ローカル）
-  - 理由: pgvectorによるAI機能の親和性
-
-### ツール
-- **テストフレームワーク**: Vitest
-  - 理由: 高速、Vite互換、Jest互換API
-
-### ルール
-- **テスト必須**: バグ修正時はregression testを追加すること
+Read these files in .agentmine/memory/ for details.
 
 ## タスク
 **ログイン機能を実装**
 POST /api/login でJWTトークンを返すAPIを実装してください。
 ```
+
+**Note:** デフォルトは参照のみ。内容を直接注入したい場合は、Orchestratorが要約してプロンプトに追加する。
 
 ## CLI
 
