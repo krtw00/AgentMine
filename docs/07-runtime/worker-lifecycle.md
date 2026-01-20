@@ -1,796 +1,392 @@
-# Worker Lifecycle（Worker実行ライフサイクル）
+# Worker Lifecycle
 
-🎯 **SSOT**: Worker起動から完了までの全フローを記述する
+## 目的
 
-agentmineのWorker実行ライフサイクルは、Orchestrator/Workerモデルに基づく。Orchestratorが`agentmine worker run`コマンドでWorkerを起動し、agentmineはworktree作成・スコープ適用・セッション記録を担当する。Workerは隔離された環境でコードを作成し、完了後にOrchestratorがマージ判断を行う。
+Worker起動から完了までの全フローを定義する。本ドキュメントはagentmineにおけるWorker実行のSSoT（Single Source of Truth）である。
 
----
+## 背景
 
-## 前提知識
+agentmineは「並列AI開発の実行環境」であり、Worker（AI）が安全にコードを作成できる隔離環境を提供する。OrchestratorがWorkerを起動し、agentmineがworktree作成・スコープ適用・DoD検証・セッション記録を担当する。
 
-このドキュメントを読む前に、以下を理解しておくこと：
+**責務分離の理由:**
+- Orchestratorは「何を実行するか」を判断する（計画者）
+- agentmineは「安全に実行する」ための仕組みを提供する（実行基盤）
+- Workerは「コードを書く」ことに集中する（作業者）
 
-- **@../03-core-concepts/orchestrator-worker.md** - Orchestrator/Workerモデルの役割定義
-- **@../03-core-concepts/scope-control.md** - スコープ制御の仕組み
-- **@../03-core-concepts/observable-facts.md** - ステータス判定方法
+## ライフサイクル概要
 
----
+```mermaid
+flowchart LR
+    subgraph Phase1["Phase 1: Preparation"]
+        direction TB
+        P1[Orchestrator: タスク取得]
+        P2[Orchestrator: worker run]
+        P3[agentmine: セッション開始]
+        P4[agentmine: ブランチ作成]
+        P5[agentmine: worktree作成]
+        P1 --> P2 --> P3 --> P4 --> P5
+    end
 
-## Workerライフサイクル概要
+    subgraph Phase2["Phase 2: Scope Application"]
+        direction TB
+        S1[agentmine: sparse-checkout]
+        S2[agentmine: chmod適用]
+        S3[agentmine: Memory Bank出力]
+        S4[agentmine: クライアント設定出力]
+        S1 --> S2 --> S3 --> S4
+    end
 
+    subgraph Phase3["Phase 3: Worker Execution"]
+        direction TB
+        W1[agentmine: Worker AI起動]
+        W2[Worker: コード作成]
+        W3[Worker: git commit]
+        W4[Worker: 終了]
+        W1 --> W2 --> W3 --> W4
+    end
+
+    subgraph Phase4["Phase 4: Completion"]
+        direction TB
+        C1[agentmine: exit code記録]
+        C2[agentmine: DoD検証]
+        C3[agentmine: ステータス更新]
+        C4[Orchestrator: マージ判断]
+        C5[Orchestrator: クリーンアップ]
+        C1 --> C2 --> C3 --> C4 --> C5
+    end
+
+    Phase1 --> Phase2 --> Phase3 --> Phase4
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                      Worker Lifecycle                                │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                     │
-│  Phase 1: Preparation                                               │
-│  ────────────────────────                                           │
-│  1. Orchestrator: タスク取得                                         │
-│  2. Orchestrator: agentmine worker run <task-id> 実行               │
-│  3. agentmine: セッション開始（DB記録、ID確定）                     │
-│  4. agentmine: ブランチ作成（task-<id>-s<sessionId>）               │
-│  5. agentmine: Git worktree作成（.agentmine/worktrees/task-<id>/） │
-│                                                                     │
-│  Phase 2: Scope Application                                         │
-│  ───────────────────────────                                        │
-│  6. agentmine: sparse-checkout適用（excludeパターン除外）           │
-│  7. agentmine: chmod適用（write対象外を読み取り専用に）             │
-│  8. agentmine: Memory Bank出力（.agentmine/memory/）                │
-│  9. agentmine: クライアント設定出力（.claude/CLAUDE.md等）          │
-│                                                                     │
-│  Phase 3: Worker Execution                                          │
-│  ──────────────────────────                                         │
-│  10. agentmine: Worker AI起動（claude-code exec等）                 │
-│  11. Worker: コード作成・テスト追加                                  │
-│  12. Worker: git commit                                             │
-│  13. Worker: 終了（exit code返却）                                  │
-│                                                                     │
-│  Phase 4: Completion                                                │
-│  ────────────────────                                               │
-│  14. agentmine: exit code記録（sessions.exit_code）                 │
-│  15. agentmine: 成果物収集（git diff）                              │
-│  16. Orchestrator: DoD検証（lint/test/build）                       │
-│  17. Orchestrator: マージ判断・実行                                  │
-│  18. Orchestrator: agentmine worker done <task-id>（クリーンアップ）│
-│                                                                     │
-└─────────────────────────────────────────────────────────────────────┘
-```
-
----
 
 ## Phase 1: Preparation（準備フェーズ）
 
-### 1.1 Orchestratorによるタスク取得
+### タスク取得
 
-```bash
-# Orchestratorがタスク一覧を取得
-agentmine task list --json
+Orchestratorが実行対象タスクを選定する。取得する情報は以下の通り。
 
-# または特定タスク詳細取得
-agentmine task show 5 --json
-```
+| 情報 | 用途 |
+|------|------|
+| タスクID・タイトル | Worker識別 |
+| 説明 | プロンプト生成 |
+| タイプ（feature/bug/refactor） | 作業方針の決定 |
+| 優先度 | 実行順序の判断 |
+| 依存関係 | 並列実行可否の判断 |
+| 担当アクター | Worker選定 |
 
-**取得情報**:
-- タスクID、タイトル、説明
-- タスクタイプ（feature/bug/refactor）
-- 優先度
-- 依存関係（dependsOn）
-- 割り当てエージェント
+### Worker起動
 
-### 1.2 Worker起動コマンド
+Orchestratorが`agentmine worker run`コマンドを実行する。
 
-```bash
-# フォアグラウンド実行（完了を待機）
-agentmine worker run <task-id> --exec
+| オプション | 説明 | デフォルト |
+|------------|------|------------|
+| --exec | Worker AIを自動起動 | なし（プロンプト生成のみ） |
+| --detach | バックグラウンド実行 | フォアグラウンド |
+| --agent | 使用するエージェント名 | タスクの割り当てエージェント |
+| --timeout | タイムアウト秒数 | 300秒 |
+| --skip-dod | DoD検証をスキップ | 検証実行 |
 
-# バックグラウンド実行（PID記録して即座に戻る）
-agentmine worker run <task-id> --exec --detach
-```
+**--execの意図:** 省略時はworktree準備とプロンプト生成のみ行い、Worker起動は行わない。これにより手動でWorkerを操作したい場合に対応する。
 
-**オプション**:
-- `--exec`: Worker AIを自動起動（省略時はプロンプト生成のみ）
-- `--detach`: バックグラウンド実行（並列実行時に使用）
-- `--agent <name>`: エージェント指定（デフォルト: タスクの割り当てエージェント）
-- `--timeout <seconds>`: タイムアウト設定（デフォルト: 300秒）
-- `--json`: JSON形式で出力
+**--detachの意図:** 並列実行時に複数Workerをバックグラウンドで起動し、`worker wait`で一括待機する運用を可能にする。
 
-**出力例**:
-```json
-{
-  "session": {
-    "id": 123,
-    "taskId": 5,
-    "agentId": 2,
-    "branch": "task-5-s123",
-    "worktreePath": ".agentmine/worktrees/task-5",
-    "status": "running",
-    "pid": 12345
-  }
-}
-```
+### セッション開始
 
-### 1.3 セッション開始
+agentmineがセッションをDBに記録する。記録する情報は以下の通り。
 
-`agentmine worker run`実行時、agentmineは以下をDB記録：
+| フィールド | 値 |
+|------------|-----|
+| taskId | 対象タスクのID |
+| agentId | 使用するエージェントのID |
+| branch | task-{taskId}-s{sessionId} |
+| worktreePath | .agentmine/worktrees/task-{taskId} |
+| status | running |
+| startedAt | 現在時刻 |
+| pid | Worker起動後に設定 |
 
-```typescript
-// sessions テーブルに挿入
-const session = await db.insert(sessions).values({
-  taskId: task.id,
-  agentId: agent.id,
-  branch: `task-${task.id}-s${nextSessionId}`,
-  worktreePath: `.agentmine/worktrees/task-${task.id}`,
-  status: 'running',
-  startedAt: new Date(),
-  pid: null, // Worker起動後に更新
-}).returning();
-```
+**ブランチ命名規則の理由:** `task-<taskId>-s<sessionId>`形式により、同一タスクの複数回リトライを区別できる。sessionIdはDB自動採番で一意性を保証。
 
-### 1.4 ブランチ作成
+### worktree作成
 
-```bash
-# agentmineが内部で実行
-git branch task-5-s123 origin/develop
-```
+agentmineがGit worktreeを作成する。
 
-**命名規則**: `task-<taskId>-s<sessionId>`
-- 複数セッション（リトライ）を区別可能
-- セッションIDはDB auto incrementで一意
+| 項目 | 値 |
+|------|-----|
+| 作成先 | .agentmine/worktrees/task-{taskId}/ |
+| ベースブランチ | 設定による（デフォルト: origin/develop） |
+| 作成ブランチ | task-{taskId}-s{sessionId} |
 
-### 1.5 Git worktree作成
-
-```bash
-# agentmineが内部で実行
-git worktree add .agentmine/worktrees/task-5 task-5-s123
-```
-
-**worktreeパス構造**:
-```
-.agentmine/worktrees/
-└── task-5/                     # タスク#5用
-    ├── .git                    # worktree固有のGit情報
-    ├── src/                    # (sparse-checkout後)
-    ├── tests/                  # (sparse-checkout後)
-    ├── package.json            # (sparse-checkout後)
-    └── .agentmine/             # Worker用データ（read-only）
-        └── memory/             # Memory Bankスナップショット
-            ├── architecture/
-            │   └── 1.md
-            └── tooling/
-                └── 2.md
-```
-
----
+**worktree隔離の理由:** 各Workerが独立した作業ディレクトリを持つことで、並列実行時のファイル競合を防ぐ。
 
 ## Phase 2: Scope Application（スコープ適用フェーズ）
 
-### 2.1 スコープ適用の目的
+### スコープ適用の意図
 
-物理的にファイルアクセスを制限し、Worker AIの自動承認モード（`--dangerously-skip-permissions`等）を安全に使用する。
+物理的にファイルアクセスを制限することで、Worker AIの自動承認モードを安全に使用可能にする。
 
-**優先順位**: `exclude` → `read` → `write`
+**なぜ物理的制限か:**
+- 論理的制限（プロンプト指示）はAIが無視する可能性がある
+- 物理的制限はAIが回避不可能
+- 自動承認モードでもスコープ外への影響を防げる
 
-### 2.2 sparse-checkout適用（exclude）
+### スコープ優先順位
 
-```bash
-# agentmineが内部で実行
-cd .agentmine/worktrees/task-5
+| 優先順位 | スコープ | 物理的状態 | 実装方法 |
+|----------|---------|-----------|----------|
+| 1（最高） | exclude | ファイルが存在しない | git sparse-checkout |
+| 2 | read | 読み取り専用 | chmod a-w |
+| 3 | write | 書き込み可能 | デフォルト |
 
-# sparse-checkout有効化
-git sparse-checkout init --cone
+### sparse-checkout適用
 
-# エージェント定義のscopeに基づいて設定
-# excludeパターンは自動的に除外される
-git sparse-checkout set src/ tests/ docs/ package.json
-```
+excludeパターンに一致するファイルを物理的に除外する。
 
-**エージェント定義例**:
-```yaml
-# coder.yaml (DB内agents.scopeから生成)
-name: coder
-scope:
-  exclude:                 # sparse-checkoutで物理的に除外
-    - "**/*.env"
-    - "**/secrets/**"
-    - "**/.env.*"
-  read:                    # worktreeに存在、参照可能
-    - "**/*"
-  write:                   # 編集可能（明示的指定が必要）
-    - "src/**"
-    - "tests/**"
-    - "package.json"
-```
+**適用例:**
+- `**/*.env` → 環境変数ファイルを除外
+- `**/secrets/**` → 秘密情報ディレクトリを除外
+- `**/.env.*` → 環境別設定を除外
 
-**sparse-checkout動作**:
-1. `exclude`にマッチするファイルは物理的に存在しない
-2. `read`にマッチするファイルのみworktreeに展開
-3. `exclude`が最優先（`read: ["**/*"]`でも除外される）
+**除外の理由:** 機密情報がWorkerに漏洩することを防ぐ。sparse-checkoutはGitレベルでファイルを展開しないため、AIがどのような手段を使ってもアクセス不可能。
 
-### 2.3 chmod適用（write制御）
+### chmod適用
 
-`write`に明示的にマッチしないファイルは読み取り専用にする：
+writeスコープ外のファイルを読み取り専用にする。
 
-```bash
-# agentmineが内部で実行
-cd .agentmine/worktrees/task-5
+**適用結果:**
+- write対象（例: src/, tests/）: 編集可能
+- read対象（例: docs/, README.md）: 参照のみ
+- exclude対象（例: .env）: 存在しない
 
-# write対象外を読み取り専用に
-find . -type f ! -path "src/*" ! -path "tests/*" ! -name "package.json" -exec chmod a-w {} \;
+### Memory Bank出力
 
-# または明示的にwrite対象のみ書き込み可能に
-chmod a-w -R .
-chmod u+w src/ tests/ package.json
-```
+DBからMemory Bankを取得し、worktree内にスナップショットを出力する。
 
-**結果**:
-- `src/`, `tests/`, `package.json`: 編集可能（rw-r--r--）
-- `docs/`, `README.md`等: 読み取り専用（r--r--r--）
-- `.env`, `secrets/`: 存在しない（sparse-checkoutで除外）
+| 出力先 | 内容 |
+|--------|------|
+| .agentmine/memory/{category}/{id}.md | status=activeのMemory |
 
-### 2.4 Memory Bank出力
+**スナップショット出力の理由:**
+- WorkerはDBにアクセスできない（隔離されているため）
+- ファイルとして配置することでWorkerが参照可能になる
+- read-onlyとして配置し、Workerによる変更を防ぐ
 
-```bash
-# agentmineが内部で実行
-cd .agentmine/worktrees/task-5
+### クライアント設定出力
 
-# DBからMemory Bank取得 → ファイル出力
-mkdir -p .agentmine/memory
-# status=activeのmemoriesのみ出力
-```
+AIクライアント用の設定ファイルを生成する。
 
-**出力構造**:
-```
-.agentmine/memory/
-├── architecture/
-│   └── 1.md
-├── conventions/
-│   └── 5.md
-└── tooling/
-    └── 2.md
-```
+| AIクライアント | 設定ファイル |
+|----------------|-------------|
+| Claude Code | .claude/CLAUDE.md |
+| Codex | .codex/CODEX.md |
+| その他 | .agentmine/prompt.md |
 
-**注意**: `.agentmine/memory/`は読み取り専用。Workerがこれらを編集することはない。
+**設定ファイルの内容:**
+- タスク情報（ID、タイトル、説明）
+- エージェント指示（agents.promptContent）
+- スコープ情報
+- Memory Bank要約と参照一覧
+- 共通作業指示
 
-### 2.5 クライアント設定出力
+## Phase 3: Worker Execution（実行フェーズ）
 
-```bash
-# agentmineが内部で実行
-cd .agentmine/worktrees/task-5
+### Worker AI起動
 
-# Claude Code用設定
-mkdir -p .claude
-cat > .claude/CLAUDE.md <<'EOF'
-# Task #5: ログイン機能実装
+agentmineがworktree内でAIクライアントを起動する。
 
-## Description
-POST /api/login でJWTトークンを返すAPIを実装してください。
+**対応AIクライアント:**
 
-## Agent Instructions
-[agents.promptContentから取得]
+| クライアント | 自動承認フラグ |
+|-------------|--------------|
+| Claude Code | --dangerously-skip-permissions |
+| Codex | --full-auto |
+| Aider | --yes |
+| Gemini CLI | -y |
 
-## Memory Bank Summary
-- [要約1]
-- [要約2]
-
-## Project Context (Memory Bank)
-The following project context files are available:
-- .agentmine/memory/architecture/1.md
-- .agentmine/memory/conventions/5.md
-
-Read these files for details.
-EOF
-```
-
-**クライアント別ファイル名**:
-- Claude Code: `.claude/CLAUDE.md`
-- Codex: `.codex/CODEX.md`
-- その他: `.agentmine/prompt.md`（汎用）
-
----
-
-## Phase 3: Worker Execution（Worker実行フェーズ）
-
-### 3.1 Worker AI起動
-
-```bash
-# agentmineが内部で実行
-cd .agentmine/worktrees/task-5
-
-# Claude Code起動例
-timeout --signal=SIGTERM 300 \
-  claude-code exec --dangerously-skip-permissions \
-  "$(cat .claude/CLAUDE.md)"
-
-# Codex起動例
-timeout --signal=SIGTERM 300 \
-  codex exec --full-auto \
-  "$(cat .codex/CODEX.md)"
-```
-
-**対応AIクライアント**:
-| クライアント | 実行コマンド | 自動承認フラグ |
-|-------------|------------|--------------|
-| Claude Code | `claude-code exec` | `--dangerously-skip-permissions` |
-| Codex | `codex exec` | `--full-auto` |
-| Aider | `aider` | `--yes` |
-| Gemini CLI | `gemini` | `-y` |
-
-**タイムアウト設定**:
-- デフォルト: 300秒（5分）
+**タイムアウト設定:**
+- デフォルト: 300秒
 - SIGTERMで graceful shutdown
 - タイムアウト時のexit code: 124
 
-### 3.2 Worker作業
+### Worker作業内容
 
-Workerは以下の作業を行う：
+Workerは以下の作業を行う。
 
-1. **既存コード確認**: プロジェクト構造・実装パターンの理解
-2. **コード作成**: タスク要件に従ってファイル作成・編集
-3. **テスト追加**: 必要に応じてテストコード作成
-4. **動作確認**: ローカルでlint/test実行（任意）
-5. **コミット**: 変更をコミット
+| 順序 | 作業 | 必須 |
+|------|------|------|
+| 1 | 既存コード確認 | 推奨 |
+| 2 | コード作成・編集 | 必須 |
+| 3 | テスト追加 | タスク依存 |
+| 4 | ローカル検証 | 任意 |
+| 5 | コミット | 必須 |
 
-**Workerの制約**:
+**Workerの制約:**
 - agentmineコマンド実行不可（DBアクセスなし）
 - worktree外のファイルアクセス不可
-- スコープ外のファイルアクセス不可（物理的に制限）
+- スコープ外のファイル編集不可（物理的に制限）
 
-### 3.3 Worker終了
+### Worker終了
 
-Workerは作業完了後、自動的に終了する：
+Workerは作業完了後、exit codeを返して終了する。
 
-```bash
-# Worker内部（擬似コード）
-git add .
-git commit -m "feat: ログイン機能実装
-
-Co-Authored-By: Claude Code <claude-code@agentmine.local>"
-
-# 正常終了
-exit 0
-
-# エラー終了
-exit 1
-```
-
-**exit code**:
-- `0`: 成功
-- `1-255`: エラー（AIクライアント依存）
-- `124`: タイムアウト（timeout コマンド）
-
----
+| exit code | 意味 |
+|-----------|------|
+| 0 | 成功 |
+| 1-123 | エラー（AIクライアント依存） |
+| 124 | タイムアウト |
+| 125-255 | その他のエラー |
 
 ## Phase 4: Completion（完了フェーズ）
 
-### 4.1 exit code記録
+### exit code記録
 
-```bash
-# Orchestratorスクリプト（例）
-EXIT_CODE=$?
+agentmineがWorkerのexit codeをセッションに記録する。
 
-# agentmineが自動記録（--exec使用時）
-# または手動記録
-agentmine session end $SESSION_ID \
-  --exit-code $EXIT_CODE \
-  --signal "" \
-  --artifacts '["src/auth.ts", "tests/auth.test.ts"]'
+| exit code | session.status |
+|-----------|----------------|
+| 0 | completed |
+| それ以外 | failed |
+
+### DoD検証
+
+**重要:** DoD（Definition of Done）検証はagentmineが強制実行する。Orchestratorの任意ではない。
+
+```mermaid
+flowchart LR
+    W[Worker完了] --> D{DoD検証}
+    D -->|成功| M[マージ可能]
+    D -->|失敗| B[マージブロック]
+    B --> R{--skip-dod?}
+    R -->|あり| S[自己責任でスキップ]
+    R -->|なし| F[dod_failedとして記録]
 ```
 
-**sessions テーブル更新**:
-```typescript
-await db.update(sessions)
-  .set({
-    status: exitCode === 0 ? 'completed' : 'failed',
-    exitCode,
-    completedAt: new Date(),
-    duration: Date.now() - session.startedAt.getTime(),
-  })
-  .where(eq(sessions.id, sessionId));
+**DoD検証の内容:**
+
+| 項目 | 実行内容 | 失敗時の意味 |
+|------|---------|-------------|
+| lint | pnpm lint | コードスタイル違反 |
+| test | pnpm test | テスト失敗 |
+| build | pnpm build | ビルドエラー |
+
+**なぜ仕組み化するか:**
+- Orchestratorが検証をスキップしても何も起きない、という状況を避ける
+- 責任の所在を明確にする（DoDが通らないとマージ不可）
+- スコープ制御と同様の「安全装置」として位置づける
+
+**DoD定義の取得元:**
+- エージェント定義の`dod`フィールド
+- タスクの`dod`フィールド（上書き用）
+- 例: `dod: ["pnpm lint", "pnpm test", "pnpm build"]`
+
+### ステータス更新
+
+DoD検証結果をセッションに記録する。
+
+| session.dodResult | 意味 |
+|-------------------|------|
+| passed | DoD全項目成功 |
+| failed | DoD失敗（マージブロック） |
+| skipped | --skip-dodで明示的にスキップ |
+| timeout | DoD実行がタイムアウト |
+
+### マージ判断
+
+Orchestratorがマージを実行するか判断する。
+
+**判断基準:**
+- session.dodResult = passedの場合のみマージ可能
+- コンフリクト発生時はOrchestratorが解決または失敗扱いを判断
+- マージ成功後、agentmineがブランチのマージ状態を検出しタスクをdoneに更新
+
+### クリーンアップ
+
+Orchestratorが`agentmine worker done`を実行する。
+
+**実行内容:**
+- worktree削除
+- ブランチ削除（マージ済みの場合）
+- セッションステータスの最終確認
+
+## タスクステータス判定
+
+タスクステータスは観測可能な事実から自動判定する。
+
+```mermaid
+stateDiagram-v2
+    [*] --> open: タスク作成
+    open --> in_progress: Worker起動
+    in_progress --> done: ブランチマージ済み
+    in_progress --> failed: Worker異常終了
+    in_progress --> dod_failed: DoD検証失敗
+    failed --> in_progress: リトライ
+    dod_failed --> in_progress: リトライ
+    open --> cancelled: 手動キャンセル
+    in_progress --> cancelled: 手動キャンセル
 ```
 
-### 4.2 成果物収集
+**判定ロジック:**
 
-```bash
-# agentmineが内部で実行
-cd .agentmine/worktrees/task-5
+| 条件 | ステータス |
+|------|-----------|
+| セッションなし | open |
+| 手動キャンセル | cancelled |
+| git log base..branch が空 | done（マージ済み） |
+| PIDが存在し実行中 | in_progress |
+| dodResult = failed | dod_failed |
+| 全セッションが失敗 | failed |
+| その他 | in_progress |
 
-# 変更ファイル一覧取得
-git diff --name-only HEAD
+## プロンプト構成
 
-# 例: src/auth.ts, tests/auth.test.ts
-```
-
-**sessions.artifacts更新**:
-```typescript
-const { stdout } = await exec('git diff --name-only HEAD', {
-  cwd: session.worktreePath,
-});
-const artifacts = stdout.trim().split('\n').filter(Boolean);
-
-await db.update(sessions)
-  .set({ artifacts })
-  .where(eq(sessions.id, sessionId));
-```
-
-### 4.3 DoD（Definition of Done）検証
-
-**重要**: DoD検証はOrchestratorが実行する。agentmineは実行しない。
-
-```bash
-# Orchestratorスクリプト（例）
-cd .agentmine/worktrees/task-5
-
-# lint実行
-pnpm lint
-if [ $? -ne 0 ]; then
-  echo "Lint failed"
-  exit 1
-fi
-
-# test実行
-pnpm test
-if [ $? -ne 0 ]; then
-  echo "Tests failed"
-  exit 1
-fi
-
-# build実行
-pnpm build
-if [ $? -ne 0 ]; then
-  echo "Build failed"
-  exit 1
-fi
-
-echo "DoD passed"
-```
-
-**DoD判定結果**:
-- `merged`: 全チェック合格、マージ成功
-- `timeout`: DoD実行がタイムアウト
-- `error`: DoD失敗（lint/test/build失敗）
-
-### 4.4 マージ判断
-
-**Orchestratorの責務**: DoD合格後、マージ実行を判断する。
-
-```bash
-# Orchestratorスクリプト（例）
-git checkout develop
-git merge task-5-s123
-
-if [ $? -eq 0 ]; then
-  echo "Merge successful"
-  agentmine session end $SESSION_ID --dod-result merged
-else
-  echo "Merge conflict"
-  # Orchestratorがコンフリクト解決するか、失敗扱いにするか判断
-fi
-```
-
-**タスクステータス自動判定**:
-```bash
-# マージ後、agentmineが自動判定
-git log --oneline develop..task-5-s123
-
-# 結果が空 → マージ済み → task status = done
-# 結果があり → まだマージされていない → task status = in_progress
-```
-
-### 4.5 完了処理・クリーンアップ
-
-```bash
-# Orchestratorが実行
-agentmine worker done 5
-```
-
-**内部動作**:
-1. worktree削除（`git worktree remove .agentmine/worktrees/task-5`）
-2. ブランチ削除（オプション、デフォルトはマージ後に削除）
-3. セッションステータス確認（既に`completed`/`failed`であることを確認）
-
----
-
-## 完全な実行例
-
-### 単一Worker実行（フォアグラウンド）
-
-```bash
-# 1. Orchestratorがタスク取得
-TASK_INFO=$(agentmine task show 5 --json)
-echo "$TASK_INFO" | jq
-
-# 2. Worker起動（フォアグラウンド）
-agentmine worker run 5 --exec --json > run_result.json
-
-# 3. 結果確認
-SESSION_ID=$(cat run_result.json | jq -r '.session.id')
-EXIT_CODE=$(cat run_result.json | jq -r '.session.exitCode')
-
-# 4. DoD検証
-cd .agentmine/worktrees/task-5
-pnpm lint && pnpm test && pnpm build
-DOD_RESULT=$?
-
-# 5. マージ
-cd ../..
-if [ $DOD_RESULT -eq 0 ]; then
-  git checkout develop
-  git merge task-5-s$SESSION_ID
-  agentmine session end $SESSION_ID --dod-result merged
-else
-  agentmine session end $SESSION_ID --dod-result error
-fi
-
-# 6. クリーンアップ
-agentmine worker done 5
-```
-
-### 並列Worker実行（バックグラウンド）
-
-```bash
-# 1. 3つのタスクを並列起動
-agentmine worker run 3 --exec --detach --json > task3.json &
-agentmine worker run 4 --exec --detach --json > task4.json &
-agentmine worker run 5 --exec --detach --json > task5.json &
-
-# 2. 完了待ち
-agentmine worker wait 3 4 5
-
-# 3. 各タスクのDoD検証 + マージ（順次）
-for TASK_ID in 3 4 5; do
-  SESSION_ID=$(cat task$TASK_ID.json | jq -r '.session.id')
-
-  # DoD検証
-  cd .agentmine/worktrees/task-$TASK_ID
-  pnpm lint && pnpm test && pnpm build
-  DOD_RESULT=$?
-  cd ../..
-
-  # マージ
-  if [ $DOD_RESULT -eq 0 ]; then
-    git checkout develop
-    git merge task-$TASK_ID-s$SESSION_ID
-    agentmine session end $SESSION_ID --dod-result merged
-  else
-    agentmine session end $SESSION_ID --dod-result error
-  fi
-
-  # クリーンアップ
-  agentmine worker done $TASK_ID
-done
-```
-
----
-
-## プロンプト生成詳細
-
-### buildPromptFromTask()
-
-`agentmine worker run`実行時、以下の情報を統合してプロンプトを生成する。
-
-```typescript
-interface BuildPromptOptions {
-  task: Task;
-  agent: AgentDefinition;
-  memoryService: MemoryService;
-}
-
-async function buildPromptFromTask(options: BuildPromptOptions): Promise<string> {
-  const { task, agent, memoryService } = options;
-  const parts: string[] = [];
-
-  // 1. タスク基本情報
-  parts.push(`# Task #${task.id}: ${task.title}`);
-  parts.push(`Type: ${task.type} | Priority: ${task.priority}`);
-
-  // 2. 説明
-  if (task.description) {
-    parts.push('## Description');
-    parts.push(task.description);
-  }
-
-  // 3. エージェント専用プロンプト（DB内promptContent）
-  if (agent.promptContent) {
-    parts.push('## Agent Instructions');
-    parts.push(agent.promptContent);
-  }
-
-  // 4. スコープ情報
-  parts.push('## Scope');
-  parts.push(`- Read: ${agent.scope.read.join(', ')}`);
-  parts.push(`- Write: ${agent.scope.write.join(', ')}`);
-  parts.push(`- Exclude: ${agent.scope.exclude.join(', ')}`);
-
-  // 5. Memory Bank（要約 + 参照一覧）
-  const memorySummary = await memoryService.buildSummary({
-    status: 'active',
-    maxItems: 5,
-  });
-  if (memorySummary.length > 0) {
-    parts.push('## Memory Bank Summary');
-    parts.push(...memorySummary);
-  }
-
-  const memoryFiles = await memoryService.listFiles({ status: 'active' });
-  if (memoryFiles.length > 0) {
-    parts.push('## Project Context (Memory Bank)');
-    parts.push('The following project context files are available:');
-    for (const file of memoryFiles) {
-      parts.push(`- ${file.path} - ${file.title}`);
-    }
-    parts.push('');
-    parts.push('Read these files in .agentmine/memory/ for details.');
-  }
-
-  // 6. 基本指示
-  parts.push('## Instructions');
-  parts.push('1. 既存の実装パターンを確認してから作業開始');
-  parts.push('2. モックデータは作成しない - 必ず既存サービスを使用');
-  parts.push('3. テストが全てパスすることを確認');
-  parts.push('4. 完了したらコミット');
-
-  return parts.join('\n\n');
-}
-```
-
-### プロンプト構成要素
+Worker起動時に生成するプロンプトの構成要素。
 
 | セクション | 内容 | 出典 | 展開方式 |
 |-----------|------|------|----------|
-| Task Header | タスクID、タイトル、タイプ、優先度 | `tasks`テーブル | 全文 |
-| Description | タスクの詳細説明 | `tasks.description` | 全文 |
-| Agent Instructions | エージェント固有の詳細指示 | `agents.promptContent` (DB) | 全文 |
-| Scope | ファイルアクセス範囲 | `agents.scope` (DB) | 全文 |
-| Project Context | プロジェクト決定事項 | Memory Bank（DB → `.agentmine/memory`） | **要約 + 参照一覧** |
-| Instructions | 共通の作業指示 | ハードコード | 全文 |
+| Task Header | ID、タイトル、タイプ、優先度 | tasksテーブル | 全文 |
+| Description | タスクの詳細説明 | tasks.description | 全文 |
+| Agent Instructions | エージェント固有の指示 | agents.promptContent | 全文 |
+| Scope | ファイルアクセス範囲 | agents.scope | 全文 |
+| Memory Bank | プロジェクトコンテキスト | memoriesテーブル | 要約 + 参照一覧 |
+| Instructions | 共通作業指示 | ハードコード | 全文 |
 
-**重要**: Memory BankはDBがマスター。`worker run`実行時に`.agentmine/memory/`をスナップショット生成し、`status=active`のみ短い要約と参照一覧を注入する。詳細はファイルを参照する。
+**Memory Bank展開の理由:** 全文を注入するとトークン数が膨大になるため、要約と参照一覧のみ注入し、詳細はWorkerが必要に応じて.agentmine/memory/から読み込む。
 
----
+## 実行パターン
 
-## ステータス判定
+### 単一Worker実行
 
-### タスクステータス遷移
+| 手順 | 実行者 | 操作 |
+|------|--------|------|
+| 1 | Orchestrator | タスク取得 |
+| 2 | Orchestrator | worker run --exec |
+| 3 | agentmine | 準備・実行・完了処理 |
+| 4 | Orchestrator | マージ実行 |
+| 5 | Orchestrator | worker done |
 
-```
-┌──────┐     ┌───────────┐     ┌──────┐
-│ open │────▶│in_progress│────▶│ done │
-└──────┘     └───────────┘     └──────┘
-                  │
-                  │ (Worker異常終了)
-                  ▼
-             ┌──────────┐
-             │  failed  │
-             └──────────┘
+### 並列Worker実行
 
-Any state → cancelled
-failed → in_progress (再試行時)
-```
+| 手順 | 実行者 | 操作 |
+|------|--------|------|
+| 1 | Orchestrator | 複数タスク取得 |
+| 2 | Orchestrator | worker run --exec --detach（複数回） |
+| 3 | Orchestrator | worker wait（全Worker完了待ち） |
+| 4 | Orchestrator | 各Workerの結果確認・マージ（順次） |
+| 5 | Orchestrator | worker done（各Worker） |
 
-### ステータス判定ロジック
+## 未確定事項
 
-```typescript
-type TaskStatus = 'open' | 'in_progress' | 'done' | 'failed' | 'cancelled';
-
-async function computeTaskStatus(taskId: number, baseBranch: string): Promise<TaskStatus> {
-  // 1. タスクのセッション一覧取得
-  const sessions = await db
-    .select()
-    .from(sessions)
-    .where(eq(sessions.taskId, taskId));
-
-  if (sessions.length === 0) {
-    return 'open';
-  }
-
-  // 2. 手動キャンセルチェック
-  if (sessions.some(s => s.status === 'cancelled')) {
-    return 'cancelled';
-  }
-
-  // 3. Git判定: マージ済みか？
-  const mergedSession = sessions.find(s => s.dodResult === 'merged');
-  if (mergedSession) {
-    // ダブルチェック: Git側でも確認
-    const { stdout } = await exec(
-      `git log --oneline ${baseBranch}..${mergedSession.branch}`
-    );
-    if (stdout.trim() === '') {
-      return 'done';
-    }
-  }
-
-  // 4. running セッション確認
-  const runningSessions = sessions.filter(s => {
-    if (!s.pid) return false;
-    try {
-      process.kill(s.pid, 0); // シグナル0で存在確認のみ
-      return true;
-    } catch {
-      return false;
-    }
-  });
-
-  if (runningSessions.length > 0) {
-    return 'in_progress';
-  }
-
-  // 5. 失敗/取消のみ → failed
-  const allFailedOrCancelled = sessions.every(
-    s => s.status === 'failed' || s.status === 'cancelled'
-  );
-
-  if (allFailedOrCancelled) {
-    return 'failed';
-  }
-
-  // 6. デフォルト: in_progress
-  return 'in_progress';
-}
-```
-
-**判定基準**:
-- `open`: セッションなし
-- `in_progress`: runningセッションが1つ以上
-- `done`: `git log baseBranch..branch`が空（マージ済み）
-- `failed`: runningなし、mergedなし、失敗/取消のみ
-- `cancelled`: 手動キャンセル（唯一の例外）
-
-詳細: **@../03-core-concepts/observable-facts.md**
-
----
-
-## よくある質問
-
-### Q1: Worker runとWorker promptの違いは？
-
-**A**:
-- `worker run --exec`: worktree作成 + scope適用 + Worker AI起動 + 完了待機
-- `worker prompt`: プロンプト生成のみ（手動Worker運用時に使用）
-
-### Q2: --detachオプションはいつ使う？
-
-**A**: 並列実行時に使用。複数のWorkerをバックグラウンドで起動し、後で`worker wait`で完了を待つ。
-
-```bash
-agentmine worker run 3 --exec --detach
-agentmine worker run 4 --exec --detach
-agentmine worker wait 3 4
-```
-
-### Q3: Workerが失敗したらどうなる？
-
-**A**: agentmineがセッションを`failed`に記録し、Orchestratorに通知。リトライ判断はOrchestratorが行う。
-
-```bash
-# リトライ例
-agentmine worker run 5 --exec  # 新しいセッションで再実行
-```
-
-### Q4: worktree削除のタイミングは？
-
-**A**: `agentmine worker done`実行時。自動削除は設定で制御可能。
-
-```yaml
-# settings
-execution:
-  parallel:
-    worktree:
-      cleanup: true  # 完了後に自動削除（デフォルト）
-```
-
-### Q5: Workerはagentmineコマンドを実行できる？
-
-**A**: いいえ、できません。Workerは完全に隔離されており、DBアクセスもありません。
-
----
+| 項目 | 現状 | 検討中 |
+|------|------|--------|
+| DoD検証の並列実行 | 順次実行 | 複数Worker完了後の並列検証 |
+| 自動リトライ | なし | 設定可能な回数制限付き |
+| worktree自動クリーンアップ | worker done必須 | 一定時間後の自動削除 |
 
 ## 関連ドキュメント
 
-- **@../03-core-concepts/orchestrator-worker.md** - Orchestrator/Workerモデルの役割定義
-- **@../03-core-concepts/scope-control.md** - スコープ制御の仕組み
-- **@../03-core-concepts/observable-facts.md** - ステータス判定方法
-- **@parallel-execution.md** - 並列実行の詳細（複数Worker同時実行）
-- **@../05-features/agent-system.md** - エージェント定義
-- **@../05-features/memory-bank.md** - Memory Bank
-- **@../06-interfaces/cli/commands.md** - CLIコマンドリファレンス
+- 概要: @01-introduction/overview.md
+- アーキテクチャ: @02-architecture/architecture.md
+- Orchestrator/Workerモデル: @03-core-concepts/orchestrator-worker.md
+- スコープ制御: @03-core-concepts/scope-control.md
+- 事実ベース判定: @03-core-concepts/observable-facts.md
+- Agent定義: @05-features/agent-system.md
+- Memory Bank: @05-features/memory-bank.md
+- 用語集: @appendix/glossary.md

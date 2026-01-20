@@ -1,498 +1,285 @@
-# Data Model
+# データモデル
 
-## Database Strategy
+## 目的
 
-| 環境 | DB | 用途 |
-|------|-----|------|
-| **チーム開発（メイン）** | **PostgreSQL** | 共有DB、Redmine的運用、リアルタイム協業 |
-| ローカル開発（サブ） | SQLite | 個人利用、お試し、オフライン |
+agentmineのデータ構造を定義する。本ドキュメントはデータモデルのSSoT（Single Source of Truth）である。
 
-**DBがマスター。** すべてのデータはDBで管理し、ファイル出力は必要時に行う。
+## 背景
 
+agentmineは「DBマスター」設計を採用する。すべてのデータはDBで管理し、ファイルは必要時にスナップショット出力する。
+
+**なぜDBマスターか:**
+- チーム全員が同じデータを参照できる（Single Source of Truth）
+- リアルタイム協業が可能（Redmine的運用）
+- YAMLファイル同期の複雑さを回避できる
+
+## DB戦略
+
+| 環境 | DB | 用途 | 理由 |
+|------|-----|------|------|
+| チーム開発（メイン） | PostgreSQL | 共有DB、リアルタイム協業 | 複数人での同時アクセス |
+| 個人利用（サブ） | SQLite | お試し、オフライン | セットアップ不要 |
+
+Drizzle ORMにより、両DBで共通のクエリAPIを使用する。
+
+## ER図
+
+```mermaid
+erDiagram
+    Project ||--o{ Task : has
+    Project ||--o{ Agent : has
+    Project ||--o{ Memory : has
+    Project ||--o{ Settings : has
+    Project ||--o{ AuditLog : has
+
+    Task ||--o{ Session : has
+    Task ||--o| Task : parent
+
+    Agent ||--o{ AgentHistory : has
+    Memory ||--o{ MemoryHistory : has
+
+    Task {
+        int id PK
+        int project_id FK
+        int parent_id FK
+        string title
+        string description
+        string status
+        string priority
+        string type
+        string assignee_type
+        string assignee_name
+        int selected_session_id FK
+        json labels
+        int complexity
+    }
+
+    Session {
+        int id PK
+        int task_id FK
+        string agent_name
+        string status
+        timestamp started_at
+        timestamp completed_at
+        int duration_ms
+        string branch_name
+        string pr_url
+        string worktree_path
+        int exit_code
+        string dod_result
+        json artifacts
+        json error
+    }
+
+    Agent {
+        int id PK
+        int project_id FK
+        string name
+        string description
+        string client
+        string model
+        json scope
+        json config
+        text prompt_content
+        int version
+    }
+
+    Memory {
+        int id PK
+        int project_id FK
+        string category
+        string title
+        string summary
+        text content
+        string status
+        json tags
+        int version
+    }
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│  Redmine的運用                                                   │
-│                                                                 │
-│  チーム全員 ───→ 共有PostgreSQL ───→ 単一の真実源               │
-│                                                                 │
-│  Web UI ──┐                                                      │
-│  CLI ─────┼──→ DB (マスター) ──→ Worker用ファイル出力           │
-│  MCP ─────┘                                                      │
-│                                                                 │
-│  .agentmine/ は .gitignore（リポジトリには含めない）            │
-└─────────────────────────────────────────────────────────────────┘
-```
 
-Drizzle ORMにより、両DBで共通のクエリAPIを使用。
+## テーブル定義
 
-## ER Diagram
+### projects
 
-```
-┌─────────────────┐
-│     Project     │
-├─────────────────┤
-│ id          PK  │
-│ name            │
-│ description     │
-│ created_at      │
-│ updated_at      │
-└────────┬────────┘
-         │
-    ┌────┴────────────────────────────────────────┐
-    │                    │                        │
-    ▼                    ▼                        ▼
-┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
-│      Task       │  │     Agent       │  │     Memory      │
-├─────────────────┤  ├─────────────────┤  ├─────────────────┤
-│ id          PK  │  │ id          PK  │  │ id          PK  │
-│ project_id  FK  │  │ project_id  FK  │  │ project_id  FK  │
-│ parent_id   FK  │  │ name            │  │ category        │
-│ title           │  │ description     │  │ title           │
-│ description     │  │ client          │  │ summary         │
-│ status          │  │ model           │  │ content         │
-│ priority        │  │ scope       {}  │  │ status          │
-│ type            │  │ config      {}  │  │ tags        []  │
-│ assignee_type   │  │ prompt_content  │  │ related_task_id │
-│ assignee_name   │  │ version         │  │ version         │
-│ selected_session│  │ created_by      │  │ created_by      │
-│ labels      []  │  │ created_at      │  │ created_at      │
-│ complexity      │  │ updated_at      │  │ updated_at      │
-│ created_at      │  └────────┬────────┘  └────────┬────────┘
-│ updated_at      │           │                    ▼
-└────────┬────────┘           ▼           ┌─────────────────┐
-         │           ┌─────────────────┐  │ MemoryHistory   │
-         ▼           │  AgentHistory   │  ├─────────────────┤
-         │           ┌─────────────────┐  │ id          PK  │
-         ▼           │  AgentHistory   │  │ memory_id   FK  │
-┌─────────────────┐  ├─────────────────┤  │ snapshot    {}  │
-│     Session     │  │ id          PK  │  │ version         │
-├─────────────────┤  │ agent_id    FK  │  │ changed_by      │
-│ id          PK  │  │ snapshot    {}  │  │ changed_at      │
-│ task_id     FK  │  │ version         │  │ change_summary  │
-│ agent_name      │  │ changed_by      │  └─────────────────┘
-│ status          │  │ changed_at      │
-│ started_at      │  │ change_summary  │
-│ completed_at    │  └─────────────────┘
-│ duration_ms     │
-│ session_group   │
-│ idempotency_key │
-│ branch_name     │
-│ pr_url          │
-│ worktree_path   │
-│ exit_code       │           ┌─────────────────┐
-│ dod_result      │           │   AuditLog      │
-│ artifacts   []  │           ├─────────────────┤
-│ error       {}  │           │ id          PK  │
-└─────────────────┘           │ project_id  FK  │
-                              │ user_id         │
-┌─────────────────┐           │ action          │
-│    Settings     │           │ entity_type     │
-├─────────────────┤           │ entity_id       │
-│ id          PK  │           │ changes     {}  │
-│ project_id  FK  │           │ created_at      │
-│ key             │           └─────────────────┘
-│ value       {}  │
-│ updated_by      │
-│ updated_at      │
-└─────────────────┘
-```
-
-## Schema Definition (Drizzle)
+| カラム | 型 | 説明 |
+|--------|-----|------|
+| id | integer PK | 自動採番 |
+| name | text | プロジェクト名 |
+| description | text | 説明 |
+| created_at | timestamp | 作成日時 |
+| updated_at | timestamp | 更新日時 |
 
 ### tasks
 
-```typescript
-import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
+| カラム | 型 | 説明 |
+|--------|-----|------|
+| id | integer PK | 自動採番 |
+| project_id | integer FK | プロジェクト参照 |
+| parent_id | integer FK | 親タスク参照（階層構造） |
+| title | text | タスクタイトル |
+| description | text | 詳細説明 |
+| status | enum | open, in_progress, done, failed, dod_failed, cancelled |
+| priority | enum | low, medium, high, critical |
+| type | enum | task, feature, bug, refactor |
+| assignee_type | enum | ai, human |
+| assignee_name | text | Agent名またはユーザー名 |
+| selected_session_id | integer FK | 採用されたセッション |
+| labels | json | 運用ラベル配列 |
+| complexity | integer | 複雑度（1-10） |
+| created_at | timestamp | 作成日時 |
+| updated_at | timestamp | 更新日時 |
 
-export const tasks = sqliteTable('tasks', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  projectId: integer('project_id').references(() => projects.id),
-  parentId: integer('parent_id').references(() => tasks.id),
-
-  title: text('title').notNull(),
-  description: text('description'),
-
-  status: text('status', {
-    enum: ['open', 'in_progress', 'done', 'failed', 'cancelled']
-  }).notNull().default('open'),
-
-  priority: text('priority', {
-    enum: ['low', 'medium', 'high', 'critical']
-  }).notNull().default('medium'),
-
-  type: text('type', {
-    enum: ['task', 'feature', 'bug', 'refactor']
-  }).notNull().default('task'),
-
-  // 担当者タイプ: ai（Worker起動）or human（Worker起動なし）
-  assigneeType: text('assignee_type', {
-    enum: ['ai', 'human']
-  }),
-  // ai: Agent名（coder, reviewer等）, human: ユーザー名
-  assigneeName: text('assignee_name'),
-
-  // 採用されたセッション（比較結果の選択）
-  selectedSessionId: integer('selected_session_id')
-    .references(() => sessions.id),
-
-  // 柔軟な運用ラベル（statusとは別管理）
-  labels: text('labels', { mode: 'json' })
-    .$type<string[]>()
-    .default([]),
-
-  complexity: integer('complexity'), // 1-10
-
-  createdAt: integer('created_at', { mode: 'timestamp' })
-    .notNull()
-    .default(sql`(unixepoch())`),
-  updatedAt: integer('updated_at', { mode: 'timestamp' })
-    .notNull()
-    .default(sql`(unixepoch())`),
-});
-
-export type Task = typeof tasks.$inferSelect;
-export type NewTask = typeof tasks.$inferInsert;
-```
-
-**Note:** ブランチ名やPR URLはセッションごとに管理し、タスクには採用セッション（`selectedSessionId`）のみを保存する。  
-**Note:** `labels` は表示名をそのまま保存し、プロジェクト内で一意に扱う。ラベル定義はsettingsに保存し、デフォルトセットは削除/編集可能。
-
-### agents（NEW: DBで管理）
-
-```typescript
-export const agents = sqliteTable('agents', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  projectId: integer('project_id').references(() => projects.id),
-
-  name: text('name').notNull(),
-  description: text('description'),
-
-  client: text('client', {
-    enum: ['claude-code', 'codex', 'aider', 'gemini-cli', 'opencode']
-  }).notNull(),
-  model: text('model').notNull(),
-
-  // スコープ設定（JSON）
-  scope: text('scope', { mode: 'json' })
-    .$type<{
-      read: string[];
-      write: string[];
-      exclude: string[];
-    }>()
-    .notNull()
-    .default({ read: ['**/*'], write: [], exclude: [] }),
-
-  // 追加設定（JSON）
-  config: text('config', { mode: 'json' })
-    .$type<{
-      temperature?: number;
-      maxTokens?: number;
-    }>()
-    .default({}),
-
-  // プロンプト内容（DB内で管理）
-  promptContent: text('prompt_content'),
-
-  // バージョン管理
-  version: integer('version').notNull().default(1),
-  createdBy: text('created_by'),
-
-  createdAt: integer('created_at', { mode: 'timestamp' })
-    .notNull()
-    .default(sql`(unixepoch())`),
-  updatedAt: integer('updated_at', { mode: 'timestamp' })
-    .notNull()
-    .default(sql`(unixepoch())`),
-});
-
-// ユニーク制約: プロジェクト内でエージェント名は一意
-// CREATE UNIQUE INDEX idx_agents_name ON agents(project_id, name);
-```
-
-### agent_history（NEW: 変更履歴）
-
-```typescript
-export const agentHistory = sqliteTable('agent_history', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  agentId: integer('agent_id')
-    .references(() => agents.id)
-    .notNull(),
-
-  // 変更前のスナップショット（全フィールド）
-  snapshot: text('snapshot', { mode: 'json' })
-    .$type<{
-      name: string;
-      description?: string;
-      client: string;
-      model: string;
-      scope: object;
-      config: object;
-      promptContent?: string;
-    }>()
-    .notNull(),
-
-  version: integer('version').notNull(),
-  changedBy: text('changed_by'),
-  changedAt: integer('changed_at', { mode: 'timestamp' })
-    .notNull()
-    .default(sql`(unixepoch())`),
-  changeSummary: text('change_summary'), // 変更内容の要約
-});
-```
-
-### memories（NEW: Memory BankをDB管理）
-
-```typescript
-export const memories = sqliteTable('memories', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  projectId: integer('project_id').references(() => projects.id),
-
-  category: text('category').notNull(),
-  title: text('title').notNull(),
-  summary: text('summary'),
-  content: text('content').notNull(), // Markdown
-  status: text('status', {
-    enum: ['draft', 'active', 'archived']
-  }).notNull().default('active'),
-
-  // メタデータ
-  tags: text('tags', { mode: 'json' })
-    .$type<string[]>()
-    .default([]),
-
-  relatedTaskId: integer('related_task_id').references(() => tasks.id),
-
-  // バージョン管理
-  version: integer('version').notNull().default(1),
-  createdBy: text('created_by'),
-
-  createdAt: integer('created_at', { mode: 'timestamp' })
-    .notNull()
-    .default(sql`(unixepoch())`),
-  updatedAt: integer('updated_at', { mode: 'timestamp' })
-    .notNull()
-    .default(sql`(unixepoch())`),
-});
-```
-
-### memory_history（NEW: Memory変更履歴）
-
-```typescript
-export const memoryHistory = sqliteTable('memory_history', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  memoryId: integer('memory_id')
-    .references(() => memories.id)
-    .notNull(),
-
-  snapshot: text('snapshot', { mode: 'json' })
-    .$type<{
-      id: number;
-      category: string;
-      title: string;
-      summary?: string;
-      content: string;
-      status: 'draft' | 'active' | 'archived';
-      tags?: string[];
-    }>()
-    .notNull(), // 変更前のスナップショット
-  version: integer('version').notNull(),
-  changedBy: text('changed_by'),
-  changedAt: integer('changed_at', { mode: 'timestamp' })
-    .notNull()
-    .default(sql`(unixepoch())`),
-  changeSummary: text('change_summary'),
-});
-```
-
-### settings（NEW: 設定をDB管理）
-
-```typescript
-export const settings = sqliteTable('settings', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  projectId: integer('project_id').references(() => projects.id),
-
-  key: text('key').notNull(), // e.g., 'git.baseBranch', 'execution.maxWorkers'
-  value: text('value', { mode: 'json' }).notNull(),
-
-  updatedBy: text('updated_by'),
-  updatedAt: integer('updated_at', { mode: 'timestamp' })
-    .notNull()
-    .default(sql`(unixepoch())`),
-});
-
-// ユニーク制約: プロジェクト内で設定キーは一意
-// CREATE UNIQUE INDEX idx_settings_key ON settings(project_id, key);
-```
-
-### audit_logs（NEW: 監査ログ）
-
-```typescript
-export const auditLogs = sqliteTable('audit_logs', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  projectId: integer('project_id').references(() => projects.id),
-
-  userId: text('user_id'), // 操作者（人間 or AI識別子）
-  action: text('action', {
-    enum: ['create', 'update', 'delete', 'start', 'stop', 'export']
-  }).notNull(),
-
-  entityType: text('entity_type', {
-    enum: ['task', 'agent', 'memory', 'session', 'settings']
-  }).notNull(),
-  entityId: text('entity_id'),
-
-  changes: text('changes', { mode: 'json' })
-    .$type<{
-      before?: object;
-      after?: object;
-      summary?: string;
-    }>(),
-
-  createdAt: integer('created_at', { mode: 'timestamp' })
-    .notNull()
-    .default(sql`(unixepoch())`),
-});
-```
+**設計意図:**
+- assignee_typeでAIタスクと人間タスクを区別（Worker起動有無に影響）
+- selected_session_idで並列比較の採用結果を記録
+- labelsはstatusとは独立した運用用フィールド
 
 ### sessions
 
-```typescript
-export const sessions = sqliteTable('sessions', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+| カラム | 型 | 説明 |
+|--------|-----|------|
+| id | integer PK | 自動採番 |
+| task_id | integer FK | タスク参照 |
+| agent_name | text | 使用したAgent名 |
+| status | enum | running, completed, failed, cancelled |
+| started_at | timestamp | 開始日時 |
+| completed_at | timestamp | 完了日時 |
+| duration_ms | integer | 実行時間（ミリ秒） |
+| session_group_id | text | 並列比較用グループID |
+| idempotency_key | text | 冪等性キー |
+| branch_name | text | ブランチ名 |
+| pr_url | text | PR URL |
+| worktree_path | text | worktreeパス |
+| exit_code | integer | 終了コード（観測事実） |
+| signal | text | 終了シグナル |
+| dod_result | enum | passed, failed, skipped, timeout |
+| artifacts | json | 成果物配列 |
+| error | json | エラー情報 |
 
-  taskId: integer('task_id')
-    .references(() => tasks.id),
-  agentName: text('agent_name').notNull(),
+**設計意図:**
+- exit_codeは観測可能な事実として記録（Workerが能動的に更新しない）
+- dod_resultはagentmineが自動検証した結果
+- branchとprはセッションごとに管理（タスクではなく）
 
-  status: text('status', {
-    enum: ['running', 'completed', 'failed', 'cancelled']
-  }).notNull().default('running'),
+### agents
 
-  // 実行時間
-  startedAt: integer('started_at', { mode: 'timestamp' })
-    .notNull()
-    .default(sql`(unixepoch())`),
-  completedAt: integer('completed_at', { mode: 'timestamp' }),
-  durationMs: integer('duration_ms'),
+| カラム | 型 | 説明 |
+|--------|-----|------|
+| id | integer PK | 自動採番 |
+| project_id | integer FK | プロジェクト参照 |
+| name | text | Agent名（プロジェクト内一意） |
+| description | text | 説明 |
+| client | enum | claude-code, codex, aider, gemini-cli, opencode |
+| model | text | モデル名 |
+| scope | json | スコープ設定（read, write, exclude） |
+| config | json | 追加設定（temperature等） |
+| prompt_content | text | プロンプト内容 |
+| dod | json | DoD検証コマンド配列 |
+| version | integer | バージョン番号 |
+| created_by | text | 作成者 |
+| created_at | timestamp | 作成日時 |
+| updated_at | timestamp | 更新日時 |
 
-  // 並列比較用
-  sessionGroupId: text('session_group_id'),
-  idempotencyKey: text('idempotency_key'),
+**設計意図:**
+- scopeはJSON形式でread/write/excludeパターンを保持
+- dodはAgent単位でデフォルト定義（タスクで上書き可能）
+- versionで変更履歴管理
 
-  // セッション固有のGit情報
-  branchName: text('branch_name'),
-  prUrl: text('pr_url'),
-  worktreePath: text('worktree_path'),
+### memories
 
-  // Worker終了情報（観測可能な事実）
-  exitCode: integer('exit_code'),
-  signal: text('signal'),
+| カラム | 型 | 説明 |
+|--------|-----|------|
+| id | integer PK | 自動採番 |
+| project_id | integer FK | プロジェクト参照 |
+| category | text | カテゴリ（フォルダ相当） |
+| title | text | タイトル |
+| summary | text | 要約（プロンプト注入用） |
+| content | text | Markdown本文 |
+| status | enum | draft, active, archived |
+| tags | json | タグ配列 |
+| related_task_id | integer FK | 関連タスク参照 |
+| version | integer | バージョン番号 |
+| created_by | text | 作成者 |
+| created_at | timestamp | 作成日時 |
+| updated_at | timestamp | 更新日時 |
 
-  // DoD判定結果
-  dodResult: text('dod_result', {
-    enum: ['pending', 'merged', 'timeout', 'error']
-  }).default('pending'),
+**設計意図:**
+- statusがactiveのMemoryのみWorkerに出力
+- summaryはトークン節約のためプロンプトに要約を注入、詳細はWorkerが必要時に参照
 
-  // 成果物
-  artifacts: text('artifacts', { mode: 'json' })
-    .$type<string[]>()
-    .default([]),
+### settings
 
-  // エラー情報
-  error: text('error', { mode: 'json' })
-    .$type<SessionError | null>()
-    .default(null),
-});
+| カラム | 型 | 説明 |
+|--------|-----|------|
+| id | integer PK | 自動採番 |
+| project_id | integer FK | プロジェクト参照 |
+| key | text | 設定キー（プロジェクト内一意） |
+| value | json | 設定値 |
+| updated_by | text | 更新者 |
+| updated_at | timestamp | 更新日時 |
 
-interface SessionError {
-  type: 'timeout' | 'crash' | 'signal' | 'unknown';
-  message: string;
-  details?: Record<string, any>;
-}
+**設定キー例:**
+- git.baseBranch: ベースブランチ名
+- execution.maxWorkers: 最大並列Worker数
+- labels.default: デフォルトラベル定義
+
+### audit_logs
+
+| カラム | 型 | 説明 |
+|--------|-----|------|
+| id | integer PK | 自動採番 |
+| project_id | integer FK | プロジェクト参照 |
+| user_id | text | 操作者（人間 or AI識別子） |
+| action | enum | create, update, delete, start, stop, export |
+| entity_type | enum | task, agent, memory, session, settings |
+| entity_id | text | 対象エンティティID |
+| changes | json | 変更内容（before/after） |
+| created_at | timestamp | 作成日時 |
+
+### 履歴テーブル（agent_history, memory_history）
+
+| カラム | 型 | 説明 |
+|--------|-----|------|
+| id | integer PK | 自動採番 |
+| {entity}_id | integer FK | 親エンティティ参照 |
+| snapshot | json | 変更前のスナップショット |
+| version | integer | バージョン番号 |
+| changed_by | text | 変更者 |
+| changed_at | timestamp | 変更日時 |
+| change_summary | text | 変更内容の要約 |
+
+## ステータス遷移
+
+### タスクステータス
+
+```mermaid
+stateDiagram-v2
+    [*] --> open: タスク作成
+    open --> in_progress: Worker起動
+    in_progress --> done: ブランチマージ済み
+    in_progress --> failed: Worker異常終了
+    in_progress --> dod_failed: DoD検証失敗
+    failed --> in_progress: リトライ
+    dod_failed --> in_progress: リトライ
+    open --> cancelled: 手動キャンセル
+    in_progress --> cancelled: 手動キャンセル
 ```
 
-## Worker用ファイル出力
+### ステータス判定ロジック
 
-Worker実行時、DBのMemory Bankをworktreeへスナップショット出力する。
-
-```
-Worker起動時:
-1. DB から Memory Bank を取得
-2. worktree に `.agentmine/memory/` として出力（read-only）
-3. Workerプロンプトは `worker run` 内で生成しAIに直接渡す
-4. 完了後は再生成または削除（設定による）
-```
-
-```typescript
-// Worker起動時のMemory Bankスナップショット出力
-async function exportMemorySnapshot(worktreePath: string) {
-  const memories = await memoryService.getAll();
-
-  const outputDir = path.join(worktreePath, '.agentmine', 'memory');
-  await fs.mkdir(outputDir, { recursive: true });
-
-  for (const memory of memories) {
-    const memoryPath = path.join(outputDir, memory.category);
-    await fs.mkdir(memoryPath, { recursive: true });
-    await fs.writeFile(
-      path.join(memoryPath, `${memory.id}.md`),
-      memoryService.toMarkdown(memory)
-    );
-  }
-}
-```
-
-## Status Transitions
-
-### Task Status
-
-```
-┌──────┐      ┌───────────┐      ┌──────┐
-│ open │─────▶│in_progress│─────▶│ done │
-└──────┘      └───────────┘      └──────┘
-                    │
-                    │ (Worker異常終了 - AIタスクのみ)
-                    ▼
-              ┌──────────┐
-              │  failed  │
-              └──────────┘
-
-Any state → cancelled
-failed → in_progress (再試行時)
-```
-
-### ステータス判定ロジック（セッション集約 + Git判定）
-
-**AIタスクも人間タスクも同じGit判定で完了検出。** タスクは複数セッションを持てるため、status はセッション群を集約して決定する。
-`labels` は柔軟な運用用で、status には影響しない。
-
-```
-┌─────────────────────────────────────────────────────────┐
-│  Git判定（プラットフォーム非依存）                       │
-│                                                         │
-│  セッション branch が base にマージ済み → done           │
-│                                                         │
-│  GitHub/GitLab/Bitbucket/セルフホスト 全て対応          │
-└─────────────────────────────────────────────────────────┘
-```
+タスクステータスは観測可能な事実から自動判定する。
 
 | 条件 | ステータス | 備考 |
 |------|-----------|------|
 | セッションなし | open | 初期状態 |
-| running セッションが1つ以上 | in_progress | 並列実行中も含む |
-| dod_result=merged のセッションが存在 | done | 採用済み |
-| runningなし、mergedなし、失敗/取消のみ | failed | 比較結果が不採用のみ |
+| runningセッションが存在 | in_progress | 並列実行中も含む |
+| dodResult=passedかつブランチマージ済み | done | 採用済み |
+| dodResult=failed | dod_failed | DoD検証失敗 |
+| 全セッションが失敗/取消 | failed | リトライ可能 |
 | 手動キャンセル | cancelled | 明示操作 |
 
-### 判定コマンド
-
-```bash
-# セッションのブランチがbaseBranchにマージされたか確認
-git log --oneline baseBranch..session-branch
-
-# 結果が空 → task-15-s123 の変更はmainに取り込まれている → done
-# 結果があり → まだマージされていない → in_progress (コミットがある場合)
-```
+**Git判定の仕組み:**
+セッションブランチがベースブランチにマージ済みかどうかをgit logで判定する。GitHub/GitLab/Bitbucket等のプラットフォームに依存しない。
 
 ### AIタスク vs 人間タスク
 
@@ -501,157 +288,85 @@ git log --oneline baseBranch..session-branch
 | Worker起動 | あり | なし |
 | worktree隔離 | あり | なし（通常のリポジトリで作業） |
 | スコープ制御 | あり | なし |
-| 自動承認モード | あり | 不要 |
-| 完了判定 | Git判定（マージ検出） | Git判定（マージ検出） |
+| 完了判定 | Git判定 | Git判定 |
 | failed発生 | 全セッション失敗時 | 手動設定のみ |
 
-### Session Status
+### セッションステータス
 
-```
-┌─────────┐      ┌───────────┐
-│ running │─────▶│ completed │
-└─────────┘      └───────────┘
-     │
-     │ (error)
-     ▼
-┌─────────┐
-│ failed  │
-└─────────┘
-
-running → cancelled (manual stop)
+```mermaid
+stateDiagram-v2
+    [*] --> running: セッション開始
+    running --> completed: 正常終了（exit code 0）
+    running --> failed: 異常終了（exit code ≠ 0）
+    running --> cancelled: 手動停止
 ```
 
-## Indexes
+## インデックス設計
 
-```sql
--- Task queries
-CREATE INDEX idx_tasks_status ON tasks(status);
-CREATE INDEX idx_tasks_assignee ON tasks(assignee_type, assignee_name);
-CREATE INDEX idx_tasks_project ON tasks(project_id);
-CREATE INDEX idx_tasks_parent ON tasks(parent_id);
+| テーブル | インデックス | 目的 |
+|---------|------------|------|
+| tasks | status | ステータス別一覧取得 |
+| tasks | assignee_type, assignee_name | 担当者別一覧取得 |
+| tasks | project_id | プロジェクト別一覧取得 |
+| tasks | parent_id | 子タスク取得 |
+| sessions | task_id | タスク別セッション取得 |
+| sessions | status | ステータス別一覧取得 |
+| sessions | idempotency_key | 冪等性チェック（UNIQUE） |
+| agents | project_id, name | Agent名検索（UNIQUE） |
+| memories | category | カテゴリ別一覧取得 |
+| settings | project_id, key | 設定キー検索（UNIQUE） |
+| audit_logs | entity_type, entity_id | エンティティ別履歴取得 |
+| audit_logs | created_at | 時系列取得 |
 
--- Session queries
-CREATE INDEX idx_sessions_task ON sessions(task_id);
-CREATE INDEX idx_sessions_status ON sessions(status);
-CREATE INDEX idx_sessions_group ON sessions(session_group_id);
-CREATE UNIQUE INDEX idx_sessions_idempotency ON sessions(idempotency_key);
+## Worker用ファイル出力
 
--- Agent queries
-CREATE UNIQUE INDEX idx_agents_name ON agents(project_id, name);
+Worker実行時、DBからworktreeへスナップショット出力する。
 
--- Memory queries
-CREATE INDEX idx_memories_category ON memories(category);
-CREATE INDEX idx_memories_project ON memories(project_id);
+| 出力先 | 内容 | 権限 |
+|--------|------|------|
+| .agentmine/memory/{category}/{id}.md | status=activeのMemory | read-only |
+| .claude/CLAUDE.md | プロンプト（claude-code用） | read-only |
+| .agentmine/prompt.md | プロンプト（汎用） | read-only |
 
--- Settings queries
-CREATE UNIQUE INDEX idx_settings_key ON settings(project_id, key);
+**出力フロー:**
+1. DBからstatus=activeのMemoryを取得
+2. worktreeに.agentmine/memory/として出力
+3. プロンプトをAIクライアント設定ファイルへ出力
+4. 完了後は設定に応じて削除または保持
 
--- Audit log queries
-CREATE INDEX idx_audit_logs_entity ON audit_logs(entity_type, entity_id);
-CREATE INDEX idx_audit_logs_user ON audit_logs(user_id);
-CREATE INDEX idx_audit_logs_created ON audit_logs(created_at);
-```
+## PostgreSQL拡張（将来）
 
-## PostgreSQL拡張: pgvector（将来）
+PostgreSQL環境では、pgvectorを使用したベクトル検索が利用可能。
 
-本番環境（PostgreSQL）では、pgvectorを使用したベクトル検索が利用可能。
+| 機能 | 説明 |
+|------|------|
+| embeddingカラム | Memory内容のベクトル埋め込み |
+| セマンティック検索 | 類似Memoryの検索 |
+| 関連コンテキスト自動取得 | タスク内容から関連Memoryを自動選択 |
 
-### memories（PostgreSQL版 + ベクトル）
+## マイグレーション・エクスポート
 
-```typescript
-import { pgTable, serial, text, integer, timestamp, vector } from 'drizzle-orm/pg-core';
+### CLIコマンド
 
-export const memories = pgTable('memories', {
-  id: serial('id').primaryKey(),
-  projectId: integer('project_id').references(() => projects.id),
+| コマンド | 説明 |
+|---------|------|
+| agentmine db migrate:generate | マイグレーション生成 |
+| agentmine db migrate | マイグレーション実行 |
+| agentmine db migrate:rollback | ロールバック |
+| agentmine db import --from .agentmine/ | 既存YAMLからインポート |
+| agentmine export --output ./backup/ | 全データエクスポート |
 
-  category: text('category').notNull(),
-  title: text('title').notNull(),
-  summary: text('summary'),
-  content: text('content').notNull(),
-  status: text('status', {
-    enum: ['draft', 'active', 'archived']
-  }).notNull().default('active'),
+### エクスポート形式
 
-  // メタデータ
-  tags: text('tags', { mode: 'json' })
-    .$type<string[]>()
-    .default([]),
+| 対象 | 出力形式 | 用途 |
+|------|---------|------|
+| agents | YAML | 設定共有、バックアップ |
+| memories | Markdown | ドキュメント共有 |
+| settings | YAML | 設定共有 |
 
-  relatedTaskId: integer('related_task_id').references(() => tasks.id),
+## 関連ドキュメント
 
-  // ベクトル埋め込み（セマンティック検索用）
-  embedding: vector('embedding', { dimensions: 1536 }),
-
-  version: integer('version').notNull().default(1),
-  createdBy: text('created_by'),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at'),
-});
-```
-
-### セマンティック検索（将来）
-
-```typescript
-// 関連するMemoryを検索
-const similarMemories = await db.execute(sql`
-  SELECT id, title, content,
-         1 - (embedding <=> ${queryEmbedding}) as similarity
-  FROM memories
-  WHERE project_id = ${projectId}
-  ORDER BY embedding <=> ${queryEmbedding}
-  LIMIT 5
-`);
-```
-
-## Migration Strategy
-
-### 初期マイグレーション
-
-```bash
-# マイグレーション生成
-agentmine db migrate:generate
-
-# マイグレーション実行
-agentmine db migrate
-
-# ロールバック
-agentmine db migrate:rollback
-```
-
-### 既存YAMLからのインポート（移行用）
-
-```bash
-# 既存の.agentmine/からDBへインポート
-agentmine db import --from .agentmine/
-
-# 個別インポート
-agentmine agent import --file .agentmine/agents/coder.yaml
-agentmine memory import --dir .agentmine/memory/
-```
-
-## エクスポート機能
-
-DBからファイルへのエクスポート（バックアップ、共有用）。
-
-```bash
-# 全データエクスポート
-agentmine export --output ./backup/
-
-# 個別エクスポート
-agentmine agent export coder --output ./coder.yaml
-agentmine memory export --output ./memory/
-```
-
-```
-./backup/
-├── agents/
-│   ├── coder.yaml
-│   └── reviewer.yaml
-├── memory/
-│   ├── architecture/
-│   │   └── 1.md
-│   └── tooling/
-│       └── 2.md
-└── settings.yaml
-```
+- アーキテクチャ: @02-architecture/architecture.md
+- スコープ制御: @03-core-concepts/scope-control.md
+- Worker実行フロー: @07-runtime/worker-lifecycle.md
+- 用語集: @appendix/glossary.md

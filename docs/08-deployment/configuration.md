@@ -1,667 +1,205 @@
-# agentmine Configuration Guide
+# 設定
 
-## Configuration Hierarchy
+## 目的
 
-agentmineは3層の設定構造を持ちます：
+agentmineの設定方法を定義する。本ドキュメントは設定のSSoT（Single Source of Truth）である。
 
-```
-1. グローバル設定（~/.agentmine/config.yaml）
-   ├─ すべてのプロジェクトで共有
-   └─ DB接続、デフォルトAgent等
+## 背景
 
-2. プロジェクト設定（.agentmine/config.yaml）
-   ├─ プロジェクト固有設定
-   └─ グローバル設定を上書き
+agentmineは3層の設定構造を持つ。環境変数が最優先で適用され、機密情報を安全に管理できる。
 
-3. 環境変数（AGENTMINE_*）
-   ├─ 実行時設定
-   └─ すべての設定を上書き（最優先）
-```
+**なぜ3層構造か:**
+- グローバル設定でデフォルト値を提供
+- プロジェクト設定でカスタマイズ
+- 環境変数で機密情報を安全に上書き
 
----
+## 設定の優先順位
 
-## Global Configuration
+```mermaid
+flowchart LR
+    A[環境変数] --> B[プロジェクト設定]
+    B --> C[グローバル設定]
 
-### Location
-
-- **Linux/macOS**: `~/.agentmine/config.yaml`
-- **Windows**: `%USERPROFILE%\.agentmine\config.yaml`
-
-### Default Configuration
-
-```yaml
-# ~/.agentmine/config.yaml
-database:
-  url: "sqlite://~/.agentmine/data.db"  # デフォルトDB
-  pool:
-    min: 2
-    max: 10
-
-worker:
-  defaultClient: "claude-code"
-  autoApprove: false
-  timeout: 3600  # 1時間
-
-logging:
-  level: "info"
-  file: "~/.agentmine/logs/agentmine.log"
-
-mcp:
-  port: 3001
-  host: "localhost"
+    subgraph Priority[優先順位]
+        A
+        B
+        C
+    end
 ```
 
-### Common Settings
-
-#### Database Configuration
-
-```yaml
-database:
-  # PostgreSQL（チーム開発）
-  url: "postgres://user:pass@host:5432/agentmine"
+| 優先度 | 設定 | パス |
+|:------:|------|------|
+| 1（高） | 環境変数 | AGENTMINE_* |
+| 2 | プロジェクト設定 | .agentmine/config.yaml |
+| 3（低） | グローバル設定 | ~/.agentmine/config.yaml |
 
-  # SQLite（個人開発）
-  url: "sqlite://~/.agentmine/data.db"
-
-  # Connection pool
-  pool:
-    min: 2
-    max: 10
-    idleTimeout: 30000
-```
+## グローバル設定
 
-#### Worker Settings
+### 場所
 
-```yaml
-worker:
-  defaultClient: "claude-code"  # デフォルトWorker AI
-  autoApprove: false            # 自動承認モード（危険）
-  timeout: 3600                 # タイムアウト（秒）
+| OS | パス |
+|----|------|
+| Linux / macOS | ~/.agentmine/config.yaml |
+| Windows | %USERPROFILE%\.agentmine\config.yaml |
 
-  # Worktree設定
-  worktreeDir: ".agentmine/worktrees"
+### 主な設定項目
 
-  # 監視設定（Phase 4）
-  monitor:
-    interval: 60              # ポーリング間隔（秒）
-    errorThreshold: 5         # エラー閾値
-    stagnantMinutes: 30       # 停滞判定時間
-```
+| セクション | 項目 | デフォルト | 説明 |
+|-----------|------|-----------|------|
+| database | url | sqlite://~/.agentmine/data.db | DB接続URL |
+| database | pool.min | 2 | 最小接続数 |
+| database | pool.max | 10 | 最大接続数 |
+| worker | defaultClient | claude-code | デフォルトWorker AI |
+| worker | autoApprove | false | 自動承認モード |
+| worker | timeout | 3600 | タイムアウト（秒） |
+| logging | level | info | ログレベル |
+| mcp | port | 3001 | MCPサーバーポート |
 
-#### Logging Configuration
+## プロジェクト設定
 
-```yaml
-logging:
-  level: "info"  # debug, info, warn, error
-  file: "~/.agentmine/logs/agentmine.log"
-  maxSize: 10485760  # 10MB
-  maxFiles: 5
-```
+### 場所
 
----
+.agentmine/config.yaml（プロジェクトルート）
 
-## Project Configuration
+### 初期化
 
-### Location
+agentmine init でプロジェクト初期化時に自動生成。
 
-`.agentmine/config.yaml`（プロジェクトルート）
+### 主な設定項目
 
-### Initial Setup
+| セクション | 項目 | 説明 |
+|-----------|------|------|
+| project | name | プロジェクト名 |
+| project | description | 説明 |
+| database | url | プロジェクト専用DB（オプション） |
+| agents | defaults | Agent共通設定 |
+| memory | autoInject | Memory Bank自動注入 |
+| worktree | basePath | worktreeベースパス |
 
-```bash
-cd your-project
-agentmine init
-# → .agentmine/config.yaml 自動生成
-```
+## 環境変数
 
-### Example Configuration
+環境変数は最優先で適用される。機密情報はここで設定する。
 
-```yaml
-# .agentmine/config.yaml
-project:
-  name: "my-app"
-  description: "Sample application"
+### データベース
 
-database:
-  # プロジェクト専用DB（オプション）
-  url: "postgres://user:pass@localhost/myapp_agentmine"
+| 変数 | 説明 | 例 |
+|------|------|-----|
+| AGENTMINE_DB_URL | DB接続URL | postgres://user:pass@host/db |
 
-agents:
-  # プロジェクト共通Agent設定
-  defaults:
-    client: "claude-code"
-    model: "sonnet"
-    scope:
-      exclude:
-        - "**/*.env"
-        - "**/secrets/**"
-        - "**/node_modules/**"
-
-memory:
-  # Memory Bank設定
-  autoInject: true
-  categories:
-    - "architecture"
-    - "conventions"
-    - "setup"
-
-worktree:
-  # Worktree設定
-  basePath: ".agentmine/worktrees"
-  branchPrefix: "agent"
-```
-
----
-
-## Environment Variables
-
-環境変数は最優先で適用されます。
-
-### Database
-
-```bash
-# PostgreSQL
-export AGENTMINE_DB_URL="postgres://user:pass@host/db"
+### Worker
 
-# SQLite
-export AGENTMINE_DB_URL="sqlite://.agentmine/data.db"
-```
+| 変数 | 説明 | デフォルト |
+|------|------|-----------|
+| AGENTMINE_WORKER_CLIENT | デフォルトWorker AI | claude-code |
+| AGENTMINE_WORKER_AUTO_APPROVE | 自動承認モード | false |
+| AGENTMINE_WORKER_TIMEOUT | タイムアウト（秒） | 3600 |
 
-### Worker Settings
+### ログ
 
-```bash
-# デフォルトWorker AI
-export AGENTMINE_WORKER_CLIENT="claude-code"
-
-# 自動承認モード（危険）
-export AGENTMINE_WORKER_AUTO_APPROVE="true"
+| 変数 | 説明 | デフォルト |
+|------|------|-----------|
+| AGENTMINE_LOG_LEVEL | ログレベル | info |
+| AGENTMINE_LOG_FILE | ログファイルパス | - |
 
-# タイムアウト（秒）
-export AGENTMINE_WORKER_TIMEOUT="7200"
-```
+### MCP
 
-### Logging
-
-```bash
-# ログレベル
-export AGENTMINE_LOG_LEVEL="debug"
+| 変数 | 説明 | デフォルト |
+|------|------|-----------|
+| AGENTMINE_MCP_PORT | ポート | 3001 |
+| AGENTMINE_MCP_HOST | ホスト | localhost |
 
-# ログファイル
-export AGENTMINE_LOG_FILE="/var/log/agentmine.log"
-```
-
-### MCP Server
-
-```bash
-# ポート
-export AGENTMINE_MCP_PORT="3001"
-
-# ホスト
-export AGENTMINE_MCP_HOST="0.0.0.0"
-```
-
----
-
-## Agent Definition
-
-Agent定義は3つの方法で管理できます。
-
-### Method 1: Database（推奨）
-
-```bash
-# CLI経由でDB登録
-agentmine agent add frontend \
-  --client claude-code \
-  --model sonnet \
-  --scope-exclude "**/*.env" \
-  --scope-write "src/frontend/**"
-```
-
-### Method 2: YAML File
-
-```yaml
-# .agentmine/agents/frontend.yaml
-name: frontend
-client: claude-code
-model: sonnet
-scope:
-  exclude:
-    - "**/*.env"
-    - "**/secrets/**"
-  write:
-    - "src/frontend/**"
-    - "tests/frontend/**"
-prompt:
-  system: |
-    あなたはフロントエンド開発担当です。
-    React/TypeScriptを使用します。
-  guidelines:
-    - "ESLint/Prettierに従う"
-    - "shadcn/uiを使用"
-```
-
-```bash
-# YAMLからDB登録
-agentmine agent import .agentmine/agents/frontend.yaml
-```
-
-### Method 3: Inline（タスク作成時）
-
-```bash
-agentmine task add "ログイン画面実装" \
-  --agent-inline '{
-    "client": "claude-code",
-    "scope": {
-      "write": ["src/auth/**"]
-    }
-  }'
-```
-
----
-
-## Database Configuration Details
-
-### PostgreSQL (Production)
-
-#### Basic Setup
-
-```yaml
-database:
-  url: "postgres://agentmine:password@localhost:5432/agentmine"
-  pool:
-    min: 5
-    max: 20
-```
+## データベース設定
 
-#### SSL Configuration
+### PostgreSQL（本番推奨）
 
-```yaml
-database:
-  url: "postgres://user:pass@host/db?sslmode=require"
-  ssl:
-    rejectUnauthorized: true
-    ca: "/path/to/ca-cert.pem"
-```
+| 項目 | 説明 |
+|------|------|
+| 接続URL | postgres://user:pass@host:5432/agentmine |
+| SSL | sslmode=require で有効化 |
+| プール | max: Worker数 × 2 を目安 |
 
-#### Connection Pooling
-
-```yaml
-database:
-  pool:
-    min: 2                # 最小接続数
-    max: 10               # 最大接続数
-    idleTimeout: 30000    # アイドルタイムアウト（ms）
-    acquireTimeout: 60000 # 取得タイムアウト（ms）
-```
-
-### SQLite (Development)
-
-```yaml
-database:
-  url: "sqlite://.agentmine/data.db"
-  options:
-    busyTimeout: 5000
-    journal: "WAL"  # Write-Ahead Logging
-```
-
----
-
-## Scope Control Configuration
+### SQLite（開発用）
 
-スコープ制御はAgent定義で指定します。
+| 項目 | 説明 |
+|------|------|
+| 接続URL | sqlite://.agentmine/data.db |
+| WAL | journal: WAL で有効化推奨 |
 
-### Default Pattern（案2）
+## Agent定義の管理方法
 
-```yaml
-scope:
-  exclude:  # これ以外は自動的に読み取り可能
-    - "**/*.env"
-    - "**/secrets/**"
-    - "**/node_modules/**"
-    - "**/.git/**"
+| 方法 | 説明 | 推奨 |
+|------|------|:----:|
+| DB登録 | agentmine agent add コマンドで登録 | ✓ |
+| YAMLファイル | .agentmine/agents/ 配下にYAML作成、importでDB登録 | |
+| インライン | タスク作成時に --agent-inline で指定 | |
 
-  # read: 省略可能（excludeを除く全ファイル）
+## スコープ制御設定
 
-  write:    # 編集可能
-    - "src/**"
-    - "tests/**"
-```
+Agent定義内で指定する。
 
-### Strict Pattern（明示的read指定）
-
-```yaml
-scope:
-  exclude:
-    - "**/*.env"
-    - "**/secrets/**"
+| スコープ | 説明 | 例 |
+|---------|------|-----|
+| exclude | 完全に除外 | **/*.env, **/secrets/** |
+| read | 参照のみ | docs/**, README.md |
+| write | 編集可能 | src/**, tests/** |
 
-  read:     # 明示的に読み取り可能指定
-    - "src/**"
-    - "tests/**"
-    - "docs/**"
-    - "*.md"
+**詳細:** @03-core-concepts/scope-control.md を参照
 
-  write:
-    - "src/auth/**"
-    - "tests/auth/**"
-```
+## Memory Bank設定
 
-### Frontend Example
+| 項目 | 説明 | デフォルト |
+|------|------|-----------|
+| autoInject | Worker起動時に自動注入 | true |
+| categories | 注入対象カテゴリ | architecture, conventions |
+| outputDir | 出力先 | .agentmine/memory |
 
-```yaml
-scope:
-  exclude:
-    - "**/*.env"
-    - "**/secrets/**"
-    - "packages/backend/**"  # バックエンドコードは除外
+**詳細:** @05-features/memory-bank.md を参照
 
-  write:
-    - "packages/web/**"
-    - "docs/web/**"
-```
+## Web UI設定
 
-**詳細**: **@../03-core-concepts/scope-control.md** を参照
+| 変数 | 説明 | 必須 |
+|------|------|:----:|
+| DATABASE_URL | PostgreSQL接続URL | ✓ |
+| NEXTAUTH_URL | 認証URL | 本番 |
+| NEXTAUTH_SECRET | 認証シークレット | 本番 |
+| NODE_ENV | 環境 | 本番 |
 
----
+## 設定の検証
 
-## Memory Bank Configuration
-
-### Auto Injection Settings
-
-```yaml
-memory:
-  autoInject: true  # Worker起動時に自動注入
-
-  # 注入対象カテゴリ
-  categories:
-    - "architecture"   # アーキテクチャ知識
-    - "conventions"    # コーディング規約
-    - "setup"          # セットアップ手順
-
-  # 出力先
-  outputDir: ".agentmine-worker/memory"
-
-  # 要約設定
-  summarize:
-    enabled: true
-    maxTokens: 4000
-```
-
-### Memory Categories
-
-```yaml
-memory:
-  categories:
-    architecture:
-      priority: high
-      format: "markdown"
-
-    conventions:
-      priority: medium
-      format: "markdown"
-
-    troubleshooting:
-      priority: low
-      format: "markdown"
-```
-
-**詳細**: **@../05-features/memory-bank.md** を参照
-
----
-
-## Web UI Configuration
-
-### Next.js Environment
-
-```bash
-# .env.local（packages/web/）
-DATABASE_URL="postgres://user:pass@host/db"
-NEXTAUTH_URL="http://localhost:3000"
-NEXTAUTH_SECRET="your-secret-key"
-```
-
-### Production Deployment
-
-```bash
-# 本番環境変数
-DATABASE_URL="postgres://prod-user:pass@prod-host/db"
-NEXTAUTH_URL="https://agentmine.yourdomain.com"
-NEXTAUTH_SECRET="production-secret-key"
-NODE_ENV="production"
-```
-
-**詳細**: **@../06-interfaces/web/overview.md** を参照
-
----
-
-## MCP Server Configuration
-
-### Basic Setup
-
-```yaml
-mcp:
-  port: 3001
-  host: "localhost"
-
-  # 認証（オプション）
-  auth:
-    enabled: false
-    token: "your-secret-token"
-```
-
-### IDE Integration
-
-#### Cursor
-
-```json
-// ~/.cursor/config.json
-{
-  "mcp": {
-    "servers": {
-      "agentmine": {
-        "command": "agentmine",
-        "args": ["mcp", "start"],
-        "env": {
-          "AGENTMINE_DB_URL": "postgres://user:pass@host/db",
-          "AGENTMINE_MCP_PORT": "3001"
-        }
-      }
-    }
-  }
-}
-```
-
-#### Windsurf
-
-```json
-// ~/.windsurf/settings.json
-{
-  "mcp.servers": [
-    {
-      "name": "agentmine",
-      "command": ["agentmine", "mcp", "start"],
-      "env": {
-        "AGENTMINE_DB_URL": "postgres://user:pass@host/db"
-      }
-    }
-  ]
-}
-```
-
-**詳細**: **@../06-interfaces/mcp/overview.md** を参照
-
----
-
-## Advanced Configuration
-
-### Multi-Project Setup
-
-```yaml
-# ~/.agentmine/config.yaml
-projects:
-  project-a:
-    database:
-      url: "postgres://user:pass@host/project_a"
-
-  project-b:
-    database:
-      url: "postgres://user:pass@host/project_b"
-```
-
-```bash
-# プロジェクト切り替え
-agentmine config set-project project-a
-```
-
-### Custom Worker Client
-
-```yaml
-worker:
-  clients:
-    custom-ai:
-      command: "my-ai-tool"
-      args: ["--mode", "agent"]
-      env:
-        AI_API_KEY: "${MY_AI_KEY}"
-```
-
-```bash
-# カスタムWorker使用
-agentmine worker run 1 --client custom-ai
-```
-
-### Webhook Notifications
-
-```yaml
-notifications:
-  webhook:
-    enabled: true
-    url: "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
-    events:
-      - "worker.completed"
-      - "worker.failed"
-```
-
----
-
-## Configuration Validation
-
-### Validate Settings
-
-```bash
-agentmine config validate
-```
-
-**期待される出力**:
-```
-✓ Database connection: OK
-✓ Worker client: claude-code (available)
-✓ Worktree directory: .agentmine/worktrees (writable)
-✓ Memory Bank: 3 categories configured
-✗ MCP Server: Port 3001 already in use
-```
-
-### Show Current Configuration
-
-```bash
-agentmine config show
-```
-
-**出力例**:
-```yaml
-database:
-  url: "postgres://***@localhost/agentmine"
-  pool: {min: 2, max: 10}
-worker:
-  defaultClient: "claude-code"
-  timeout: 3600
-```
-
----
-
-## Migration from DevHive
-
-### Import DevHive Configuration
-
-```bash
-# .devhive.yaml を agentmine設定に変換
-agentmine migrate --from-devhive .devhive.yaml
-```
-
-**変換内容**:
-- `workers` → `tasks` (DB登録)
-- `roles` → `agents` (DB登録)
-- `.devhive/tasks/` → Memory Bank
-- `.devhive/roles/` → Agent prompt
-
-**詳細**: **@../01-introduction/devhive-migration.md** を参照
-
----
-
-## Configuration Best Practices
-
-### Security
-
-1. **機密情報は環境変数で**:
-```bash
-# ❌ 避ける
-database:
-  url: "postgres://user:password123@host/db"
-
-# ✅ 推奨
-export AGENTMINE_DB_URL="postgres://user:password123@host/db"
-```
-
-2. **スコープ制御を厳格に**:
-```yaml
-scope:
-  exclude:
-    - "**/*.env"
-    - "**/*.pem"
-    - "**/secrets/**"
-```
-
-3. **autoApproveは慎重に**:
-```yaml
-worker:
-  autoApprove: false  # デフォルト推奨
-```
-
-### Performance
-
-1. **PostgreSQL接続プール調整**:
-```yaml
-database:
-  pool:
-    max: 20  # Worker数 × 2 を目安
-```
-
-2. **Worktreeクリーンアップ自動化**:
-```yaml
-worktree:
-  autoCleanup: true
-  retentionDays: 7
-```
-
-### Team Collaboration
-
-1. **共有DB使用**:
-```bash
-export AGENTMINE_DB_URL="postgres://team@shared-host/agentmine"
-```
-
-2. **プロジェクト設定をGit管理**:
-```bash
-git add .agentmine/config.yaml
-git add .agentmine/agents/
-```
-
----
-
-## Related Documents
-
-- **@./installation.md** - インストール手順
-- **@../03-core-concepts/scope-control.md** - スコープ制御詳細
-- **@../05-features/memory-bank.md** - Memory Bank設定
-- **@../06-interfaces/cli/overview.md** - CLIコマンド
-- **@../06-interfaces/mcp/overview.md** - MCP統合
+| コマンド | 説明 |
+|---------|------|
+| agentmine config validate | 設定の検証 |
+| agentmine config show | 現在の設定表示 |
+
+## ベストプラクティス
+
+### セキュリティ
+
+| 推奨 | 理由 |
+|------|------|
+| 機密情報は環境変数で | 設定ファイルに書かない |
+| excludeでセンシティブファイル除外 | **/*.env, **/*.pem, **/secrets/** |
+| autoApproveはfalse | 危険なため |
+
+### パフォーマンス
+
+| 推奨 | 理由 |
+|------|------|
+| PostgreSQL接続プール調整 | Worker数 × 2 を目安 |
+| Worktree自動クリーンアップ | ディスク節約 |
+
+### チーム協業
+
+| 推奨 | 理由 |
+|------|------|
+| 共有PostgreSQL使用 | チーム全員が同じDBを参照 |
+| プロジェクト設定をGit管理 | .agentmine/config.yaml をコミット |
+
+## 関連ドキュメント
+
+- インストール: @08-deployment/installation.md
+- スコープ制御: @03-core-concepts/scope-control.md
+- Memory Bank: @05-features/memory-bank.md
+- CLI設計: @06-interfaces/cli/overview.md
+- MCP設計: @06-interfaces/mcp/overview.md
+- 用語集: @appendix/glossary.md

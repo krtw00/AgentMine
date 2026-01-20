@@ -1,399 +1,276 @@
-# Architecture
+# アーキテクチャ
 
-## Design Philosophy
+## 目的
 
-**agentmineは並列AI開発の実行環境**。Redmine的運用でチーム協業をサポート。
+このドキュメントはagentmineのシステム構成と設計原則を説明する。
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  Redmine的運用                                                   │
-│                                                                 │
-│  チーム全員 ───→ 共有PostgreSQL ───→ 単一の真実源               │
-│                                                                 │
-│  Human A ──┐                                                     │
-│  Human B ──┼──→ Web UI ──┐                                       │
-│  Orchestrator ──→ CLI ──┼──→ DB (マスター) ──→ Worker           │
-│                         └──→ MCP ─────────────┘                 │
-└─────────────────────────────────────────────────────────────────┘
-```
+## 背景
 
-- **人間**: Web UIで完結（タスク管理、Agent定義、Worker監視）
-- **Orchestrator**: CLI/MCPで自動化（Claude Code等）
-- **Worker**: 隔離されたworktreeでコードを書くAI
-- **agentmine**: すべてのデータをDB管理（Redmine的な単一真実源）
+agentmineは「並列AI開発の実行環境」であり、「並列実行を計画するAI」ではない。
 
-### 重要な設計原則
+**agentmineの責務:**
+- Workerの隔離環境（worktree）を提供
+- スコープ制御（アクセス可能なファイルの制限）
+- DoD検証（lint/test/build等の品質チェック）
+- セッションの記録
+- Memory Bankの提供
 
-1. **Single Source of Truth (DBマスター)**: すべてのデータ（タスク、Agent、Memory、設定）はDBで管理
-2. **Collaborative by Design (Redmine的運用)**: チーム全員が同じDBを参照、リアルタイム協業
-3. **AI as Orchestrator**: 計画・判断はAI、agentmineは実行基盤・記録・提供のみ担当
-4. **Isolation & Safety**: Worker隔離（worktree） + スコープ制御（sparse-checkout + chmod）
-5. **Observable & Deterministic**: ステータスはexit code, merge状態等の客観事実で判定
-6. **Fail Fast**: エラーは即座に失敗させ、リカバリーは上位層（Orchestrator）の責務
+**Orchestrator（AI）の責務:**
+- 並列実行の計画（何を並列にするか）
+- Workerの起動指示
+- 進捗監視とマージ判断
+- 失敗時のリトライ判断
 
-## System Overview
+この責務分離により、**計画・判断はOrchestrator、安全装置はagentmine**という役割が明確になる。
 
-```
-┌──────────────────────────────────────────────────────────────────────────┐
-│                              agentmine                                    │
-├──────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                     │
-│  │   CLI       │  │  Web UI     │  │ MCP Server  │                     │
-│  │             │  │  (Next.js)  │  │             │                     │
-│  │  @cli       │  │  @web       │  │  @cli/mcp   │                     │
-│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘                     │
-│         │                │                │                             │
-│         └────────────────┴────────────────┘                             │
-│                                   │                                      │
-│                                   ▼                                      │
-│                    ┌──────────────────────────────┐                     │
-│                    │           @core              │                     │
-│                    │                              │                     │
-│                    │  ┌────────┐  ┌────────────┐ │                     │
-│                    │  │Services│  │   Models   │ │                     │
-│                    │  └────────┘  └────────────┘ │                     │
-│                    │  ┌────────┐  ┌────────────┐ │                     │
-│                    │  │   DB   │  │   Config   │ │                     │
-│                    │  │Drizzle │  │   Parser   │ │                     │
-│                    │  └────────┘  └────────────┘ │                     │
-│                    └──────────────┬──────────────┘                     │
-│                                   │                                      │
-│                                   ▼                                      │
-│                    ┌──────────────────────────────┐                     │
-│                    │     SQLite / PostgreSQL      │                     │
-│                    └──────────────────────────────┘                     │
-│                                                                          │
-│  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │                        File System                               │   │
-│  │  .agentmine/                                                     │   │
-│  │  ├── config.yaml      # 設定スナップショット（DBインポート用）    │   │
-│  │  ├── data.db          # SQLiteデータベース                        │   │
-│  │  ├── agents/          # エージェント定義スナップショット（YAML）  │   │
-│  │  ├── prompts/         # プロンプトスナップショット（任意）        │   │
-│  │  ├── memory/          # Memory Bankスナップショット              │   │
-│  │  └── worktrees/       # Worker用隔離作業領域                     │   │
-│  │       └── task-<id>/  # タスク毎のgit worktree                   │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
-└──────────────────────────────────────────────────────────────────────────┘
-```
+## 設計原則
 
-## Worker Execution Flow
+### 1. DBマスター（Single Source of Truth）
 
-Orchestratorは`agentmine worker`コマンドでWorkerを起動・管理する。
+すべてのデータはDBで管理する。ファイルはスナップショット/エクスポート用。
 
-```bash
-# 単一Worker起動（フォアグラウンド）
-agentmine worker run <taskId> --exec
+| データ | 保存先 | 用途 |
+|--------|--------|------|
+| タスク | DB (tasks) | タスク管理 |
+| セッション | DB (sessions) | 実行履歴 |
+| Agent定義 | DB (agents) | Worker設定 |
+| Memory Bank | DB (memories) | 知識蓄積 |
+| 設定 | DB (settings) | プロジェクト設定 |
+| メンバー | DB (members) | 人間の担当者 |
 
-# 並列実行（バックグラウンド）
-agentmine worker run 1 --exec --detach
-agentmine worker run 2 --exec --detach
-agentmine worker wait 1 2    # 完了待機
+Worker起動時にDBからファイルを出力し、Workerに渡す。
 
-# Worker管理
-agentmine worker status      # 状態確認
-agentmine worker stop 1      # 停止
-agentmine worker done 1      # セッション終了・クリーンアップ
-```
+### 2. 事実ベースの状態管理
 
-**詳細フロー**: @../07-runtime/worker-lifecycle.md を参照
+Workerは能動的にDBを更新しない。ステータスは観測可能な事実から判定する。
 
-## Package Structure
+| 事実 | 判定 |
+|------|------|
+| exit code = 0 | 正常終了 |
+| exit code ≠ 0 | エラー終了 |
+| ブランチがマージ済み | タスク完了 |
+| プロセスが存在 | 実行中 |
 
-```
-agentmine/
-├── packages/
-│   ├── cli/                    # CLIアプリケーション
-│   │   ├── src/
-│   │   │   ├── index.ts        # エントリーポイント
-│   │   │   ├── commands/       # コマンド定義
-│   │   │   │   ├── init.ts
-│   │   │   │   ├── task.ts
-│   │   │   │   ├── agent.ts
-│   │   │   │   ├── memory.ts
-│   │   │   │   └── ui.ts
-│   │   │   ├── mcp/            # MCPサーバー
-│   │   │   │   ├── server.ts
-│   │   │   │   ├── tools.ts
-│   │   │   │   └── resources.ts
-│   │   │   └── utils/          # ユーティリティ
-│   │   │       └── output.ts   # 出力フォーマット
-│   │   └── package.json
-│   │
-│   ├── web/                    # Web UI
-│   │   ├── src/
-│   │   │   ├── app/            # Next.js App Router
-│   │   │   │   ├── layout.tsx
-│   │   │   │   ├── page.tsx    # Dashboard
-│   │   │   │   ├── tasks/      # タスク管理
-│   │   │   │   ├── agents/     # エージェント定義閲覧
-│   │   │   │   └── api/        # API Routes
-│   │   │   └── components/     # UIコンポーネント
-│   │   │       ├── kanban/
-│   │   │       ├── task-card/
-│   │   │       └── sidebar/
-│   │   └── package.json
-│   │
-│   └── core/                   # 共有ロジック
-│       ├── src/
-│       │   ├── index.ts        # Public API
-│       │   ├── db/             # データベース
-│       │   │   ├── schema.ts   # Drizzle スキーマ
-│       │   │   ├── client.ts   # DB接続
-│       │   │   └── migrate.ts  # マイグレーション
-│       │   ├── models/         # ドメインモデル
-│       │   │   ├── task.ts
-│       │   │   └── session.ts
-│       │   ├── services/       # ビジネスロジック
-│       │   │   ├── task-service.ts
-│       │   │   ├── agent-service.ts   # YAML読み込み、定義提供
-│       │   │   └── memory-service.ts
-│       │   ├── config/         # 設定管理
-│       │   │   ├── parser.ts   # YAML解析
-│       │   │   └── schema.ts   # 設定スキーマ
-│       │   └── types/          # 型定義
-│       │       └── index.ts
-│       └── package.json
-│
-├── pnpm-workspace.yaml
-├── turbo.json
-└── package.json
+この方式により、Workerとagentmineの結合を避け、並列実行時の競合も発生しない。
+
+### 3. Fail Fast
+
+エラー時は即座に失敗させ、リカバリーはOrchestratorに委ねる。
+
+agentmineは自動リトライやエラー修正を行わない。明確な成功/失敗の状態を記録し、判断はOrchestratorに任せる。
+
+### 4. DoD検証の仕組み化
+
+DoD（Definition of Done）検証はagentmineが強制する。Orchestratorの任意ではない。
+
+**なぜ仕組み化するか:**
+- Orchestratorが検証をスキップしても何も起きない、という状況を避ける
+- 責任の所在を明確にする（DoDが通らないとマージ不可）
+- スコープ制御と同様の「安全装置」として位置づける
+
+**動作:**
+1. Worker完了後、agentmineがDoD検証を自動実行
+2. 失敗したらセッションを`dod_failed`として記録
+3. マージをブロック
+4. 明示的なスキップは`--skip-dod`で可能（自己責任）
+
+**DoD定義の管理:**
+- エージェント定義またはタスクに`dod`フィールドを追加
+- 例: `dod: ["pnpm lint", "pnpm test", "pnpm build"]`
+
+### 5. 人間とAIの協業（Redmine的運用）
+
+人間のタスクもAIのタスクも同一画面で統合管理する。
+
+**アクターモデル:** 人間とAgentを「アクター」として統一的に扱う。
+
+| アクター種別 | 例 | ステータス管理 |
+|-------------|-----|---------------|
+| human | 井口さん、田中さん | 手動更新 |
+| agent | Agent-A、Agent-B | 事実ベース自動判定 |
+
+担当者選択では人間もAgentも同列に表示される。個人利用では「自分 + 複数Agent」、組織利用では「チームメンバー + Agent群」として自然にスケールする。
+
+## システム構成
+
+```mermaid
+flowchart TB
+    subgraph User["ユーザー層"]
+        Human[人間]
+        Orch[Orchestrator AI]
+    end
+
+    subgraph Interface["インターフェース層"]
+        WebUI[Web UI]
+        CLI[CLI]
+        MCP[MCP Server]
+    end
+
+    subgraph Core["コア層"]
+        Services[Services]
+        Models[Models]
+        DB[(DB)]
+    end
+
+    subgraph Workers["Worker層"]
+        W1[Worker 1]
+        W2[Worker 2]
+        W3[Worker 3]
+    end
+
+    Human --> WebUI
+    Orch --> CLI
+    Orch --> MCP
+    WebUI --> Services
+    CLI --> Services
+    MCP --> Services
+    Services --> DB
+    CLI -.-> |worker run| W1
+    CLI -.-> |worker run| W2
+    CLI -.-> |worker run| W3
 ```
 
-**Note:** `executor/` は削除。Worker起動・実行はOrchestrator（AIクライアント）の責務。
+### レイヤー説明
 
-## Data Flow
+**ユーザー層:** agentmineを使う人（人間またはAI）
 
-### 1. CLI → Core → DB
+**インターフェース層:**
+- Web UI: 人間向け。タスク管理、Worker監視
+- CLI: Orchestrator向け。Worker起動、状態確認
+- MCP Server: AIクライアント向け。ツールとして呼び出し
 
-```
-User Input
-    │
-    ▼
-┌─────────────────┐
-│  CLI Command    │  agentmine task add "..."
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│  TaskService    │  @core/services/task-service.ts
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│  Drizzle ORM    │  @core/db/client.ts
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│  SQLite/PG      │  .agentmine/data.db
-└─────────────────┘
-```
+**コア層:** ビジネスロジックとデータ管理
 
-### 2. Web UI → API → Core → DB
+**Worker層:** 実際にコードを書くAI。worktreeで隔離
 
-```
-Browser
-    │
-    ▼
-┌─────────────────┐
-│  Next.js Page   │  /tasks
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│  API Route      │  /api/tasks
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│  TaskService    │  @core (shared)
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│  Database       │
-└─────────────────┘
+## パッケージ構成
+
+モノレポ構成で3つのパッケージを持つ。
+
+| パッケージ | 役割 | 主な機能 |
+|------------|------|----------|
+| `@agentmine/core` | 共有ロジック | DB操作、Service、Model |
+| `@agentmine/cli` | CLIアプリ | コマンド、MCP Server |
+| `@agentmine/web` | Web UI | Next.js App |
+
+CoreはCLIとWebの両方から利用される。
+
+```mermaid
+flowchart LR
+    CLI[cli] --> Core[core]
+    Web[web] --> Core
+    Core --> DB[(DB)]
 ```
 
-### 3. MCP Client → MCP Server → Core
+## データフロー
 
+### Worker起動時
+
+```mermaid
+sequenceDiagram
+    participant Orch as Orchestrator
+    participant CLI as agentmine CLI
+    participant DB as Database
+    participant WT as Worktree
+    participant Worker as Worker AI
+
+    Orch->>CLI: worker run <taskId>
+    CLI->>DB: タスク・Agent情報取得
+    CLI->>WT: worktree作成
+    CLI->>WT: スコープ適用
+    CLI->>DB: Memory Bank取得
+    CLI->>WT: Memory出力
+    CLI->>Worker: AIクライアント起動
+    Worker->>WT: コード作成・編集
+    Worker-->>CLI: 終了（exit code）
+    CLI->>DB: セッション記録
 ```
-Cursor/Windsurf
-    │
-    ▼
-┌─────────────────┐
-│  MCP Protocol   │  JSON-RPC over stdio
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│  MCP Server     │  agentmine mcp serve
-│  (Tools/Res)    │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│  Core Services  │
-└─────────────────┘
+
+### Web UIからの操作
+
+```mermaid
+sequenceDiagram
+    participant Browser
+    participant API as API Route
+    participant Service as Core Service
+    participant DB as Database
+
+    Browser->>API: POST /api/tasks
+    API->>Service: createTask()
+    Service->>DB: INSERT
+    DB-->>Service: task
+    Service-->>API: task
+    API-->>Browser: JSON response
 ```
 
-## Key Design Decisions
+## DB戦略
 
-### 1. Monorepo with pnpm + Turborepo
+### 使い分け
 
-**理由:**
-- CLI/Web/Coreで型定義を共有
-- 一貫したビルド・テスト環境
-- Turborepoのキャッシュで高速ビルド
-
-### 2. PostgreSQL メイン + SQLite サブ（Redmine的運用）
-
-**戦略:**
-
-| 環境 | DB | 用途 |
+| 環境 | DB | 理由 |
 |------|-----|------|
-| **チーム開発（メイン）** | **PostgreSQL** | 共有DB、Redmine的運用、リアルタイム協業 |
-| ローカル開発（サブ） | SQLite | 個人利用、お試し、オフライン |
+| チーム開発 | PostgreSQL | 複数人での同時アクセス、リアルタイム共有 |
+| 個人利用 | SQLite | セットアップ不要、ポータブル |
 
-**DBがマスター:**
-- すべてのデータ（タスク、Agent定義、Memory Bank、設定）はDBで管理
-- ファイル出力は必要時に行う（Worker起動時、エクスポート時）
-- `.agentmine/`は`.gitignore`（リポジトリには含めない）
+Drizzle ORMで両方をサポートし、環境変数で切り替える。
 
-**PostgreSQLメインの理由:**
-- 複数人でのリアルタイム協業（Redmine的運用）
-- トランザクション・排他制御
-- pgvectorによるベクトル検索（将来）
-- 変更履歴・監査ログの一元管理
+### PostgreSQLを選ぶケース
 
-**SQLiteの位置づけ:**
-- 個人開発・お試し用
-- オフライン環境
-- `agentmine init`で即使用可能（PostgreSQL設定なしでも動作）
+- 複数人で同じプロジェクトを管理する
+- リモートからアクセスしたい
+- 将来的にベクトル検索を使いたい（pgvector）
 
-### 3. DB-based Memory Bank & Agent定義
+### SQLiteを選ぶケース
 
-**理由:**
-- チーム間でリアルタイム共有
-- Web UIでの編集が自然
-- バージョン管理（履歴テーブル）
-- 検索・フィルタリングが効率的
+- 1人で使う
+- サーバー設定なしで始めたい
+- オフラインで使う
 
-**Worker用ファイル出力:**
-- Worker起動時にDBから `.agentmine/memory/` をスナップショット生成（read-only）
-- worktreeには `.agentmine/memory/` のみ含め、エージェント/設定/プロンプトのスナップショットは除外
-- 再生成は `worker run` 実行時に行う（設定による）
+## 技術スタック
 
-### 4. YAML/Markdown エクスポート
+| カテゴリ | 技術 | 選定理由 |
+|---------|------|----------|
+| 言語 | TypeScript | 型安全、IDE支援 |
+| モノレポ | pnpm + Turborepo | 高速、キャッシュ対応 |
+| CLI | Commander.js | 標準的、ドキュメント充実 |
+| ORM | Drizzle | 型安全、軽量、SQLite/PG両対応 |
+| Web | Next.js (App Router) | React最新、SSR対応 |
+| UI | shadcn/ui + Tailwind | カスタマイズ性、モダン |
+| テスト | Vitest | 高速、TypeScript対応 |
 
-**理由:**
-- バックアップ・移行用
-- 人間が読める形式での確認
-- 他プロジェクトへの設定コピー
+## セキュリティ考慮
 
-## Technology Stack
+### Worker隔離
 
-### 確定スタック
+各Workerは独立したgit worktreeで作業する。互いのファイルにアクセスできない。
 
-| カテゴリ | 技術 | 理由 |
-|---------|------|------|
-| パッケージマネージャ | **pnpm** | モノレポ最適、高速、ディスク効率 |
-| モノレポ管理 | **Turborepo** | キャッシュ、並列ビルド |
-| 言語 | **TypeScript** | 型安全、IDE支援 |
-| CLI | **Commander.js** | 標準的、ドキュメント充実 |
-| ORM | **Drizzle ORM** | 型安全、軽量、SQLite/PG両対応 |
-| マイグレーション | **Drizzle Kit** | スキーマから自動生成 |
-| Web UI | **Next.js 14+** (App Router) | React最新、SSR/SSG対応 |
-| UIコンポーネント | **shadcn/ui + Tailwind CSS** | カスタマイズ性、モダン |
-| テスト | **Vitest** | 高速、TypeScript対応、Jest互換 |
-| 配布 | **npm公開** | 標準的、`npx`対応 |
+### スコープ制御
 
-### インストール方法（ユーザー向け）
+Workerがアクセスできるファイルを物理的に制限する。
 
-```bash
-# グローバルインストール
-npm install -g agentmine
+| スコープ | 物理的状態 | 説明 |
+|---------|-----------|------|
+| exclude | ファイルが存在しない | sparse-checkoutで除外 |
+| read | 読み取り専用 | 参照可能 |
+| write | 書き込み可能 | 編集可能 |
 
-# または npx で直接実行
-npx agentmine init
-```
+制限があることで、AIの自動承認モードを安全に使える。
 
-### MCP設定例（Claude Code）
+### DoD検証
 
-```json
-{
-  "mcpServers": {
-    "agentmine": {
-      "command": "npx",
-      "args": ["agentmine", "mcp", "serve"]
-    }
-  }
-}
-```
+Worker完了後にlint/test/build等を自動実行する。失敗したらマージをブロック。
 
-## Security Considerations
+スコープ制御が「何にアクセスできるか」を制限するのに対し、DoD検証は「何を満たせばマージできるか」を保証する。両方を組み合わせることで、AIの自動承認モードを安全に使える。
 
-### 1. Sandbox Execution（将来）
+### 認証情報
 
-並列実行時はDockerコンテナで隔離：
+APIキー等はDBに保存せず、環境変数で管理する。
 
-```
-┌──────────────────────────────────────┐
-│  Host                                │
-│  ┌────────────┐  ┌────────────┐     │
-│  │ Container  │  │ Container  │     │
-│  │  Task #1   │  │  Task #2   │     │
-│  │  (isolated)│  │  (isolated)│     │
-│  └────────────┘  └────────────┘     │
-└──────────────────────────────────────┘
-```
+## 関連ドキュメント
 
-### 2. API Key Management
-
-- 環境変数で管理（`.env`）
-- 設定ファイルには含めない
-- MCP経由でのキー露出を防ぐ
-
-## Extensibility
-
-### 1. Plugin System（将来）
-
-```typescript
-// プラグインインターフェース
-interface AgentminePlugin {
-  name: string;
-  hooks: {
-    onTaskCreate?: (task: Task) => void;
-    onTaskComplete?: (task: Task) => void;
-    onWorktreeCreate?: (worktree: Worktree) => void;
-  };
-  commands?: Command[];
-  mcpTools?: MCPTool[];
-}
-```
-
-### 2. Custom Agents
-
-エージェント定義はDBに保存。YAMLは作成/編集・インポート/エクスポート用のスナップショット。
-
-```yaml
-# custom-agent.yaml (snapshot)
-name: custom-agent
-description: "カスタムエージェント"
-client: claude-code
-model: sonnet
-scope:
-  read: ["**/*"]
-  write: ["src/**"]
-  exclude: ["**/*.env"]
-config:
-  temperature: 0.7
-  maxTokens: 4096
-promptContent: |
-  # カスタムエージェント
-  プロジェクトのガイドラインに従って作業すること。
-```
-
-詳細は @05-features/agent-system.md を参照。
+- 概要: @01-introduction/overview.md
+- Worker実行フロー: @07-runtime/worker-lifecycle.md
+- スコープ制御: @03-core-concepts/scope-control.md
+- データモデル: @04-data/data-model.md
+- Web UI: @06-interfaces/web/overview.md
+- 用語集: @appendix/glossary.md

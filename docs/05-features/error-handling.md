@@ -1,382 +1,151 @@
-# Error Handling
+# エラーハンドリング
 
-エラーハンドリングとリカバリーの設計。
+## 目的
 
-## 概要
+agentmineのエラー処理とリカバリー戦略を定義する。本ドキュメントはエラーハンドリングのSSoT（Single Source of Truth）である。
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                     エラー分類と対応方針                              │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                     │
-│  【Workerエラー】 → 即座に失敗                                       │
-│  タイムアウト、クラッシュ、レートリミット                            │
-│                                                                     │
-│  【インフラエラー】 → 即座に失敗                                     │
-│  DB接続失敗、ファイルシステムエラー、メモリ不足                      │
-│                                                                     │
-│  【外部接続エラー】 → エラー種別で分ける                             │
-│  - ネットワークタイムアウト → 自動リトライ                          │
-│  - 5xxサーバーエラー → 自動リトライ                                 │
-│  - 4xxクライアントエラー → 即座に失敗                               │
-│                                                                     │
-│  【リカバリー】                                                      │
-│  Orchestratorによる手動リトライ + 自動リキュー（設定可能）                     │
-│                                                                     │
-└─────────────────────────────────────────────────────────────────────┘
-```
+## 背景
 
-**Note:** エラー検知・リカバリー判断はOrchestrator（メインAI）の責務。agentmineはエラー記録を提供。
+並列AI実行では様々なエラーが発生する。タイムアウト、クラッシュ、API制限、ネットワーク障害など。これらを適切に分類し、対応方針を明確にする必要がある。
+
+**なぜFail Fastか:**
+- Workerエラーはリトライしても同じ結果になる可能性が高い
+- Orchestratorの判断を待つことで、適切なリカバリー戦略を選択できる
+- エラー情報を即座に記録することで、デバッグが容易になる
+
+## 設計原則
+
+agentmineはエラー情報を記録・提供する。リカバリー判断はOrchestratorの責務。
 
 ## エラー分類
 
-### 1. Workerエラー
+### 分類と対応方針
 
-Worker（サブエージェント）実行中に発生するエラー。**即座に失敗**させる。
+| 分類 | 例 | 対応 | 理由 |
+|------|-----|------|------|
+| Workerエラー | タイムアウト、クラッシュ、レートリミット | 即座に失敗 | リトライしても同じ結果の可能性が高い |
+| インフラエラー | DB接続失敗、ディスクフル、メモリ不足 | 即座に失敗 | システムレベルの対処が必要 |
+| 外部接続エラー（一時的） | ネットワークタイムアウト、5xxエラー | 自動リトライ | 一時的な障害の可能性が高い |
+| 外部接続エラー（永続的） | 4xxエラー、認証エラー、DNS失敗 | 即座に失敗 | 設定/コード修正が必要 |
 
-| エラー | 原因 | 対応 |
-|--------|------|------|
-| タイムアウト | 処理時間超過 | 即失敗、ログ記録 |
-| クラッシュ | プロセス異常終了 | 即失敗、ログ記録 |
-| レートリミット | API制限到達 | 即失敗、待機時間を通知 |
-| 出力パースエラー | 不正なレスポンス | 即失敗、生出力を保存 |
+### Workerエラー詳細
 
-**理由**: Workerエラーはリトライしても同じ結果になる可能性が高い。Orchestratorの判断を待つ。
+| エラー | 原因 | 記録内容 |
+|--------|------|---------|
+| timeout | 処理時間超過 | durationMs |
+| crash | プロセス異常終了 | exitCode, stderr |
+| rate_limit | API制限到達 | retryAfterMs |
+| parse_error | 不正なレスポンス | rawOutput |
 
-```typescript
-type WorkerError =
-  | { type: 'timeout'; durationMs: number }
-  | { type: 'crash'; exitCode: number; stderr: string }
-  | { type: 'rate_limit'; retryAfterMs: number }
-  | { type: 'parse_error'; rawOutput: string }
-  ;
+### 外部接続エラー詳細
 
-// Note: OrchestratorがWorker終了後にsession end時に記録
-```
-
-### 2. インフラエラー
-
-システムインフラに起因するエラー。**即座に失敗**させる。
-
-| エラー | 原因 | 対応 |
-|--------|------|------|
-| DB接続失敗 | データベース停止 | 即失敗、Orchestratorに報告 |
-| ファイルシステム | ディスクフル、権限 | 即失敗、Orchestratorに報告 |
-| メモリ不足 | リソース枯渇 | 即失敗、Orchestratorに報告 |
-
-**理由**: インフラ問題はタスクレベルではなくシステムレベルで対処が必要。
-
-```typescript
-type InfraError =
-  | { type: 'db_connection'; message: string }
-  | { type: 'filesystem'; path: string; message: string }
-  | { type: 'out_of_memory' }
-  ;
-```
-
-### 3. 外部接続エラー
-
-外部API/サービスとの通信エラー。**エラー種別で対応を分ける**。
-
-#### リトライ対象（自動リトライ）
-
-| エラー | 対応 |
-|--------|------|
-| ネットワークタイムアウト | 最大3回、指数バックオフ |
-| 5xxサーバーエラー | 最大3回、指数バックオフ |
-| 接続拒否（一時的） | 最大3回、指数バックオフ |
-
-#### リトライ対象外（即失敗）
-
-| エラー | 対応 |
-|--------|------|
-| 4xxクライアントエラー | 即失敗（設定/コード修正が必要） |
-| 認証エラー (401/403) | 即失敗（認証情報の確認が必要） |
-| Not Found (404) | 即失敗（リソースが存在しない） |
-| DNS解決失敗 | 即失敗（設定確認が必要） |
-
-```typescript
-type ExternalError =
-  | { type: 'network_timeout'; url: string; timeoutMs: number }
-  | { type: 'server_error'; url: string; statusCode: number; body?: string }
-  | { type: 'client_error'; url: string; statusCode: number; body?: string }
-  | { type: 'connection_refused'; url: string }
-  | { type: 'dns_error'; hostname: string }
-  ;
-
-function shouldRetry(error: ExternalError): boolean {
-  switch (error.type) {
-    case 'network_timeout':
-    case 'connection_refused':
-      return true;
-    case 'server_error':
-      return error.statusCode >= 500;
-    case 'client_error':
-    case 'dns_error':
-      return false;
-  }
-}
-```
+| エラー | リトライ | 理由 |
+|--------|---------|------|
+| ネットワークタイムアウト | 最大3回（指数バックオフ） | 一時的な障害 |
+| 5xxサーバーエラー | 最大3回（指数バックオフ） | サーバー側の一時障害 |
+| 接続拒否（一時的） | 最大3回（指数バックオフ） | 負荷やメンテナンス |
+| 4xxクライアントエラー | しない | 設定/コード修正が必要 |
+| 認証エラー (401/403) | しない | 認証情報の確認が必要 |
+| DNS解決失敗 | しない | 設定確認が必要 |
 
 ## リトライ戦略
 
 ### 指数バックオフ
 
-```typescript
-interface RetryConfig {
-  maxRetries: number;      // デフォルト: 3
-  initialDelayMs: number;  // デフォルト: 1000
-  maxDelayMs: number;      // デフォルト: 30000
-  multiplier: number;      // デフォルト: 2
-}
+| パラメータ | デフォルト値 | 説明 |
+|-----------|-------------|------|
+| maxRetries | 3 | 最大リトライ回数 |
+| initialDelayMs | 1000 | 初回待機時間 |
+| maxDelayMs | 30000 | 最大待機時間 |
+| multiplier | 2 | 待機時間の倍率 |
 
-// リトライ間隔の計算
-function getRetryDelay(attempt: number, config: RetryConfig): number {
-  const delay = config.initialDelayMs * Math.pow(config.multiplier, attempt);
-  return Math.min(delay, config.maxDelayMs);
-}
+**リトライ間隔例:**
 
-// 例: attempt=0 → 1秒, attempt=1 → 2秒, attempt=2 → 4秒
-```
-
-### 実装例
-
-```typescript
-async function withRetry<T>(
-  fn: () => Promise<T>,
-  config: RetryConfig = defaultRetryConfig
-): Promise<T> {
-  let lastError: Error;
-
-  for (let attempt = 0; attempt <= config.maxRetries; attempt++) {
-    try {
-      return await fn();
-    } catch (error) {
-      lastError = error;
-
-      if (!isRetryable(error) || attempt === config.maxRetries) {
-        throw error;
-      }
-
-      const delay = getRetryDelay(attempt, config);
-      await sleep(delay);
-    }
-  }
-
-  throw lastError!;
-}
-```
+| 試行 | 待機時間 |
+|------|---------|
+| 1回目 | 1秒 |
+| 2回目 | 2秒 |
+| 3回目 | 4秒 |
 
 ## リカバリー
 
 ### Orchestratorリトライ
 
-Orchestratorが明示的にリトライを指示。
+Orchestratorが明示的にリトライを指示する。
 
-```bash
-# 失敗したタスクをリトライ
-agentmine task retry 42
-
-# 失敗したセッションをリトライ
-agentmine session retry 123
-```
+| コマンド | 説明 |
+|---------|------|
+| agentmine task retry 42 | タスクをリトライ |
+| agentmine session retry 123 | セッションをリトライ |
+| agentmine task retry --all-failed | 全失敗タスクをリトライ |
 
 ### 自動リキュー
 
 失敗したタスクを自動的にキューに戻す（設定可能）。
 
-```yaml
-# settings snapshot (import/export)
-errorHandling:
-  autoRequeue:
-    enabled: true
-    maxAttempts: 3          # 最大リトライ回数
-    delayMinutes: 5         # リキュー前の待機時間
-    excludeErrors:          # 自動リキュー対象外
-      - rate_limit
-      - client_error
-```
-
-```typescript
-// 自動リキューの判定
-async function handleTaskFailure(task: Task, error: TaskError): Promise<void> {
-  const config = await getConfig();
-
-  // リキュー回数チェック
-  if (task.attemptCount >= config.errorHandling.autoRequeue.maxAttempts) {
-    await markTaskFailed(task, error, 'max_attempts_exceeded');
-    return;
-  }
-
-  // エラー種別チェック
-  if (config.errorHandling.autoRequeue.excludeErrors.includes(error.type)) {
-    await markTaskFailed(task, error, 'non_retryable_error');
-    return;
-  }
-
-  // リキュー
-  await requeueTask(task, {
-    delayMinutes: config.errorHandling.autoRequeue.delayMinutes,
-    reason: `Auto-requeue after ${error.type}`,
-  });
-}
-```
+| 設定 | デフォルト | 説明 |
+|------|-----------|------|
+| enabled | true | 自動リキュー有効 |
+| maxAttempts | 3 | 最大リトライ回数 |
+| delayMinutes | 5 | リキュー前の待機時間 |
+| excludeErrors | rate_limit, client_error | 対象外エラー |
 
 ## エラーログ
 
-### データモデル
+### task_errorsテーブル
 
-```typescript
-export const taskErrors = sqliteTable('task_errors', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-
-  taskId: integer('task_id')
-    .notNull()
-    .references(() => tasks.id),
-  sessionId: integer('session_id')
-    .references(() => sessions.id),
-
-  category: text('category', {
-    enum: ['agent', 'infra', 'external']
-  }).notNull(),
-
-  errorType: text('error_type').notNull(),  // timeout, crash, etc.
-  message: text('message').notNull(),
-  details: text('details', { mode: 'json' }),  // エラー固有の詳細
-
-  attemptNumber: integer('attempt_number').notNull().default(1),
-  resolved: integer('resolved', { mode: 'boolean' }).notNull().default(false),
-
-  createdAt: integer('created_at', { mode: 'timestamp' })
-    .default(sql`(unixepoch())`),
-});
-```
-
-### ログ例
-
-```json
-{
-  "id": 1,
-  "taskId": 42,
-  "sessionId": 123,
-  "category": "external",
-  "errorType": "server_error",
-  "message": "API request failed with status 503",
-  "details": {
-    "url": "https://api.example.com/endpoint",
-    "statusCode": 503,
-    "retryAttempts": 3,
-    "totalDurationMs": 15000
-  },
-  "attemptNumber": 1,
-  "resolved": false,
-  "createdAt": "2024-01-15T10:30:00Z"
-}
-```
+| カラム | 型 | 説明 |
+|--------|-----|------|
+| id | integer PK | 自動採番 |
+| task_id | integer FK | タスク参照 |
+| session_id | integer FK | セッション参照 |
+| category | enum | agent, infra, external |
+| error_type | text | timeout, crash等 |
+| message | text | エラーメッセージ |
+| details | json | エラー固有の詳細 |
+| attempt_number | integer | 試行回数 |
+| resolved | boolean | 解決済みフラグ |
+| created_at | timestamp | 作成日時 |
 
 ## CLI
 
-```bash
-# エラー一覧
-agentmine errors list
-agentmine errors list --task 42
-agentmine errors list --category agent
-agentmine errors list --unresolved
-
-# エラー詳細
-agentmine errors show 1
-
-# エラーを解決済みにマーク
-agentmine errors resolve 1
-
-# 失敗タスクの一覧
-agentmine task list --status failed
-
-# リトライ
-agentmine task retry 42
-agentmine task retry --all-failed  # 全失敗タスクをリトライ
-```
+| コマンド | 説明 |
+|---------|------|
+| agentmine errors list | エラー一覧 |
+| agentmine errors list --task 42 | タスク別エラー |
+| agentmine errors list --category agent | カテゴリ別エラー |
+| agentmine errors list --unresolved | 未解決エラー |
+| agentmine errors show 1 | エラー詳細 |
+| agentmine errors resolve 1 | 解決済みにマーク |
 
 ## 設定
 
-```yaml
-# settings snapshot (import/export)
-errorHandling:
-  # リトライ設定
-  retry:
-    maxRetries: 3
-    initialDelayMs: 1000
-    maxDelayMs: 30000
-    multiplier: 2
-
-  # 自動リキュー設定
-  autoRequeue:
-    enabled: true   # AI運用のためデフォルト有効
-    maxAttempts: 3
-    delayMinutes: 5
-    excludeErrors:
-      - rate_limit
-      - client_error
-      - auth_error
-
-  # タイムアウト設定
-  timeout:
-    taskDefaultMs: 3600000   # 1時間
-    sessionMaxMs: 7200000    # 2時間
-
-  # 通知設定（将来）
-  notification:
-    enabled: false
-    channels: []  # slack, email, etc.
-```
-
-## API
-
-### ErrorService
-
-```typescript
-export class ErrorService {
-  // エラー記録
-  async logError(error: TaskErrorInput): Promise<TaskError>;
-
-  // エラー取得
-  async listErrors(filter?: ErrorFilter): Promise<TaskError[]>;
-  async getError(id: number): Promise<TaskError | null>;
-
-  // エラー解決
-  async resolveError(id: number): Promise<void>;
-  async resolveAllForTask(taskId: number): Promise<void>;
-
-  // リトライ判定
-  shouldRetry(error: TaskError): boolean;
-  getRetryDelay(error: TaskError, attempt: number): number;
-}
-```
+| 項目 | 設定キー | デフォルト |
+|------|---------|-----------|
+| 最大リトライ | retry.maxRetries | 3 |
+| 初回待機 | retry.initialDelayMs | 1000 |
+| 最大待機 | retry.maxDelayMs | 30000 |
+| 自動リキュー | autoRequeue.enabled | true |
+| 最大試行 | autoRequeue.maxAttempts | 3 |
+| 待機時間 | autoRequeue.delayMinutes | 5 |
+| タスクタイムアウト | timeout.taskDefaultMs | 3600000（1時間） |
+| セッション最大 | timeout.sessionMaxMs | 7200000（2時間） |
 
 ## 責務分担
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        エラー処理の責務分担                          │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                     │
-│  【agentmineの責務】                                                 │
-│  - エラー情報の記録（task_errorsテーブル）                          │
-│  - エラー一覧・詳細の提供（CLI, MCP）                               │
-│  - 設定に基づくリトライ判定情報の提供                               │
-│                                                                     │
-│  【Orchestratorの責務】                                                        │
-│  - Workerのエラー検知（終了コード、出力確認）                       │
-│  - リトライ判断（agentmineの設定を参照）                            │
-│  - session end時のエラー記録（agentmine session end --error）       │
-│  - 人間への通知・エスカレーション                                   │
-│                                                                     │
-└─────────────────────────────────────────────────────────────────────┘
-```
+| 役割 | 責務 |
+|------|------|
+| agentmine | エラー情報の記録（task_errorsテーブル） |
+| agentmine | エラー一覧・詳細の提供（CLI, MCP） |
+| agentmine | 設定に基づくリトライ判定情報の提供 |
+| Orchestrator | Workerのエラー検知（終了コード、出力確認） |
+| Orchestrator | リトライ判断（agentmineの設定を参照） |
+| Orchestrator | session end時のエラー記録 |
+| Orchestrator | 人間への通知・エスカレーション |
 
-## References
+## 関連ドキュメント
 
-- **@../02-architecture/design-principles.md** - Fail Fast原則
-- **@../03-core-concepts/observable-facts.md** - Observable & Deterministic原則
-- **@./agent-execution.md** - Agent実行フロー
-- **@../data-model.md** - データモデル
+- システムアーキテクチャ: @02-architecture/architecture.md
+- Observable Facts: @03-core-concepts/observable-facts.md
+- Worker実行フロー: @07-runtime/worker-lifecycle.md
+- 用語集: @appendix/glossary.md

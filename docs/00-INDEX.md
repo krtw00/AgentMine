@@ -2,26 +2,51 @@
 
 **Safe Parallel AI Development Environment** - 複数AIを同時に、安全に、管理可能に
 
+## 目的
+
+agentmineドキュメントのナビゲーションを提供する。本ドキュメントはドキュメント構造のSSoT（Single Source of Truth）である。
+
 ## ドキュメント構造
 
-このドキュメントは**C4モデル + arc42**に基づいて階層化されています。
+C4モデル + arc42に基づいて階層化。
 
-```
-00-INDEX (このファイル)              ← ナビゲーション・入り口
-01-introduction                      ← プロジェクト概要
-02-architecture                      ← システム構成
-03-core-concepts                     ← 中核となる概念・原則
-04-data                              ← データモデル・DB
-05-features                          ← 機能詳細
-06-interfaces                        ← CLI/MCP/Web
-07-runtime                           ← 実行フロー
-08-deployment                        ← インストール・設定
-09-development                       ← 開発者向け
-10-decisions                         ← アーキテクチャ決定記録
-appendix                             ← 付録（用語集・FAQ等）
-```
+| ディレクトリ | 内容 |
+|-------------|------|
+| 00-INDEX | このファイル。ナビゲーション・入り口 |
+| 00-writing-guidelines | ドキュメント執筆ガイドライン |
+| 01-introduction | プロジェクト概要 |
+| 02-architecture | システム構成 |
+| 03-core-concepts | 中核となる概念・原則 |
+| 04-data | データモデル・DB |
+| 05-features | 機能詳細 |
+| 06-interfaces | CLI/MCP/Web |
+| 07-runtime | 実行フロー |
+| 08-deployment | インストール・設定 |
+| 09-development | 開発者向けガイド |
+| 10-decisions | アーキテクチャ決定記録（ADR） |
+| appendix | 付録（用語集等） |
 
----
+### C4モデル対応
+
+| C4レベル | 説明 | 対応ドキュメント |
+|---------|------|-----------------|
+| Level 1: Context | システム全体と外部との関係 | 01-introduction/overview.md |
+| Level 2: Container | 主要コンポーネント（CLI, Web, Core） | 02-architecture/architecture.md |
+| Level 3: Component | 各コンポーネントの内部構造 | 05-features/, 06-interfaces/ |
+| Level 4: Code | 実装詳細 | 04-data/data-model.md |
+
+### arc42対応
+
+| arc42セクション | 対応ディレクトリ |
+|----------------|-----------------|
+| 1. Introduction and Goals | 01-introduction |
+| 4. Solution Strategy | 03-core-concepts |
+| 5. Building Block View | 02-architecture, 05-features, 06-interfaces |
+| 6. Runtime View | 07-runtime |
+| 7. Deployment View | 08-deployment |
+| 8. Cross-cutting Concepts | 03-core-concepts |
+| 9. Architecture Decisions | 10-decisions |
+| 12. Glossary | appendix |
 
 ## はじめに読むべきドキュメント
 
@@ -29,179 +54,193 @@ appendix                             ← 付録（用語集・FAQ等）
 
 agentmineが何をするものか理解したい：
 
-1. **@02-architecture/architecture.md** - プロジェクト概要・システム構成図・Core Value
-2. **@03-core-concepts/orchestrator-worker.md** - Orchestrator/Workerモデル
-3. **@../README.md** - クイックスタート
+| 順序 | ドキュメント | 内容 |
+|:----:|------------|------|
+| 1 | @02-architecture/architecture.md | プロジェクト概要・システム構成図 |
+| 2 | @03-core-concepts/orchestrator-worker.md | Orchestrator/Workerモデル |
+| 3 | @01-introduction/overview.md | Core Value・動作フロー |
 
 ### 利用者（Orchestrator開発者）
 
 AIを使って開発タスクを自動化したい：
 
-1. **@07-runtime/worker-lifecycle.md** - Worker起動から終了まで
-2. **@06-interfaces/cli/overview.md** - CLIコマンド一覧
-3. **@05-features/memory-bank.md** - プロジェクト決定事項の管理
-4. **@06-interfaces/mcp/overview.md** - MCPツール一覧
+| 順序 | ドキュメント | 内容 |
+|:----:|------------|------|
+| 1 | @07-runtime/worker-lifecycle.md | Worker起動から終了まで |
+| 2 | @06-interfaces/cli/overview.md | CLIコマンド一覧 |
+| 3 | @05-features/memory-bank.md | プロジェクト決定事項の管理 |
+| 4 | @06-interfaces/mcp/overview.md | MCPツール一覧 |
 
 ### 開発者（agentmine本体を開発）
 
 agentmineの機能を実装・拡張したい：
 
-1. **@09-development/implementation-plan.md** - 開発環境セットアップ・実装ガイド
-2. **@04-data/data-model.md** - データベーススキーマ
-3. **@02-architecture/architecture.md** - パッケージ構成
-4. **@../README.md** - クイックスタート
+| 順序 | ドキュメント | 内容 |
+|:----:|------------|------|
+| 1 | @08-deployment/installation.md | インストール手順 |
+| 2 | @04-data/data-model.md | データベーススキーマ |
+| 3 | @02-architecture/architecture.md | パッケージ構成 |
 
----
+## ドキュメント一覧
 
-## ロール別ガイド
+### 00-ルートファイル
 
-### Orchestrator開発者（AIを使う人）
+| ファイル | 内容 |
+|---------|------|
+| INDEX.md | このファイル。ナビゲーション・入り口 |
+| writing-guidelines.md | ドキュメント執筆ガイドライン |
 
-**目的**: タスクを分割し、複数のWorkerを並列実行して開発を加速
+### 01-introduction
 
-**必読ドキュメント:**
-1. @03-core-concepts/orchestrator-worker.md - あなたの役割
-2. @07-runtime/worker-lifecycle.md - Worker起動・監視・完了
-3. @05-features/parallel-execution.md - 並列実行の方法
-4. @05-features/memory-bank.md - プロジェクト知識の管理
-5. @06-interfaces/cli/overview.md - CLIコマンドリファレンス
+| ファイル | 内容 |
+|---------|------|
+| overview.md | agentmineの概要、Core Value、動作フロー |
 
-**典型的なフロー:**
-```bash
-# 1. タスク作成
-agentmine task add "ログイン機能実装"
+### 02-architecture
 
-# 2. Worker起動
-agentmine worker run 1 --exec --detach
+| ファイル | 内容 |
+|---------|------|
+| architecture.md | システムアーキテクチャ、パッケージ構成 |
 
-# 3. 監視
-agentmine worker status 1
+### 03-core-concepts
 
-# 4. 完了
-agentmine worker done 1
-```
+| ファイル | 内容 |
+|---------|------|
+| orchestrator-worker.md | Orchestrator/Workerモデル |
+| db-master.md | DBマスター方式 |
+| observable-facts.md | Observable Facts（客観事実による判定） |
+| scope-control.md | スコープ制御（exclude/read/write） |
 
-### Web UI利用者（人間）
+### 04-data
 
-**目的**: Web画面でタスク管理・Agent定義・Worker監視
+| ファイル | 内容 |
+|---------|------|
+| data-model.md | データベーススキーマ、テーブル定義 |
 
-**必読ドキュメント:**
-1. @06-interfaces/web/overview.md - Web UIの全体像・各画面の使い方
-2. @05-features/agent-system.md - Agent定義
-3. @04-data/data-model.md - データモデル
+### 05-features
 
-### agentmine開発者
+| ファイル | 内容 |
+|---------|------|
+| agent-system.md | Agent定義・管理 |
+| memory-bank.md | Memory Bank（プロジェクト決定事項） |
+| session-log.md | Session Log（実行記録） |
+| error-handling.md | エラーハンドリング |
 
-#### バックエンド開発者
+### 06-interfaces
 
-**必読ドキュメント:**
-1. @04-data/data-model.md - DBスキーマ
-2. @02-architecture/architecture.md - パッケージ構成
-3. @06-interfaces/cli/overview.md - CLI設計
-4. @06-interfaces/mcp/overview.md - MCP設計
+| ファイル | 内容 |
+|---------|------|
+| cli/overview.md | CLI設計、コマンド一覧 |
+| mcp/overview.md | MCP設計、ツール一覧 |
+| web/overview.md | Web UI設計 |
 
-#### フロントエンド開発者
+### 07-runtime
 
-**必読ドキュメント:**
-1. @06-interfaces/web/overview.md - Web UI構成・API Routes仕様
-2. @04-data/data-model.md - データモデル
-3. @02-architecture/architecture.md - システム構成
+| ファイル | 内容 |
+|---------|------|
+| worker-lifecycle.md | Worker実行フロー（起動〜終了） |
 
-#### Worker実装者（AIクライアント対応）
+### 08-deployment
 
-**必読ドキュメント:**
-1. @03-core-concepts/scope-control.md - スコープ制御
-2. @07-runtime/worker-lifecycle.md - Worker実行フロー
-3. @05-features/agent-system.md - Agent定義
+| ファイル | 内容 |
+|---------|------|
+| installation.md | インストール手順 |
+| configuration.md | 設定方法 |
 
----
+### 09-development
+
+| ファイル | 内容 |
+|---------|------|
+| contributing.md | 開発者向けガイド（環境構築、規約、PR） |
+
+### 10-decisions
+
+| ファイル | 内容 |
+|---------|------|
+| 001-typescript-monorepo.md | ADR-001: TypeScript Monorepo採用 |
+| 002-sqlite-default.md | ADR-002: SQLite + PostgreSQL戦略 |
+| 003-drizzle-orm.md | ADR-003: Drizzle ORM採用 |
+| 004-multi-project-single-db.md | ADR-004: 複数プロジェクト・単一DB |
+| mysql-vs-postgresql-comparison.md | MySQL vs PostgreSQL詳細比較 |
+
+### appendix
+
+| ファイル | 内容 |
+|---------|------|
+| glossary.md | 用語集 |
 
 ## トピック別インデックス
 
 ### 設計・原則
 
-- **設計原則**: @02-architecture/design-principles.md
-- **DBマスター**: @03-core-concepts/db-master.md
-- **Observable Facts**: @03-core-concepts/observable-facts.md
-- **アーキテクチャ決定**: @10-decisions/ (ADR)
-
-### データ
-
-- **データモデル**: @04-data/data-model.md
-- **スキーマ定義**: @04-data/data-model.md
+| トピック | ドキュメント |
+|---------|------------|
+| システムアーキテクチャ | @02-architecture/architecture.md |
+| DBマスター方式 | @03-core-concepts/db-master.md |
+| Observable Facts | @03-core-concepts/observable-facts.md |
+| スコープ制御 | @03-core-concepts/scope-control.md |
+| アーキテクチャ決定 | @10-decisions/ |
 
 ### 実行
 
-- **Worker起動**: @07-runtime/worker-lifecycle.md
-- **並列実行**: @05-features/parallel-execution.md
-- **セッション**: @05-features/session-log.md
+| トピック | ドキュメント |
+|---------|------------|
+| Worker実行フロー | @07-runtime/worker-lifecycle.md |
+| Session Log | @05-features/session-log.md |
+| エラーハンドリング | @05-features/error-handling.md |
 
 ### インターフェース
 
-- **CLI**: @06-interfaces/cli/overview.md
-- **MCP**: @06-interfaces/mcp/overview.md
-- **Web UI**: @06-interfaces/web/overview.md
+| トピック | ドキュメント |
+|---------|------------|
+| CLI | @06-interfaces/cli/overview.md |
+| MCP | @06-interfaces/mcp/overview.md |
+| Web UI | @06-interfaces/web/overview.md |
 
 ### 機能
 
-- **Agent定義**: @05-features/agent-system.md
-- **Memory Bank**: @05-features/memory-bank.md
-- **認証**: @05-features/authentication.md
-- **エラーハンドリング**: @05-features/error-handling.md
-- **Git統合**: @05-features/git-integration.md
-- **Worktreeスコープ**: @05-features/worktree-scope.md
+| トピック | ドキュメント |
+|---------|------------|
+| Agent定義 | @05-features/agent-system.md |
+| Memory Bank | @05-features/memory-bank.md |
 
----
+### デプロイ
+
+| トピック | ドキュメント |
+|---------|------------|
+| インストール | @08-deployment/installation.md |
+| 設定 | @08-deployment/configuration.md |
 
 ## よくある質問への直リンク
 
 | 質問 | ドキュメント |
 |------|-------------|
-| agentmineとは何？ | @02-architecture/architecture.md |
-| どうやってインストールする？ | @09-development/implementation-plan.md |
+| agentmineとは何？ | @01-introduction/overview.md |
+| どうやってインストールする？ | @08-deployment/installation.md |
 | Worker起動の仕組みは？ | @07-runtime/worker-lifecycle.md |
-| 並列実行の方法は？ | @05-features/parallel-execution.md |
 | Memory Bankとは？ | @05-features/memory-bank.md |
 | スコープ制御とは？ | @03-core-concepts/scope-control.md |
 | CLIコマンド一覧は？ | @06-interfaces/cli/overview.md |
 | DBスキーマは？ | @04-data/data-model.md |
-| 開発環境セットアップは？ | @09-development/implementation-plan.md |
-
----
+| 用語の意味は？ | @appendix/glossary.md |
 
 ## ドキュメント凡例
 
-### アイコン
-
-- 🎯 **重要**: 必ず理解すべき概念
-- 💡 **ヒント**: 役立つ情報
-- ⚠️ **注意**: よくある間違い・注意点
-- 🔗 **参照**: 関連ドキュメント
-
 ### 相対パス表記
 
-ドキュメント内では `@` で始まる相対パスで他ドキュメントを参照：
-- `@02-architecture/architecture.md` - docsルートからの相対パス
-- `@../03-core-concepts/db-master.md` - 現在のディレクトリからの相対パス
-- `@05-features/memory-bank.md` - 現在のディレクトリからの相対パス
+ドキュメント内では @ で始まる相対パスで他ドキュメントを参照：
 
----
-
-## 貢献
-
-ドキュメントの改善提案は大歓迎です：
-- Issue/PRで提案してください
-- @../README.md - プロジェクト概要
-
----
+| 表記 | 意味 |
+|------|------|
+| @02-architecture/architecture.md | docsルートからの相対パス |
+| @../README.md | 親ディレクトリからの相対パス |
 
 ## バージョン履歴
 
 | バージョン | 日付 | 変更内容 |
 |-----------|------|----------|
+| 3.0 | 2026-01-21 | ガイドライン適用（コードブロック削除、テーブル化） |
 | 2.0 | 2026-01-20 | C4モデル + arc42に基づく構造化 |
 | 1.0 | 2025-12 | 初版 |
 
----
-
-**次に読むべきドキュメント**: @02-architecture/architecture.md
+**次に読むべきドキュメント**: @01-introduction/overview.md

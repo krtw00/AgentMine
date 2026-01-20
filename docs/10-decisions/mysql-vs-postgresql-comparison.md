@@ -2,7 +2,7 @@
 
 agentmineの本番データベース選定のための詳細比較資料。
 
-## Executive Summary
+## エグゼクティブサマリー
 
 | 観点 | MySQL | PostgreSQL | 勝者 |
 |------|-------|------------|------|
@@ -17,8 +17,6 @@ agentmineの本番データベース選定のための詳細比較資料。
 
 **結論**: **PostgreSQLのみサポート**。AI機能（ベクトル検索）との親和性が決定的要因。
 
----
-
 ## 1. グローバル市場シェア
 
 ### DB-Engines Ranking (2025年10月)
@@ -30,8 +28,6 @@ agentmineの本番データベース選定のための詳細比較資料。
 | 3 | Microsoft SQL Server | 862 |
 | 4 | PostgreSQL | 682 |
 
-Source: [DB-Engines](https://db-engines.com/en/ranking_trend/system/MySQL;PostgreSQL)
-
 ### 実際の採用数
 
 | Database | 企業数 | 市場シェア |
@@ -39,19 +35,14 @@ Source: [DB-Engines](https://db-engines.com/en/ranking_trend/system/MySQL;Postgr
 | MySQL | 191,458 | 40.03% |
 | PostgreSQL | 84,260 | 17.62% |
 
-Source: [6sense](https://6sense.com/tech/relational-databases/mysql-vs-postgresql)
-
 ### 開発者調査（Stack Overflow 2024-2025）
 
-```
-PostgreSQL: 45.55% → 最も使用されているDB
-MySQL:      41.09%
-```
+| Database | 使用率 | 備考 |
+|----------|--------|------|
+| PostgreSQL | 45.55% | 最も使用されているDB |
+| MySQL | 41.09% | |
 
-- 2023年にPostgreSQLがMySQLを初めて逆転
-- 「最も好まれるDB」「最も使いたいDB」でもPostgreSQLが1位
-
-Source: [Stack Overflow Survey](https://survey.stackoverflow.co/2024/technology)
+2023年にPostgreSQLがMySQLを初めて逆転。「最も好まれるDB」「最も使いたいDB」でもPostgreSQLが1位。
 
 ### 地域別傾向
 
@@ -62,8 +53,6 @@ Source: [Stack Overflow Survey](https://survey.stackoverflow.co/2024/technology)
 | イギリス | ✓ | |
 | アメリカ | | ✓ (44%がUS企業) |
 | ドイツ | | ✓ |
-
----
 
 ## 2. 企業導入実績
 
@@ -76,13 +65,7 @@ Source: [Stack Overflow Survey](https://survey.stackoverflow.co/2024/technology)
 | Spotify | 音楽 | |
 | Netflix | 動画 | |
 | Uber | モビリティ | 一部はMySQLも併用 |
-| Cisco | ネットワーク | |
-| Fujitsu | IT | |
-| Red Hat | OSS | |
 | US FAA | 政府機関 | 航空管制システム |
-| Accenture | コンサル | |
-
-Source: [LearnSQL](https://learnsql.com/blog/companies-that-use-postgresql-in-business/), [CYBERTEC](https://www.cybertec-postgresql.com/en/postgresql-overview/solutions-who-uses-postgresql/)
 
 ### MySQLを使用する主要企業
 
@@ -91,29 +74,15 @@ Source: [LearnSQL](https://learnsql.com/blog/companies-that-use-postgresql-in-bu
 | Facebook/Meta | SNS | 大規模カスタマイズ版 |
 | Twitter/X | SNS | |
 | YouTube | 動画 | |
-| Booking.com | 旅行 | |
 | GitHub | 開発 | |
 | Airbnb | 旅行 | |
-| Uber | モビリティ | PostgreSQLと併用 |
-| LinkedIn | SNS | |
-| Netflix | 動画 | PostgreSQLと併用 |
-| Slack | コミュニケーション | |
 
 ### 業界別傾向
 
-**MySQL優位:**
-- Web開発 (4,869社)
-- デジタルマーケティング (3,700社)
-- Eコマース
-
-**PostgreSQL優位:**
-- 機械学習 (2,153社)
-- AI (1,797社)
-- 金融サービス
-- 製造業（Oracle離脱先として）
-- 政府機関
-
----
+| 傾向 | 業界 |
+|------|------|
+| MySQL優位 | Web開発、デジタルマーケティング、Eコマース |
+| PostgreSQL優位 | 機械学習、AI、金融サービス、政府機関 |
 
 ## 3. 技術比較
 
@@ -128,8 +97,7 @@ Source: [LearnSQL](https://learnsql.com/blog/companies-that-use-postgresql-in-bu
 | 全文検索 | ○ 良好 | ◎ 優秀 |
 | 地理空間（GIS） | △ 基本的 | ◎ PostGIS |
 
-> 一般的なワークロードでは性能差は30%以内。インデックス設計の方が重要。
-> Source: [Bytebase](https://www.bytebase.com/blog/postgres-vs-mysql/)
+一般的なワークロードでは性能差は30%以内。インデックス設計の方が重要。
 
 ### 機能比較
 
@@ -142,8 +110,6 @@ Source: [LearnSQL](https://learnsql.com/blog/companies-that-use-postgresql-in-bu
 | カスタム型 | × | ◎ |
 | Window関数 | ○ | ◎ |
 | CTE（WITH句） | ○ | ◎ |
-| パーティショニング | ○ | ◎ |
-| 並列クエリ | ○ | ◎ |
 | 拡張性 | △ 限定的 | ◎ 豊富（PostGIS等） |
 
 ### レプリケーション・HA
@@ -152,15 +118,15 @@ Source: [LearnSQL](https://learnsql.com/blog/companies-that-use-postgresql-in-bu
 |------|-------|------------|
 | 非同期レプリケーション | ◎ | ◎ |
 | 同期レプリケーション | ○ 半同期 | ◎ |
-| マスター-スレーブ | ◎ | ◎ |
 | マスター-マスター | ◎ Group Replication | △ 要BDR等 |
 | 論理レプリケーション | △ 限定的 | ◎ |
-| 自動フェイルオーバー | ○ InnoDB Cluster | △ 要Patroni等 |
-| カスケードレプリケーション | ○ | ◎ |
 
 **HAツール:**
-- MySQL: InnoDB Cluster, ProxySQL, Orchestrator
-- PostgreSQL: Patroni, pgpool-II, Citus
+
+| データベース | ツール |
+|-------------|--------|
+| MySQL | InnoDB Cluster, ProxySQL, Orchestrator |
+| PostgreSQL | Patroni, pgpool-II, Citus |
 
 ### SQL標準準拠
 
@@ -168,71 +134,31 @@ Source: [LearnSQL](https://learnsql.com/blog/companies-that-use-postgresql-in-bu
 |------|-------|------------|
 | 標準SQL準拠度 | 中程度 | 高い |
 | 独自拡張 | 多い | 少ない |
-| GROUP BY挙動 | 非標準（ONLY_FULL_GROUP_BY設定） | 標準 |
+| GROUP BY挙動 | 非標準 | 標準 |
 | 暗黙の型変換 | 多い（予期せぬ動作の原因） | 厳格 |
-
----
 
 ## 4. ライセンス・ベンダーリスク
 
 ### MySQL
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│  MySQL ライセンス構造                                        │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  Community Edition (GPLv2)                                  │
-│  └─ 無料、OSS                                               │
-│  └─ 機能限定                                                │
-│                                                             │
-│  Enterprise Edition (商用ライセンス)                         │
-│  └─ 有料（Oracle契約）                                      │
-│  └─ 高度なセキュリティ、監視、バックアップ                    │
-│  └─ 価格: サーバーあたり or CPUあたり                       │
-│                                                             │
-│  ⚠️ Oracle懸念事項:                                         │
-│  └─ ライセンス料の値上げリスク                              │
-│  └─ Enterprise限定機能の増加                               │
-│  └─ ベンダーロックイン                                      │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
-```
+| 項目 | 説明 |
+|------|------|
+| Community Edition | GPLv2、無料、OSS、機能限定 |
+| Enterprise Edition | 商用ライセンス、有料（Oracle契約） |
+| リスク | ライセンス料の値上げ、Enterprise限定機能の増加 |
 
-**Oracle買収後の懸念（歴史）:**
+**Oracle買収後の懸念:**
 - 2010年: OracleがSunを買収、MySQL取得
 - MySQL創業者がMariaDBをフォーク
-- 50,000人以上の開発者が買収反対署名
 - AppleがMySQLからPostgreSQLに移行
-
-**代替選択肢:**
-- **MariaDB**: MySQL互換のフォーク、完全OSS
-- **Percona Server**: MySQL互換、Enterprise機能が無料
 
 ### PostgreSQL
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│  PostgreSQL ライセンス構造                                   │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  PostgreSQL License (BSD-like)                              │
-│  └─ 完全無料、OSS                                           │
-│  └─ 商用利用制限なし                                        │
-│  └─ 単一ベンダー支配なし                                    │
-│                                                             │
-│  商用サポート（任意）:                                       │
-│  └─ EDB (EnterpriseDB)                                     │
-│  └─ 2ndQuadrant                                            │
-│  └─ Crunchy Data                                           │
-│  └─ AWS/Azure/GCPのマネージドサービス                       │
-│                                                             │
-│  ✓ ベンダーロックインリスクなし                             │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
-```
-
----
+| 項目 | 説明 |
+|------|------|
+| ライセンス | BSD-like、完全無料、商用利用制限なし |
+| 商用サポート | EDB, 2ndQuadrant, Crunchy Data等（任意） |
+| リスク | ベンダーロックインリスクなし |
 
 ## 5. 運用・エコシステム
 
@@ -255,17 +181,6 @@ Source: [LearnSQL](https://learnsql.com/blog/companies-that-use-postgresql-in-bu
 
 両方とも主要クラウドで完全サポート。
 
-### ORM/ドライバ対応
-
-| 言語/Framework | MySQL | PostgreSQL |
-|----------------|-------|------------|
-| Node.js | mysql2, Sequelize, Prisma, Drizzle | pg, Sequelize, Prisma, Drizzle |
-| Python | mysqlclient, SQLAlchemy | psycopg2, SQLAlchemy |
-| Go | go-sql-driver/mysql | pgx, lib/pq |
-| Java | MySQL Connector/J | PostgreSQL JDBC |
-
----
-
 ## 6. agentmineにとっての考慮事項
 
 ### 想定ユースケース
@@ -277,7 +192,6 @@ Source: [LearnSQL](https://learnsql.com/blog/companies-that-use-postgresql-in-bu
 | 既存MySQL環境の企業 | MySQL |
 | Oracle離脱検討企業 | PostgreSQL |
 | 金融・医療 | PostgreSQL（ACID厳格、監査機能） |
-| Web系大量読み取り | MySQL |
 | AI/ML統合 | PostgreSQL |
 
 ### agentmineの技術要件
@@ -289,45 +203,16 @@ Source: [LearnSQL](https://learnsql.com/blog/companies-that-use-postgresql-in-bu
 | 単純なCRUD | ◎ | ○ | MySQL有利 |
 | 将来のAI機能統合 | ○ | ◎ pgvector | PG有利 |
 
-### 両対応のコスト
-
-Drizzle ORMで両対応は技術的に可能：
-
-```typescript
-// スキーマ定義は若干異なるが、クエリAPIは共通
-// packages/core/src/db/schema/mysql.ts
-// packages/core/src/db/schema/postgres.ts
-```
-
-追加開発コスト: 約10-20%増
-
----
-
 ## 7. 結論・推奨
 
 ### agentmineの方針（確定）
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│  agentmine データベース戦略（確定版）                        │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  ローカル開発: SQLite                                       │
-│                                                             │
-│  本番環境: PostgreSQL のみ                                  │
-│                                                             │
-│  # settings snapshot (import/export)                       │
-│  database:                                                  │
-│    # SQLite（デフォルト）                                   │
-│    url: file:.agentmine/data.db                            │
-│                                                             │
-│    # PostgreSQL（本番）                                     │
-│    url: postgres://user:pass@host:5432/agentmine           │
-│                                                             │
-│  ❌ MySQLは対応しない                                       │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
-```
+| 用途 | データベース |
+|------|-------------|
+| ローカル開発 | SQLite |
+| 本番環境 | PostgreSQL のみ |
+
+**MySQLは対応しない。**
 
 ### PostgreSQLに確定した決定的理由
 
@@ -335,31 +220,26 @@ Drizzle ORMで両対応は技術的に可能：
 
 | 機能 | PostgreSQL | MySQL |
 |------|------------|-------|
-| ベクトル検索 | ◎ pgvector（2019年〜、成熟） | △ 2025年2月GA（新しすぎる） |
-| クラウドサポート | ◎ 全主要クラウド | △ Google Cloud SQLのみ |
-| AI統合実績 | ◎ 多数（Supabase, Neon等） | △ 少ない |
+| ベクトル検索 | pgvector（2019年〜、成熟） | 2025年2月GA（新しすぎる） |
+| クラウドサポート | 全主要クラウド | Google Cloud SQLのみ |
+| AI統合実績 | 多数（Supabase, Neon等） | 少ない |
 
-agentmineの将来機能（Memory Bankのセマンティック検索、タスク類似検索、スキル推薦）にはベクトル検索が不可欠。
-MySQLのベクトル検索は2025年2月にようやくGAとなったばかりで、実績・エコシステムともに未成熟。
+agentmineの将来機能（Memory Bankのセマンティック検索、タスク類似検索、スキル推薦）にはベクトル検索が不可欠。MySQLのベクトル検索は2025年2月にようやくGAとなったばかりで、実績・エコシステムともに未成熟。
 
 ### MySQLを対応しない理由
 
-1. **AI機能サポートの未成熟**: pgvectorに比べてMySQLのベクトル検索は実績が少ない
-2. **メンテナンスコスト**: 2つのRDBMS対応は開発・テスト・ドキュメントコストが高い
-3. **PostgreSQLで十分**: 企業ニーズもPostgreSQLでカバー可能
+| 理由 | 説明 |
+|------|------|
+| AI機能サポートの未成熟 | pgvectorに比べてMySQLのベクトル検索は実績が少ない |
+| メンテナンスコスト | 2つのRDBMS対応は開発・テスト・ドキュメントコストが高い |
+| PostgreSQLで十分 | 企業ニーズもPostgreSQLでカバー可能 |
 
 既存MySQL環境の企業には、PostgreSQLへの移行またはハイブリッド構成を推奨する。
 
----
+## 参考資料
 
-## References
-
-- [DB-Engines Ranking](https://db-engines.com/en/ranking_trend/system/MySQL;PostgreSQL)
-- [6sense: MySQL vs PostgreSQL](https://6sense.com/tech/relational-databases/mysql-vs-postgresql)
-- [Bytebase: Postgres vs MySQL](https://www.bytebase.com/blog/postgres-vs-mysql/)
-- [EDB: PostgreSQL vs MySQL Comparison](https://www.enterprisedb.com/blog/postgresql-vs-mysql-360-degree-comparison-syntax-performance-scalability-and-features)
-- [Stack Overflow Survey 2024](https://survey.stackoverflow.co/2024/technology)
-- [Oracle MySQL Licensing Guide](https://oraclelicensingexperts.com/oracle-mysql-licensing-and-support-a-complete-advisory-guide/)
-- [Percona: Oracle License and MySQL](https://www.percona.com/blog/oracle-license-revenue-and-the-mysql-ecosystem/)
-- [LearnSQL: Companies using PostgreSQL](https://learnsql.com/blog/companies-that-use-postgresql-in-business/)
-- [Medium: PostgreSQL vs MySQL at Fortune 500 Scale](https://medium.com/@jholt1055/postgresql-vs-mysql-in-2025-what-10-years-managing-both-at-fortune-500-scale-taught-me-adc002c10453)
+- DB-Engines Ranking: https://db-engines.com/en/ranking_trend/system/MySQL;PostgreSQL
+- 6sense: MySQL vs PostgreSQL: https://6sense.com/tech/relational-databases/mysql-vs-postgresql
+- Bytebase: Postgres vs MySQL: https://www.bytebase.com/blog/postgres-vs-mysql/
+- Stack Overflow Survey 2024: https://survey.stackoverflow.co/2024/technology
+- LearnSQL: Companies using PostgreSQL: https://learnsql.com/blog/companies-that-use-postgresql-in-business/
