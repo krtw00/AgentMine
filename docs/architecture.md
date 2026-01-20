@@ -30,6 +30,7 @@
 4. **スコープ制御**: sparse-checkout + chmodで物理的にファイルアクセスを制限
 5. **非対話Worker**: Workerは自動承認モードで動作（--dangerously-skip-permissions等）
 6. **Observable Facts**: ステータスはexit code, merge状態等の客観事実で判定
+7. **Explicit Opt-in**: 自動注入/自動実行などは明示的に有効化された場合のみ動作
 
 ## System Overview
 
