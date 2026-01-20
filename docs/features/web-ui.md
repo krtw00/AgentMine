@@ -346,21 +346,21 @@ agentmineのWeb UIは、人間がAIエージェント（Worker）を管理・監
 ┌─ Memory Bank ─────────────────────────────────────────────┐
 │ [+ New Memory: n]                                         │
 ├─────────────────────┬─────────────────────────────────────┤
-│ 📁 architecture/    │  # Monorepo Architecture            │
-│   └─ 001-monorepo   │                                     │
-│   └─ 002-database   │  ## 決定事項                        │
-│ 📁 tooling/         │                                     │
-│   └─ 001-vitest     │  pnpm + Turborepo を使用する。      │
-│ 📁 convention/      │                                     │
-│   └─ 001-commit     │  ## 理由                            │
+│ 📁 architecture/    │  ---                                │
+│   └─ monorepo       │  id: monorepo                       │
+│   └─ database-selection │  title: Monorepo Architecture   │
+│ 📁 tooling/         │  category: architecture             │
+│   └─ test-framework │  summary: pnpm + Turborepo を使用する │
+│ 📁 convention/      │  status: active                     │
+│   └─ commit-format  │  ---                                │
 │                     │                                     │
-│ [+ New Folder]      │  - CLI/Web/Coreで型定義を共有       │
-│                     │  - Turborepoのキャッシュで高速ビルド │
-│                     │  - 一貫したビルド・テスト環境       │
+│ [+ New Folder]      │  # Monorepo Architecture            │
 │                     │                                     │
-│                     │  ## 参考                            │
+│                     │  ## 決定                            │
+│                     │  pnpm + Turborepo を使用する。      │
 │                     │                                     │
-│                     │  - [Turborepo Docs](https://...)    │
+│                     │  ## 理由                            │
+│                     │  - CLI/Web/Coreで型定義を共有       │
 │                     │                                     │
 │                     ├─────────────────────────────────────┤
 │                     │              [Save: ⌘S] [Delete: d] │
@@ -372,6 +372,8 @@ agentmineのWeb UIは、人間がAIエージェント（Worker）を管理・監
 - 右ペイン: Markdownエディタ（プレビュー切り替え可能）
 - 新規フォルダ/ファイル作成
 - インライン編集・保存
+
+**Note:** カテゴリは設定の許可リストに従って表示。`status=draft` は注入対象外。
 
 ### 6. Settings（デュアルエディタ）
 
@@ -826,7 +828,7 @@ const VALID_VARIABLES = [
   'task.status',
   'agent.name',
   'agent.description',
-  'memory.content',
+  'memory.context',
   'session.id',
   'worktree.path',
 ]
@@ -879,10 +881,10 @@ export function lintMarkdown(content: string, type: 'prompt' | 'memory'): Diagno
     }
 
     // コンテキスト注入ポイント
-    if (!content.includes('{{memory.content}}')) {
+    if (!content.includes('{{memory.context}}')) {
       diagnostics.push({
         severity: 'info',
-        message: 'Memory Bankの内容を注入するには {{memory.content}} を使用します',
+        message: 'Memory Bankの内容を注入するには {{memory.context}} を使用します',
         startLine: 1,
         startColumn: 1,
         source: 'markdown-linter',
@@ -892,15 +894,28 @@ export function lintMarkdown(content: string, type: 'prompt' | 'memory'): Diagno
 
   // Memory Bank固有のルール
   if (type === 'memory') {
-    // 決定事項の明確化
-    if (!content.includes('決定') && !content.includes('Decision')) {
+    // Front Matterの必須フィールド
+    const requiredFields = ['id:', 'title:', 'category:']
+    if (!content.startsWith('---')) {
       diagnostics.push({
-        severity: 'info',
-        message: 'Memory Bankには決定事項を明記することを推奨します',
+        severity: 'warning',
+        message: 'Memory BankはFront Matterが必須です',
         startLine: 1,
         startColumn: 1,
         source: 'markdown-linter',
       })
+    }
+
+    for (const field of requiredFields) {
+      if (!content.includes(`\n${field}`)) {
+        diagnostics.push({
+          severity: 'warning',
+          message: `Memory BankのFront Matterには ${field.replace(':', '')} が必要です`,
+          startLine: 1,
+          startColumn: 1,
+          source: 'markdown-linter',
+        })
+      }
     }
   }
 
@@ -923,7 +938,7 @@ export function lintMarkdown(content: string, type: 'prompt' | 'memory'): Diagno
 │  7 │                                                      │
 │  8 │ ## コンテキスト                                      │
 │  9 │                                                      │
-│ 10 │ {{memory.content}}                                   │
+│ 10 │ {{memory.context}}                                   │
 │ 11 │                                                      │
 │ 12 │ ## 制約                                              │
 │ 13 │                                                      │
@@ -936,7 +951,7 @@ export function lintMarkdown(content: string, type: 'prompt' | 'memory'): Diagno
 ├───────────────────────────────────────────────────────────┤
 │ Available Variables:                                      │
 │ task.id, task.title, task.description, task.status,      │
-│ agent.name, agent.description, memory.content, ...       │
+│ agent.name, agent.description, memory.context, ...       │
 └───────────────────────────────────────────────────────────┘
 ```
 
@@ -1052,8 +1067,8 @@ export function registerFormatter(monaco: Monaco) {
 │ ℹ agentmine://prompts/coder.md:1:1                       │
 │   Consider adding a "## タスク" section                   │
 │                                                           │
-│ ℹ memory/architecture/001-monorepo.md:1:1                 │
-│   Consider adding explicit decision statements            │
+│ ℹ memory/architecture/monorepo.md:1:1                     │
+│   Consider adding Memory Bank Front Matter                │
 │                                                           │
 └───────────────────────────────────────────────────────────┘
 ```

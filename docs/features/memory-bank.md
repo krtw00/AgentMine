@@ -41,25 +41,30 @@ Worker起動時やエクスポート時に、DBからスナップショットを
 ```
 .agentmine/memory/           # DBから生成されるスナップショット
 ├── architecture/           # アーキテクチャ決定
-│   ├── 001-database.md
-│   └── 002-monorepo.md
+│   ├── database-selection.md
+│   └── monorepo.md
 ├── tooling/                # ツール選定
-│   ├── 001-test-framework.md
-│   └── 002-linter.md
+│   ├── test-framework.md
+│   └── linter.md
 ├── convention/             # 規約
-│   └── 001-commit-format.md
+│   └── commit-format.md
 └── rule/                   # ルール（必須事項）
-    └── 001-test-required.md
+    └── test-required.md
 ```
+
+ファイル名は `memory.id`（slug）を使用する。
 
 ## ファイル形式
 
-各決定事項は以下の形式のMarkdownファイル（スナップショット）：
+各決定事項はFront Matter付きMarkdownファイル（スナップショット）：
 
 ```markdown
 ---
+id: database-selection
 title: データベース選定
 category: architecture
+summary: PostgreSQL（本番）/ SQLite（ローカル）
+status: active
 created: 2024-01-20
 updated: 2024-01-25
 ---
@@ -77,6 +82,10 @@ PostgreSQL（本番）、SQLite（ローカル）
 - Drizzle ORMで両方をサポート可能
 ```
 
+**必須:** `id`（slug）, `title`, `category`  
+**推奨:** `summary`  
+**status:** 省略時は `draft`（注入OFF）。`active` のみ注入対象。
+
 ## カテゴリ
 
 | カテゴリ | 説明 | 例 |
@@ -85,6 +94,8 @@ PostgreSQL（本番）、SQLite（ローカル）
 | `tooling` | ツール選定 | テスト、リンター、ビルドツール |
 | `convention` | 規約 | コーディングスタイル、命名規則 |
 | `rule` | ルール | 必須事項、禁止事項 |
+
+**カテゴリはプロジェクト設定で拡張可能。** 設定に許可リストがある場合はその値のみ許容し、未設定なら任意の文字列を許可する。
 
 ## コンテキスト注入
 
@@ -121,10 +132,10 @@ PostgreSQL（本番）、SQLite（ローカル）
 - アーキテクチャ: DBはPostgreSQL（本番）/ SQLite（ローカル）
 
 ## Project Context (Memory Bank)
-The following project decision files are available:
-- .agentmine/memory/architecture/001-database.md - データベース選定
-- .agentmine/memory/tooling/001-test-framework.md - テストフレームワーク
-- .agentmine/memory/rule/001-test-required.md - テスト必須
+The following project context files are available:
+- .agentmine/memory/architecture/database-selection.md - データベース選定
+- .agentmine/memory/tooling/test-framework.md - テストフレームワーク
+- .agentmine/memory/rule/test-required.md - テスト必須
 
 Read these files in .agentmine/memory/ for details.
 
@@ -133,7 +144,7 @@ Read these files in .agentmine/memory/ for details.
 POST /api/login でJWTトークンを返すAPIを実装してください。
 ```
 
-**Note:** デフォルトは「短い要約 + 参照一覧」。要約は10項目以内の簡潔な箇条書きを推奨する。
+**Note:** 注入対象は `status=active` のみ。デフォルトは「短い要約 + 参照一覧」。要約は10項目以内の簡潔な箇条書きを推奨する。
 
 ## CLI
 
@@ -141,13 +152,15 @@ POST /api/login でJWTトークンを返すAPIを実装してください。
 # 決定事項一覧
 agentmine memory list
 agentmine memory list --category architecture
+agentmine memory list --status active
 
 # 決定事項追加（DBに保存）
 agentmine memory add \
+  --id test-framework \
   --category tooling \
   --title "テストフレームワーク" \
-  --decision "Vitest" \
-  --reason "高速、Vite互換"
+  --summary "Vitest（高速・Vite互換）" \
+  --status active
 
 # 決定事項編集（DBを更新）
 agentmine memory edit <id>
@@ -172,13 +185,16 @@ agentmine memory import --dir ./memory/
 ```typescript
 export class MemoryService {
   // DB読み込み
-  async listDecisions(category?: DecisionCategory): Promise<MemoryRecord[]>;
-  async getDecision(id: number): Promise<MemoryRecord | null>;
+  async listMemories(filter?: {
+    category?: string;
+    status?: MemoryStatus;
+  }): Promise<MemoryRecord[]>;
+  async getMemory(id: string): Promise<MemoryRecord | null>;
 
   // DB書き込み
-  async addDecision(decision: NewDecision): Promise<MemoryRecord>;
-  async updateDecision(id: number, input: UpdateDecision): Promise<MemoryRecord>;
-  async removeDecision(id: number): Promise<void>;
+  async addMemory(input: NewMemory): Promise<MemoryRecord>;
+  async updateMemory(id: string, input: UpdateMemory): Promise<MemoryRecord>;
+  async removeMemory(id: string): Promise<void>;
 
   // コンテキスト生成
   async buildContext(): Promise<string>;
@@ -188,12 +204,15 @@ export class MemoryService {
   async importSnapshot(inputDir: string): Promise<void>;
 }
 
+type MemoryStatus = 'draft' | 'active' | 'archived';
+
 interface MemoryRecord {
-  id: number;
+  id: string;
   category: string;
   title: string;
-  decision: string;
-  reason?: string;
+  summary?: string;
+  status: MemoryStatus;
+  content: string;
   created: Date;
   updated?: Date;
 }
@@ -205,13 +224,14 @@ interface MemoryRecord {
 // MCP Tool: memory_list
 {
   name: "memory_list",
-  description: "List project decisions from Memory Bank (DB)",
+  description: "List Memory Bank entries (DB)",
   inputSchema: {
     type: "object",
     properties: {
-      category: {
+      category: { type: "string" },
+      status: {
         type: "string",
-        enum: ["architecture", "tooling", "convention", "rule"]
+        enum: ["draft", "active", "archived"]
       },
     },
   },
@@ -220,14 +240,19 @@ interface MemoryRecord {
 // MCP Tool: memory_add
 {
   name: "memory_add",
-  description: "Add a project decision to Memory Bank (DB)",
+  description: "Add a Memory Bank entry (DB)",
   inputSchema: {
     type: "object",
     properties: {
+      id: { type: "string", required: true },
       category: { type: "string", required: true },
       title: { type: "string", required: true },
-      decision: { type: "string", required: true },
-      reason: { type: "string" },
+      summary: { type: "string" },
+      status: {
+        type: "string",
+        enum: ["draft", "active", "archived"]
+      },
+      content: { type: "string" },
     },
   },
 }

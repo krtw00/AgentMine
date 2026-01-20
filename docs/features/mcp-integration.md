@@ -430,13 +430,14 @@ Worker起動用のコマンドを生成（実行はOrchestratorが行う）。
 ```typescript
 {
   name: "memory_list",
-  description: "List project decisions (Memory Bank)",
+  description: "List Memory Bank entries",
   inputSchema: {
     type: "object",
     properties: {
-      category: {
+      category: { type: "string" },
+      status: {
         type: "string",
-        enum: ["architecture", "tooling", "convention", "rule"]
+        enum: ["draft", "active", "archived"]
       }
     }
   }
@@ -444,13 +445,13 @@ Worker起動用のコマンドを生成（実行はOrchestratorが行う）。
 
 // Response
 {
-  decisions: [
+  memories: [
     {
-      id: 1,
+      id: "test-framework",
       category: "tooling",
       title: "テストフレームワーク",
-      decision: "Vitest",
-      reason: "高速、Vite互換"
+      summary: "Vitest（高速・Vite互換）",
+      status: "active"
     }
   ]
 }
@@ -463,19 +464,21 @@ Worker起動用のコマンドを生成（実行はOrchestratorが行う）。
 ```typescript
 {
   name: "memory_add",
-  description: "Add a project decision to Memory Bank",
+  description: "Add a Memory Bank entry",
   inputSchema: {
     type: "object",
     properties: {
-      category: {
-        type: "string",
-        enum: ["architecture", "tooling", "convention", "rule"]
-      },
+      id: { type: "string" },
+      category: { type: "string" },
       title: { type: "string" },
-      decision: { type: "string" },
-      reason: { type: "string" }
+      summary: { type: "string" },
+      status: {
+        type: "string",
+        enum: ["draft", "active", "archived"]
+      },
+      content: { type: "string" }
     },
-    required: ["category", "title", "decision"]
+    required: ["id", "category", "title"]
   }
 }
 ```
@@ -496,7 +499,7 @@ AIに渡されるコンテキストをプレビュー。
 
 // Response
 {
-  context: "# Project Decisions\n\n## Architecture\n- ..."
+  context: "## Memory Bank Summary\n- ルール: バグ修正時は必ず回帰テストを追加\n\n## Project Context (Memory Bank)\n- .agentmine/memory/rule/test-required.md - テスト必須\n\nRead these files in .agentmine/memory/ for details."
 }
 ```
 
@@ -510,28 +513,22 @@ Memory Bankの内容。
 {
   uri: "project://memory",
   name: "Memory Bank",
-  description: "Project decisions and conventions",
+  description: "Memory Bank summary and references",
   mimeType: "text/markdown"
 }
 
 // コンテンツ形式（memory preview と同一）
-// カテゴリ順: architecture → tooling → convention → rule
 `
-## プロジェクト決定事項
+## Memory Bank Summary
+- ルール: バグ修正時は必ず回帰テストを追加
+- 規約: コミット形式はConventional Commits
+- アーキテクチャ: DBはPostgreSQL（本番）/ SQLite（ローカル）
 
-### アーキテクチャ
-- **データベース**: PostgreSQL（本番）、SQLite（ローカル）
-  - 理由: pgvectorによるAI機能の親和性
+## Project Context (Memory Bank)
+- .agentmine/memory/architecture/database-selection.md - データベース選定
+- .agentmine/memory/rule/test-required.md - テスト必須
 
-### ツール
-- **テストフレームワーク**: Vitest
-  - 理由: 高速、Vite互換
-
-### 規約
-- **コミット形式**: Conventional Commits
-
-### ルール
-- **テスト必須**: バグ修正時はregression testを追加
+Read these files in .agentmine/memory/ for details.
 `
 ```
 
@@ -740,15 +737,15 @@ Orchestrator: Workerを起動します（サブプロセス）
 Orchestrator: プロジェクトの決定事項を確認します。
 
 <tool_use: memory_list>
-→ Decisions:
-  - [tooling] テストフレームワーク: Vitest
-  - [architecture] データベース: PostgreSQL
-  - [convention] コミット形式: Conventional Commits
+→ Memories:
+  - [tooling] test-framework (active): テストフレームワーク - Vitest（高速・Vite互換）
+  - [architecture] database-selection (active): データベース - PostgreSQL
+  - [convention] commit-format (draft): コミット形式 - Conventional Commits
 
 Orchestrator: 新しい決定事項を追加します。
 
-<tool_use: memory_add category="tooling" title="Linter" decision="ESLint + Biome" reason="高速かつ厳格">
-→ Added decision #5
+<tool_use: memory_add id="linter" category="tooling" title="Linter" summary="ESLint + Biome" status="active">
+→ Added memory "linter"
 ```
 
 ## エラーハンドリング

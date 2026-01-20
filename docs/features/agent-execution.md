@@ -177,16 +177,19 @@ async function buildPromptFromTask(options: BuildPromptOptions): Promise<string>
   parts.push(`- Exclude: ${agent.scope.exclude.join(', ')}`);
 
   // 5. Memory Bank（要約 + 参照一覧）
-  const memorySummary = memoryService.buildSummary({ maxItems: 5 });
+  const memorySummary = memoryService.buildSummary({
+    status: 'active',
+    maxItems: 5,
+  });
   if (memorySummary.length > 0) {
     parts.push('## Memory Bank Summary');
     parts.push(...memorySummary);
   }
 
-  const memoryFiles = memoryService.listFiles();
+  const memoryFiles = memoryService.listFiles({ status: 'active' });
   if (memoryFiles.length > 0) {
     parts.push('## Project Context (Memory Bank)');
-    parts.push('The following project decision files are available:');
+    parts.push('The following project context files are available:');
     for (const file of memoryFiles) {
       parts.push(`- ${file.path} - ${file.title}`);
     }
@@ -216,7 +219,7 @@ async function buildPromptFromTask(options: BuildPromptOptions): Promise<string>
 | Project Context | プロジェクト決定事項 | Memory Bank（DB → .agentmine/memory） | **要約 + 参照一覧** |
 | Instructions | 共通の作業指示 | ハードコード | 全文 |
 
-**Note:** Memory BankはDBがマスター。`worker run` 実行時に `.agentmine/memory/` をスナップショット生成し、プロンプトには短い要約と参照一覧を注入する。詳細はファイルを参照する。
+**Note:** Memory BankはDBがマスター。`worker run` 実行時に `.agentmine/memory/` をスナップショット生成し、`status=active` のみ短い要約と参照一覧を注入する。詳細はファイルを参照する。
 
 ### コンテキスト不足による問題と対策
 

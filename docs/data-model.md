@@ -44,30 +44,30 @@ Drizzle ORMにより、両DBで共通のクエリAPIを使用。
 ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
 │      Task       │  │     Agent       │  │     Memory      │
 ├─────────────────┤  ├─────────────────┤  ├─────────────────┤
-│ id          PK  │  │ id          PK  │  │ id          PK  │
+│ id          PK  │  │ id          PK  │  │ id (slug)  PK  │
 │ project_id  FK  │  │ project_id  FK  │  │ project_id  FK  │
 │ parent_id   FK  │  │ name            │  │ category        │
 │ title           │  │ description     │  │ title           │
-│ description     │  │ client          │  │ content         │
-│ status          │  │ model           │  │ version         │
-│ priority        │  │ scope       {}  │  │ created_by      │
-│ type            │  │ config      {}  │  │ created_at      │
-│ assignee_type   │  │ prompt_content  │  │ updated_at      │
-│ assignee_name   │  │ version         │  └────────┬────────┘
-│ selected_session│  │ created_by      │           │
-│ labels      []  │  │ created_at      │           ▼
-│ complexity      │  │ updated_at      │  ┌─────────────────┐
-│ created_at      │  └────────┬────────┘  │ MemoryHistory   │
-│ updated_at      │           │           ├─────────────────┤
-└────────┬────────┘           ▼           │ id          PK  │
-         │           ┌─────────────────┐  │ memory_id   FK  │
-         ▼           │  AgentHistory   │  │ content         │
-┌─────────────────┐  ├─────────────────┤  │ version         │
-│     Session     │  │ id          PK  │  │ changed_by      │
-├─────────────────┤  │ agent_id    FK  │  │ changed_at      │
-│ id          PK  │  │ snapshot    {}  │  │ change_summary  │
-│ task_id     FK  │  │ version         │  └─────────────────┘
-│ agent_name      │  │ changed_by      │
+│ description     │  │ client          │  │ summary         │
+│ status          │  │ model           │  │ content         │
+│ priority        │  │ scope       {}  │  │ status          │
+│ type            │  │ config      {}  │  │ version         │
+│ assignee_type   │  │ prompt_content  │  │ created_by      │
+│ assignee_name   │  │ version         │  │ created_at      │
+│ selected_session│  │ created_by      │  │ updated_at      │
+│ labels      []  │  │ created_at      │  └────────┬────────┘
+│ complexity      │  │ updated_at      │           ▼
+│ created_at      │  └────────┬────────┘  ┌─────────────────┐
+│ updated_at      │           │           │ MemoryHistory   │
+└────────┬────────┘           ▼           ├─────────────────┤
+         │           ┌─────────────────┐  │ id          PK  │
+         ▼           │  AgentHistory   │  │ memory_id   FK  │
+┌─────────────────┐  ├─────────────────┤  │ snapshot    {}  │
+│     Session     │  │ id          PK  │  │ version         │
+├─────────────────┤  │ agent_id    FK  │  │ changed_by      │
+│ id          PK  │  │ snapshot    {}  │  │ changed_at      │
+│ task_id     FK  │  │ version         │  │ change_summary  │
+│ agent_name      │  │ changed_by      │  └─────────────────┘
 │ status          │  │ changed_at      │
 │ started_at      │  │ change_summary  │
 │ completed_at    │  └─────────────────┘
@@ -242,15 +242,16 @@ export const agentHistory = sqliteTable('agent_history', {
 
 ```typescript
 export const memories = sqliteTable('memories', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+  id: text('id').primaryKey(), // slug
   projectId: integer('project_id').references(() => projects.id),
 
-  category: text('category', {
-    enum: ['architecture', 'tooling', 'convention', 'rule', 'decision']
-  }).notNull(),
-
+  category: text('category').notNull(),
   title: text('title').notNull(),
+  summary: text('summary'),
   content: text('content').notNull(), // Markdown
+  status: text('status', {
+    enum: ['draft', 'active', 'archived']
+  }).notNull().default('draft'),
 
   // バージョン管理
   version: integer('version').notNull().default(1),
@@ -270,11 +271,20 @@ export const memories = sqliteTable('memories', {
 ```typescript
 export const memoryHistory = sqliteTable('memory_history', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  memoryId: integer('memory_id')
+  memoryId: text('memory_id')
     .references(() => memories.id)
     .notNull(),
 
-  content: text('content').notNull(), // 変更前の内容
+  snapshot: text('snapshot', { mode: 'json' })
+    .$type<{
+      id: string;
+      category: string;
+      title: string;
+      summary?: string;
+      content: string;
+      status: 'draft' | 'active' | 'archived';
+    }>()
+    .notNull(), // 変更前のスナップショット
   version: integer('version').notNull(),
   changedBy: text('changed_by'),
   changedAt: integer('changed_at', { mode: 'timestamp' })
@@ -319,7 +329,7 @@ export const auditLogs = sqliteTable('audit_logs', {
   entityType: text('entity_type', {
     enum: ['task', 'agent', 'memory', 'session', 'settings']
   }).notNull(),
-  entityId: integer('entity_id'),
+  entityId: text('entity_id'),
 
   changes: text('changes', { mode: 'json' })
     .$type<{
@@ -415,8 +425,8 @@ async function exportMemorySnapshot(worktreePath: string) {
     const memoryPath = path.join(outputDir, memory.category);
     await fs.mkdir(memoryPath, { recursive: true });
     await fs.writeFile(
-      path.join(memoryPath, `${memory.title}.md`),
-      memory.content
+      path.join(memoryPath, `${memory.id}.md`),
+      memoryService.toMarkdown(memory)
     );
   }
 }

@@ -100,9 +100,11 @@ Orchestrator が Memory Bank から規約を取得し、コミットメッセー
 ```bash
 # Memory Bank の規約
 {
+  id: 'commit-format',
   category: 'convention',
   title: 'コミット規約',
-  decision: 'Conventional Commits形式',
+  summary: 'Conventional Commits形式',
+  status: 'active',
 }
 
 # 整形後

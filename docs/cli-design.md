@@ -677,12 +677,14 @@ Examples:
 agentmine memory list [options]
 
 Options:
-  --category <cat>    architecture | tooling | convention | rule
+  --category <cat>    カテゴリ（プロジェクト設定の許可リスト）
+  --status <status>   draft | active | archived
   --json              JSON出力
 
 Examples:
   agentmine memory list
   agentmine memory list --category architecture
+  agentmine memory list --status active
 ```
 
 ### memory add
@@ -691,17 +693,20 @@ Examples:
 agentmine memory add [options]
 
 Options:
+  --id <slug>         ID (slug, required)
   --category <cat>    カテゴリ (required)
   --title <text>      タイトル (required)
-  --decision <text>   決定事項 (required)
-  --reason <text>     理由 (optional)
+  --summary <text>    要約 (optional)
+  --status <status>   draft | active | archived (default: draft)
+  --content <text>    本文 (optional)
 
 Examples:
   agentmine memory add \
+    --id test-framework \
     --category tooling \
     --title "テストフレームワーク" \
-    --decision "Vitest" \
-    --reason "高速、Vite互換"
+    --summary "Vitest（高速・Vite互換）" \
+    --status active
 ```
 
 ### memory preview
@@ -709,7 +714,7 @@ Examples:
 ```bash
 agentmine memory preview
 
-# AIに渡されるコンテキストをプレビュー
+# AIに渡されるコンテキストをプレビュー（status=activeのみ）
 ```
 
 ### session list
