@@ -2,12 +2,15 @@
 
 Orchestrator/Workerモデルによる並列タスク実行。
 
+🔗 **単一Worker実行の詳細は @../07-runtime/worker-lifecycle.md を参照**
+
 ## 概要
 
 Orchestrator（メインAI）が複数のWorker（サブエージェント）を並列で実行する。
 並列実験は `session_group_id` でグルーピングして比較可能にする。
-agentmineは `worker run` でworktree作成・スコープ適用・Worker起動を担当し、
-Orchestratorは並列計画・監視・マージ判断を担当する。
+
+**単一Worker実行**: @../07-runtime/worker-lifecycle.md
+**並列実行固有の内容**: 本ドキュメント
 
 ## Design Philosophy
 
@@ -128,81 +131,9 @@ Orchestrator                      agentmine                Git / Workers
 
 ## Worktree + スコープ制御
 
-### sparse-checkoutによるスコープ適用
-
-`agentmine worker run` が内部でgitを使ってworktree作成・スコープ適用を行う（実装例）：
-
-```bash
-# agentmine が内部で実行
-
-# 1. worktree作成
-git worktree add .agentmine/worktrees/task-3 -b task-3-s123
-
-# 2. sparse-checkout有効化
-cd .agentmine/worktrees/task-3
-git sparse-checkout init --cone
-
-# 3. スコープ適用（エージェント定義に基づく）
-# exclude→read→write の優先順位で評価
-git sparse-checkout set src/ tests/ docs/ package.json
-# excludeパターン（.env, secrets/等）は自動的に除外
-
-# 4. AIクライアント設定を配置（必要な場合）
-cp -r ~/.agentmine/client-configs/claude-code/ .agentmine/worktrees/task-3/.claude/
-# promptContentをクライアント固有のコンテキストファイルに出力（例: .claude/CLAUDE.md）
-```
-
-### スコープ定義
-
-```yaml
-# coder.yaml (agent snapshot)
-name: coder
-scope:
-  # 優先順位: exclude → read → write
-  exclude:                 # 最優先: sparse-checkoutで除外
-    - "**/*.env"
-    - "**/secrets/**"
-  read:                    # 次に評価: 参照可能
-    - "**/*"
-  write:                   # 明示的に指定: 編集可能
-    - "src/**"
-    - "tests/**"
-    - "package.json"
-    # writeに明示的にマッチしないファイルはread-only
-```
-
-### スコープ優先順位
-
-```
-exclude → read → write
-
-【exclude】最優先。マッチしたファイルはsparse-checkoutで除外
-【read】  次に評価。マッチしたファイルは参照可能
-【write】 明示的に指定されたファイルのみ編集可能
-
-※ タスク分割時に編集対象を明確にするため、writeは明示的指定が必要
-```
-
-### Worktree構造
-
-```
-.agentmine/worktrees/
-├── task-3/                     # タスク#3用（Worker 1）
-│   ├── .claude/                # Claude Code設定
-│   │   ├── settings.json
-│   │   └── CLAUDE.md           # promptContentから生成
-│   ├── src/                    # write可能（スコープで指定）
-│   ├── tests/                  # write可能（スコープで指定）
-│   ├── docs/                   # read-only（writeに未指定）
-│   └── package.json            # write可能（スコープで指定）
-│   # .env, secrets/ は sparse-checkout で除外済み
-│
-├── task-4/                     # タスク#4用（Worker 2）
-│   └── ...
-│
-└── task-5/                     # タスク#5用（Worker 3）
-    └── ...
-```
+各Workerには独立したworktreeが割り当てられ、スコープ制御が適用される。詳細は以下を参照：
+- **@../07-runtime/worker-lifecycle.md** (Phase 2: Scope Application)
+- **@../03-core-concepts/scope-control.md**
 
 ## ブランチ戦略
 
@@ -392,6 +323,7 @@ Orchestrator (Claude Code) の思考:
 
 ## References
 
-- [Architecture](../architecture.md)
-- [Agent Execution](./agent-execution.md)
-- [Agent System](./agent-system.md)
+- **@../07-runtime/worker-lifecycle.md** - Worker実行ライフサイクル（SSOT）
+- **@../03-core-concepts/orchestrator-worker.md** - Orchestrator/Workerモデル
+- **@./agent-execution.md** - Agent実行フロー
+- **@../architecture.md** - システム概要

@@ -97,23 +97,7 @@ agentmine worker stop 1      # 停止
 agentmine worker done 1      # セッション終了・クリーンアップ
 ```
 
-**worker runの動作:**
-1. タスク情報取得
-2. セッション開始（DBに記録、ID確定）
-3. ブランチ作成（`task-<id>-s<sessionId>`）
-4. Git worktree作成（`.agentmine/worktrees/task-<id>/`）
-5. スコープ適用
-   - `exclude`: sparse-checkoutで物理的に除外
-   - `write`: 対象外ファイルをchmodで読み取り専用に
-6. Worker AI起動
-   - `--exec`: フォアグラウンドで起動、完了を待機
-   - `--exec --detach`: バックグラウンドで起動、PIDを記録して即座に戻る
-
-**対応AIクライアント:**
-- claude-code: `--dangerously-skip-permissions`
-- codex: `--full-auto`
-- aider: `--yes`
-- gemini: `-y`
+**詳細フロー**: @./07-runtime/worker-lifecycle.md を参照
 
 ## Package Structure
 
