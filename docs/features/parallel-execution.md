@@ -122,7 +122,7 @@ Orchestrator                      agentmine                Git / Workers
  │                                   │                           │
  │  5. マージ判断・実行（Orchestrator判断）                     │
  │ ────────────────────────────────────────────────────────────>│
- │  git merge task-3 (成功時)        │                           │
+│  git merge task-3-s101 (成功時)     │                           │
  │                                   │                           │
 ```
 
@@ -136,7 +136,7 @@ Orchestrator                      agentmine                Git / Workers
 # agentmine が内部で実行
 
 # 1. worktree作成
-git worktree add .agentmine/worktrees/task-3 -b task-3
+git worktree add .agentmine/worktrees/task-3 -b task-3-s123
 
 # 2. sparse-checkout有効化
 cd .agentmine/worktrees/task-3
@@ -211,13 +211,13 @@ main ─────────────────────────
   │
 baseBranch (例: develop) ────── 統合ブランチ（settingsで必須指定）
   │
-  ├── task-3-auth                # Worker 1
+  ├── task-3-s101                # Worker 1
   │     └── (並列実行中)
   │
-  ├── task-4-api                 # Worker 2
+  ├── task-4-s102                # Worker 2
   │     └── (並列実行中)
   │
-  └── task-5-dashboard           # Worker 3
+  └── task-5-s103                # Worker 3
         └── (並列実行中)
 ```
 
@@ -381,7 +381,7 @@ Orchestrator (Claude Code) の思考:
 4. 全Worker終了を待つ（worker wait / status）
 5. 各worktreeでDoD検証（lint, test, build）
 6. DoD合格 → baseBranchにマージ
-   - git merge task-3
+   - git merge task-3-s101
 7. マージ成功 → worker done
    - agentmine worker done 3
    - agentmine worker done 4

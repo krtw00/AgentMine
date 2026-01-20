@@ -98,13 +98,14 @@ agentmine worker done 1      # セッション終了・クリーンアップ
 ```
 
 **worker runの動作:**
-1. Git worktree作成（`.agentmine/worktrees/task-<id>/`）
-2. ブランチ作成（`task-<id>`）
-3. スコープ適用
+1. タスク情報取得
+2. セッション開始（DBに記録、ID確定）
+3. ブランチ作成（`task-<id>-s<sessionId>`）
+4. Git worktree作成（`.agentmine/worktrees/task-<id>/`）
+5. スコープ適用
    - `exclude`: sparse-checkoutで物理的に除外
    - `write`: 対象外ファイルをchmodで読み取り専用に
-4. セッション開始（DBに記録）
-5. Worker AI起動
+6. Worker AI起動
    - `--exec`: フォアグラウンドで起動、完了を待機
    - `--exec --detach`: バックグラウンドで起動、PIDを記録して即座に戻る
 

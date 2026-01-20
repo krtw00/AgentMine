@@ -470,7 +470,7 @@ failed → in_progress (再試行時)
 # セッションのブランチがbaseBranchにマージされたか確認
 git log --oneline baseBranch..session-branch
 
-# 結果が空 → task-15の変更はmainに取り込まれている → done
+# 結果が空 → task-15-s123 の変更はmainに取り込まれている → done
 # 結果があり → まだマージされていない → in_progress (コミットがある場合)
 ```
 

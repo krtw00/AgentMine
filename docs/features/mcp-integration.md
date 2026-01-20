@@ -269,7 +269,7 @@ Worker起動用のコマンドを生成（実行はOrchestratorが行う）。
   task: {
     id: 5,
     title: "認証機能実装",
-    branch: "task-5-auth"
+    branch: "task-5-s123"
   }
 }
 ```

@@ -88,10 +88,10 @@ exclude → read → write
 # agentmineが内部で実行
 
 # 1. ブランチ作成
-git branch task-5-auth develop
+git branch task-5-s123 develop
 
 # 2. worktree作成（sparse-checkout有効）
-git worktree add --sparse .agentmine/worktrees/task-5 task-5-auth
+git worktree add --sparse .agentmine/worktrees/task-5 task-5-s123
 
 # 3. sparse-checkout設定（exclude対象を除外、Memory Bankは含める）
 cd .agentmine/worktrees/task-5

@@ -395,10 +395,10 @@ Examples:
 
 **動作:**
 1. タスク情報取得
-2. Git worktree作成（`.agentmine/worktrees/task-<id>/`）
-3. ブランチ作成（`task-<id>`）
-4. スコープ適用（exclude: sparse-checkout, write: chmod）
-5. セッション開始（DBに記録）
+2. セッション開始（DBに記録、ID確定）
+3. ブランチ作成（`task-<id>-s<sessionId>`）
+4. Git worktree作成（`.agentmine/worktrees/task-<id>/`）
+5. スコープ適用（exclude: sparse-checkout, write: chmod）
 6. `--exec`指定時: Worker AIプロセスを起動
    - `--detach`なし: 終了を待機
    - `--detach`あり: PIDをDBに記録して即座に終了
@@ -410,7 +410,7 @@ Examples:
 ✓ Worker environment ready
 
 Worktree:  /project/.agentmine/worktrees/task-1
-Branch:    task-1
+Branch:    task-1-s1
 Session:   #1
 Task:      #1: 認証機能実装
 
@@ -435,7 +435,7 @@ When done:
 ✓ Starting Worker AI (claude-code)...
 
 Worktree:  /project/.agentmine/worktrees/task-1
-Branch:    task-1
+Branch:    task-1-s1
 Session:   #1
 
 [Worker AI起動、対話セッション]
@@ -484,7 +484,7 @@ Examples:
 Task status is auto-determined by merge status.
 
 To merge changes:
-  git merge task-1
+  git merge task-1-s1
   or create a PR
 ```
 
@@ -507,12 +507,12 @@ Examples:
 Active Worktrees:
 
 Task #1: 認証機能実装
-  Branch:   task-1
+  Branch:   task-1-s1
   Path:     /project/.agentmine/worktrees/task-1
   Session:  #1 (running)
 
 Task #3: APIリファクタ
-  Branch:   task-3
+  Branch:   task-3-s2
   Path:     /project/.agentmine/worktrees/task-3
   Session:  #2 (running)
 ```
@@ -1068,7 +1068,7 @@ case $STATUS in
     ;;
   "done")
     # マージ確認
-    git merge task-1
+    git merge task-1-s<sessionId>
     ;;
 esac
 ```

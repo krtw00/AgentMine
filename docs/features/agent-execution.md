@@ -237,7 +237,7 @@ async function buildPromptFromTask(options: BuildPromptOptions): Promise<string>
 # agentmine が内部で実行
 
 # 1. worktree作成
-git worktree add .agentmine/worktrees/task-1 -b task-1-auth
+git worktree add .agentmine/worktrees/task-1 -b task-1-s123
 
 # 2. sparse-checkout有効化
 cd .agentmine/worktrees/task-1
