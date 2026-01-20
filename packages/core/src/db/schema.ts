@@ -54,6 +54,14 @@ export const tasks = sqliteTable('tasks', {
   branchName: text('branch_name'),
   prUrl: text('pr_url'),
 
+  // 選択されたセッション（複数セッション実行後のベスト選択）
+  selectedSessionId: integer('selected_session_id'),
+
+  // ラベル（タグ付け用）
+  labels: text('labels', { mode: 'json' })
+    .$type<string[]>()
+    .default([]),
+
   complexity: integer('complexity'), // 1-10
 
   createdAt: integer('created_at', { mode: 'timestamp' })
@@ -76,6 +84,10 @@ export const sessions = sqliteTable('sessions', {
     .references(() => tasks.id)
     .unique(), // 1タスク1セッション制約
   agentName: text('agent_name').notNull(),
+
+  // 並列実行サポート
+  sessionGroupId: text('session_group_id'), // 同時実行グループID
+  idempotencyKey: text('idempotency_key').unique(), // 重複実行防止キー
 
   status: text('status', {
     enum: ['running', 'completed', 'failed', 'cancelled']
