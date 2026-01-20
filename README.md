@@ -155,7 +155,7 @@ scope:
 ## 開発
 
 ```bash
-git clone https://github.com/krtw00/agentmine.git
+git clone https://github.com/krtw00/AgentMine.git
 cd agentmine
 pnpm install
 pnpm dev

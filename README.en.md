@@ -155,7 +155,7 @@ Details: [Scope Control](./docs/03-core-concepts/scope-control.md)
 ## Development
 
 ```bash
-git clone https://github.com/krtw00/agentmine.git
+git clone https://github.com/krtw00/AgentMine.git
 cd agentmine
 pnpm install
 pnpm dev
