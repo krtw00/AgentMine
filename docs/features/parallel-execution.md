@@ -4,8 +4,10 @@ Orchestrator/Workerモデルによる並列タスク実行。
 
 ## 概要
 
-Orchestrator（メインAI）が複数のWorker（サブエージェント）を起動し、並列でタスクを実行。
-agentmineはWorktree管理とスコープ制御を提供するが、**Worker起動・監視はOrchestratorの責務**。
+Orchestrator（メインAI）が複数のWorker（サブエージェント）を並列で実行する。
+並列実験は `session_group_id` でグルーピングして比較可能にする。
+agentmineは `worker run` でworktree作成・スコープ適用・Worker起動を担当し、
+Orchestratorは並列計画・監視・マージ判断を担当する。
 
 ## Design Philosophy
 
@@ -14,23 +16,22 @@ agentmineはWorktree管理とスコープ制御を提供するが、**Worker起�
 │                    AI as Orchestrator                            │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
-│  agentmineは並列実行を「制御」しない。                            │
-│  Orchestratorが「計画・実行」し、agentmineはデータ層のみ提供。    │
+│  agentmineは並列実行を「計画」しない。                            │
+│  Orchestratorが「計画」し、agentmineは実行基盤を提供する。        │
 │                                                                  │
 ├─────────────────────────────────────────────────────────────────┤
 │  Orchestrator（AIクライアント）の責務:                            │
 │  - 並列実行の計画（何を並列にするか）                             │
-│  - Worktree作成・削除（git worktree直接使用）                     │
-│  - スコープ適用（git sparse-checkout直接使用）                    │
-│  - Worker起動（サブプロセスとしてexec mode起動）                  │
-│  - 進捗監視（exit code/signal/タイムアウト判定）                  │
+│  - `agentmine worker run --exec --detach` の実行                  │
+│  - 進捗監視（worker status / wait）                              │
 │  - 結果マージ（コンフリクト解決、マージ実行）                     │
 │  - PR作成                                                        │
 ├─────────────────────────────────────────────────────────────────┤
 │  agentmineの責務:                                                 │
-│  - タスク状態管理                                                 │
+│  - worktree作成/削除（git worktreeを内部実行）                     │
+│  - スコープ適用（sparse-checkout + chmod）                        │
+│  - Worker起動/プロンプト生成（worker run/prompt）                 │
 │  - セッション記録（exit code, artifacts等）                       │
-│  - Workerコマンド生成（プロンプト出力）                           │
 │  - Memory Bank提供                                                │
 │                                                                  │
 │  ※ Workerはagentmineにアクセスしない                             │
@@ -50,12 +51,11 @@ agentmineはWorktree管理とスコープ制御を提供するが、**Worker起�
 │  │                    Orchestrator (Claude Code等)                 │ │
 │  │                                                                  │ │
 │  │  1. タスク分析・計画                                             │ │
-│  │  2. git worktree add（直接gitを使用）                           │ │
-│  │  3. git sparse-checkout（スコープ適用）                         │ │
-│  │  4. Worker起動（サブプロセス、exec mode）                       │ │
-│  │  5. 完了待ち（exit code/signal監視）                            │ │
-│  │  6. マージ判断・実行（Orchestratorが決定）                       │ │
-│  │  7. PR作成                                                       │ │
+│  │  2. agentmine worker run --exec --detach                       │ │
+│  │     (worktree作成 + scope適用 + session開始)                    │ │
+│  │  3. 完了待ち（worker wait / status）                            │ │
+│  │  4. マージ判断・実行（Orchestratorが決定）                       │ │
+│  │  5. PR作成                                                       │ │
 │  └──────────────────────┬─────────────────────────────────────────┘ │
 │                         │                                            │
 │          ┌──────────────┼──────────────┐                            │
@@ -100,53 +100,29 @@ Orchestrator                      agentmine                Git / Workers
  │  agentmine task list --json      │                           │
  │  (task #3, #4, #5 を取得)        │                           │
  │                                   │                           │
- │  2. worktree作成（git直接使用）  │                           │
- │ ────────────────────────────────────────────────────────────>│
- │  git worktree add .worktrees/task-3 -b task-3               │
- │  git worktree add .worktrees/task-4 -b task-4               │
- │  git worktree add .worktrees/task-5 -b task-5               │
- │                                   │                           │
- │  3. スコープ適用（sparse-checkout）                          │
- │ ────────────────────────────────────────────────────────────>│
- │  git -C .worktrees/task-3 sparse-checkout set ...           │
- │  git -C .worktrees/task-4 sparse-checkout set ...           │
- │  git -C .worktrees/task-5 sparse-checkout set ...           │
- │                                   │                           │
- │  4. セッション開始                │                           │
+ │  2. Worker起動（並列）            │                           │
  │ ─────────────────────────────────>│                           │
- │  agentmine session start 3 --agent coder                    │
- │  agentmine session start 4 --agent coder                    │
- │  agentmine session start 5 --agent coder                    │
- │                                   │                           │
- │  5. Worker起動（サブプロセス、並列）                         │
- │ ────────────────────────────────────────────────────────────>│
- │  timeout 300 claude-code exec "$(agentmine worker command 3)"│
- │  timeout 300 claude-code exec "$(agentmine worker command 4)"│
- │  timeout 300 claude-code exec "$(agentmine worker command 5)"│
- │                                   │                           │
- │                                   │  ※ Workerはagentmineに   │
- │                                   │    アクセスしない         │
+ │  agentmine worker run 3 --exec --detach                      │
+ │  agentmine worker run 4 --exec --detach                      │
+ │  agentmine worker run 5 --exec --detach                      │
+ │  (worktree作成 + scope適用 + session開始)                    │
+ │                                   │  git worktree add ...     │
+ │                                   │  git sparse-checkout ...  │
  │                                   │                     (作業)│
  │                                   │                           │
- │  6. Worker終了検知（exit code）   │                       exit│
- │<────────────────────────────────────────────────────────────  │
- │                                   │                           │
- │  7. セッション終了記録            │                           │
+ │  3. Worker完了待ち                │                           │
  │ ─────────────────────────────────>│                           │
- │  agentmine session end --exit-code ... --artifacts ...      │
+ │  agentmine worker wait 3 4 5      │                           │
  │                                   │                           │
- │  8. マージ判断・実行（Orchestrator判断）                     │
+ │  4. 完了処理                       │                           │
+ │ ─────────────────────────────────>│                           │
+ │  agentmine worker done 3          │                           │
+ │  agentmine worker done 4          │                           │
+ │  agentmine worker done 5          │                           │
+ │                                   │                           │
+ │  5. マージ判断・実行（Orchestrator判断）                     │
  │ ────────────────────────────────────────────────────────────>│
  │  git merge task-3 (成功時)        │                           │
- │  (コンフリクト解決はOrchestratorが実行)                      │
- │                                   │                           │
- │  9. タスクステータス更新          │                           │
- │ ─────────────────────────────────>│                           │
- │  (マージ済み → done)              │                           │
- │                                   │                           │
- │  10. worktree削除（git直接使用）  │                           │
- │ ────────────────────────────────────────────────────────────>│
- │  git worktree remove .worktrees/task-3                      │
  │                                   │                           │
 ```
 
@@ -154,16 +130,16 @@ Orchestrator                      agentmine                Git / Workers
 
 ### sparse-checkoutによるスコープ適用
 
-Orchestratorが直接gitコマンドでworktreeを作成・スコープを適用する：
+`agentmine worker run` が内部でgitを使ってworktree作成・スコープ適用を行う（実装例）：
 
 ```bash
-# Orchestratorが直接実行
+# agentmine が内部で実行
 
 # 1. worktree作成
-git worktree add .worktrees/task-3 -b task-3
+git worktree add .agentmine/worktrees/task-3 -b task-3
 
 # 2. sparse-checkout有効化
-cd .worktrees/task-3
+cd .agentmine/worktrees/task-3
 git sparse-checkout init --cone
 
 # 3. スコープ適用（エージェント定義に基づく）
@@ -172,14 +148,14 @@ git sparse-checkout set src/ tests/ docs/ package.json
 # excludeパターン（.env, secrets/等）は自動的に除外
 
 # 4. AIクライアント設定を配置
-cp -r ~/.agentmine/client-configs/claude-code/ .worktrees/task-3/.claude/
-# promptFile内容を CLAUDE.md に変換
+cp -r ~/.agentmine/client-configs/claude-code/ .agentmine/worktrees/task-3/.claude/
+# promptContentを CLAUDE.md に変換
 ```
 
 ### スコープ定義
 
 ```yaml
-# .agentmine/agents/coder.yaml
+# coder.yaml (agent snapshot)
 name: coder
 scope:
   # 優先順位: exclude → read → write
@@ -210,11 +186,11 @@ exclude → read → write
 ### Worktree構造
 
 ```
-.worktrees/
+.agentmine/worktrees/
 ├── task-3/                     # タスク#3用（Worker 1）
 │   ├── .claude/                # Claude Code設定
 │   │   ├── settings.json
-│   │   └── CLAUDE.md           # promptFileから生成
+│   │   └── CLAUDE.md           # promptContentから生成
 │   ├── src/                    # write可能（スコープで指定）
 │   ├── tests/                  # write可能（スコープで指定）
 │   ├── docs/                   # read-only（writeに未指定）
@@ -233,7 +209,7 @@ exclude → read → write
 ```
 main ─────────────────────────── 本番（人間のみマージ）
   │
-baseBranch (例: develop) ────── 統合ブランチ（config.yamlで必須指定）
+baseBranch (例: develop) ────── 統合ブランチ（settingsで必須指定）
   │
   ├── task-3-auth                # Worker 1
   │     └── (並列実行中)
@@ -254,13 +230,13 @@ baseBranch (例: develop) ────── 統合ブランチ（config.yamlで
 │                                                                     │
 │  【agentmineの役割】                                                 │
 │  マージしない。マージ判断はOrchestratorの責務。                     │
-│  agentmineはマージ結果（done/in_progress）を記録するのみ。          │
+│  タスク状態は観測可能な事実（セッション状態・マージ状態）で自動判定。│
 │                                                                     │
 │  【Orchestratorの責務】                                              │
 │  1. Worker正常終了後、DoD検証（lint/test/build）を実行              │
 │  2. DoD合格 → baseBranchにマージ                                    │
 │  3. コンフリクト発生 → Orchestratorが解決                           │
-│  4. マージ成功 → agentmine task update --status done                │
+│  4. マージ成功 → タスクは自動的に done 判定                          │
 │  5. マージ失敗/DoD不合格 → 再試行 or failed                         │
 │                                                                     │
 │  【done判定】                                                        │
@@ -270,7 +246,7 @@ baseBranch (例: develop) ────── 統合ブランチ（config.yamlで
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-**Note:** `baseBranch` は config.yaml で必須指定。
+**Note:** `baseBranch` は settings で必須指定。
 
 ## 隔離レベル
 
@@ -282,7 +258,7 @@ baseBranch (例: develop) ────── 統合ブランチ（config.yamlで
 /project/
 ├── .git/                    # 共有Git
 ├── main/                    # Orchestratorの作業ディレクトリ
-├── .worktrees/
+├── .agentmine/worktrees/
 │   ├── task-3/             # Worker 1（スコープ適用済）
 │   ├── task-4/             # Worker 2（スコープ適用済）
 │   └── task-5/             # Worker 3（スコープ適用済）
@@ -301,7 +277,7 @@ baseBranch (例: develop) ────── 統合ブランチ（config.yamlで
 完全な隔離。各WorkerをDockerコンテナで実行。
 
 ```yaml
-# .agentmine/config.yaml
+# settings snapshot (import/export)
 execution:
   parallel:
     isolation: docker
@@ -335,8 +311,8 @@ execution:
 ### セッション管理（Orchestrator向け）
 
 ```bash
-# セッション開始（Worker起動前）
-agentmine session start <task-id> --agent <name>
+# セッション開始（手動運用時のみ）
+agentmine session start <task-id> --agent <name> --group exp-202501
 
 # セッション終了（Worker終了後）
 agentmine session end <session-id> \
@@ -345,26 +321,25 @@ agentmine session end <session-id> \
   --artifacts '["src/auth.ts", "tests/auth.test.ts"]'
 ```
 
-### Workerコマンド生成（Orchestrator向け）
+### Workerプロンプト生成（Orchestrator向け）
 
 ```bash
 # Worker起動用のプロンプトを生成
-agentmine worker command <task-id> --agent coder
+agentmine worker prompt <task-id> --agent coder
 ```
 
 ### Worktree管理
 
 ```
-agentmine にはworktreeコマンドがない。
-Orchestratorが git worktree / git sparse-checkout を直接使用。
+worktreeは `agentmine worker run` が作成し、`worker done` / `worker cleanup` が削除する。
 
-# 作成
-git worktree add .worktrees/task-3 -b task-3
-git -C .worktrees/task-3 sparse-checkout init --cone
-git -C .worktrees/task-3 sparse-checkout set src/ tests/ docs/
+# 例: 並列起動
+agentmine worker run 3 --exec --detach
+agentmine worker run 4 --exec --detach
+agentmine worker run 5 --exec --detach
 
-# 削除
-git worktree remove .worktrees/task-3
+# 例: クリーンアップ
+agentmine worker cleanup 3
 ```
 
 **Note:** Worker向けコマンドは存在しない（Workerはagentmineにアクセスしない）。
@@ -372,13 +347,13 @@ git worktree remove .worktrees/task-3
 ## 設定
 
 ```yaml
-# .agentmine/config.yaml
+# settings snapshot (import/export)
 execution:
   parallel:
     enabled: true
     maxWorkers: 4              # 同時実行数上限
     worktree:
-      path: ".worktrees/"      # worktree配置先
+      path: ".agentmine/worktrees/"      # worktree配置先
       cleanup: true            # 完了後に自動削除
     isolation: worktree        # worktree | docker
 
@@ -399,24 +374,18 @@ Orchestrator (Claude Code) の思考:
 
 1. ユーザーから「task #3, #4, #5を並列で」と依頼
 2. agentmine task list --json でタスク情報取得
-3. 各タスクについてworktree作成（git直接使用）:
-   - git worktree add .worktrees/task-3 -b task-3
-   - git -C .worktrees/task-3 sparse-checkout set src/ tests/
-4. 各タスクについてセッション開始:
-   - agentmine session start 3 --agent coder
-5. サブプロセスで3つのWorkerを並列起動:
-   - timeout 300 claude-code exec "$(agentmine worker command 3)"
-   - timeout 300 claude-code exec "$(agentmine worker command 4)"
-   - timeout 300 claude-code exec "$(agentmine worker command 5)"
-6. 全Worker終了を待つ（exit code/signal監視）
-7. 各worktreeでDoD検証（lint, test, build）
-8. DoD合格 → baseBranchにマージ
+3. 各タスクを並列起動（worktree作成 + session開始）:
+   - agentmine worker run 3 --exec --detach
+   - agentmine worker run 4 --exec --detach
+   - agentmine worker run 5 --exec --detach
+4. 全Worker終了を待つ（worker wait / status）
+5. 各worktreeでDoD検証（lint, test, build）
+6. DoD合格 → baseBranchにマージ
    - git merge task-3
-9. マージ成功 → agentmine task update 3 --status done
-10. セッション終了記録:
-    - agentmine session end <id> --exit-code 0 --dod-result merged
-11. worktree削除:
-    - git worktree remove .worktrees/task-3
+7. マージ成功 → worker done
+   - agentmine worker done 3
+   - agentmine worker done 4
+   - agentmine worker done 5
 ```
 
 **Note:** 上記はOrchestratorの実装方針であり、agentmineが制御するものではない。

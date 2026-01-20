@@ -6,24 +6,24 @@ Git Worktreeを使ったWorker隔離とスコープ制御。
 
 Workerが作業する際、専用のworktreeを作成し、スコープに基づいてアクセス制御を適用する。
 
-**Note:** Worktree管理はagentmineではなく、Orchestratorが直接gitコマンドを使用して行う。
+**Note:** Worktree管理は `agentmine worker run` が内部でgitを使用して行う。
 
 ## Design Philosophy
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    Orchestratorがgitを直接使用                   │
+│                    agentmineがgitを直接使用                     │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  【agentmineの役割】                                             │
-│  - Worktreeコマンドなし（git直接使用のため）                     │
-│  - エージェント定義（scope）の提供のみ                           │
+│  - worktree作成/削除（git worktreeを内部実行）                   │
+│  - スコープ適用（sparse-checkout + chmod）                      │
+│  - 事後チェック用の情報提供                                     │
 │                                                                  │
 │  【Orchestratorの役割】                                          │
-│  - git worktree add で作成                                       │
-│  - git sparse-checkout でスコープ適用                            │
-│  - 事後チェック（git diffで変更検証）                            │
-│  - git worktree remove で削除                                    │
+│  - `agentmine worker run` の実行                                │
+│  - 事後チェック（必要に応じてgit diffで検証）                   │
+│  - 結果判断（マージ/失敗など）                                   │
 │                                                                  │
 ├─────────────────────────────────────────────────────────────────┤
 │  【レベル1: sparse-checkout + 事後チェック】                     │
@@ -42,7 +42,7 @@ Workerが作業する際、専用のworktreeを作成し、スコープに基づ
 エージェント定義でスコープを指定:
 
 ```yaml
-# .agentmine/agents/coder.yaml
+# coder.yaml (agent snapshot)
 name: coder
 scope:
   read:                    # 参照可能（全ファイル）
@@ -82,25 +82,22 @@ exclude → read → write
 
 ## Worktree作成フロー
 
-Orchestratorがgitを直接使用してworktreeを作成:
+`agentmine worker run` が内部でgitを使用してworktreeを作成（実装例）:
 
 ```bash
-# Orchestratorが以下を実行（agentmineコマンドなし）
+# agentmineが内部で実行
 
 # 1. ブランチ作成
 git branch task-5-auth develop
 
 # 2. worktree作成（sparse-checkout有効）
-git worktree add --sparse .worktrees/task-5 task-5-auth
+git worktree add --sparse .agentmine/worktrees/task-5 task-5-auth
 
 # 3. sparse-checkout設定（exclude対象を除外、Memory Bankは含める）
-cd .worktrees/task-5
+cd .agentmine/worktrees/task-5
 git sparse-checkout set --no-cone \
   '/*' \
   '.agentmine/memory/**' \
-  '!.agentmine/agents/**' \
-  '!.agentmine/config.yaml' \
-  '!.agentmine/prompts/**' \
   '!**/*.env' \
   '!**/secrets/**' \
   '!.git/**'
@@ -121,7 +118,7 @@ forfiles /S /M * /C "cmd /c attrib +R @path"
 mkdir -p .claude
 cat > .claude/CLAUDE.md << 'EOF'
 # Worker: coder
-...（promptFileの内容）
+...（promptContentの内容）
 EOF
 ```
 
@@ -169,11 +166,11 @@ async function applySparseCheckout(
 
 ## 事後チェック（Verify）
 
-Workerが作業完了後、Orchestratorがgitを使ってスコープ違反をチェック:
+Workerが作業完了後、必要に応じてworktree内でgit diffを使いスコープ違反をチェック:
 
 ```bash
-# Orchestratorが実行（agentmineコマンドなし）
-cd .worktrees/task-5
+# 必要に応じて実行
+cd .agentmine/worktrees/task-5
 git diff --name-only HEAD
 git diff --name-only --cached
 git ls-files --others --exclude-standard
@@ -200,7 +197,7 @@ async function verifyWorktree(
   taskId: number,
   scope: AgentScope
 ): Promise<VerifyResult> {
-  const worktreePath = `.worktrees/task-${taskId}`;
+  const worktreePath = `.agentmine/worktrees/task-${taskId}`;
 
   // 1. 変更ファイルを取得
   const changedFiles = await getChangedFiles(worktreePath);
@@ -250,7 +247,7 @@ async function getChangedFiles(worktreePath: string): Promise<string[]> {
 ## Worktree構造
 
 ```
-.worktrees/
+.agentmine/worktrees/
 ├── task-5/                     # タスク#5用
 │   ├── .agentmine/
 │   │   └── memory/             # Memory Bank（参照用、read-only）
@@ -258,10 +255,10 @@ async function getChangedFiles(worktreePath: string): Promise<string[]> {
 │   │       │   └── tech-stack.md
 │   │       └── convention/
 │   │           └── coding-style.md
-│   │   # agents/, config.yaml, prompts/ は存在しない（sparse-checkout）
+│   │   # agents/, settings snapshot, prompts/ はスナップショットのため除外
 │   ├── .claude/                # Claude Code設定
 │   │   ├── settings.json
-│   │   └── CLAUDE.md           # promptFileから生成
+│   │   └── CLAUDE.md           # promptContentから生成
 │   ├── src/                    # write可能
 │   ├── tests/                  # write可能
 │   ├── package.json            # write可能
@@ -274,7 +271,7 @@ async function getChangedFiles(worktreePath: string): Promise<string[]> {
 │   └── ...
 ```
 
-**Note:** `.agentmine/memory/`はWorkerがプロジェクト決定事項を参照するために含まれる。エージェント定義（`agents/`）や設定（`config.yaml`）は除外。
+**Note:** `.agentmine/memory/`はWorkerがプロジェクト決定事項を参照するために含まれる。エージェント定義や設定のスナップショットは除外。
 
 ## セキュリティ考慮事項
 
@@ -303,7 +300,7 @@ async function getChangedFiles(worktreePath: string): Promise<string[]> {
 ## 将来: Docker隔離（レベル2）
 
 ```yaml
-# .agentmine/config.yaml
+# settings snapshot (import/export)
 execution:
   parallel:
     isolation: docker    # worktree | docker

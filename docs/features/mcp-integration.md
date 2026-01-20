@@ -24,7 +24,7 @@ MCP対応クライアントからagentmineを操作可能にする。
 │  - CLIのexit codeとエラー処理を統一                                 │
 │                                                                     │
 │  【Worktree管理】                                                    │
-│  Orchestratorがgitを直接使用するため、MCPでは提供しない             │
+│  worktree作成はagentmineが担当し、MCPはCLI経由で実行する             │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -63,13 +63,13 @@ Client (Orchestrator)                         Server (agentmine)
   │  tools/list                        │
   │ ──────────────────────────────────►│
   │                                    │
-  │  tools: [task_*, worktree_*, ...]  │
+  │  tools: [task_*, worker_*, ...]    │
   │ ◄──────────────────────────────────│
   │                                    │
-  │  tools/call: worktree_create       │
+  │  tools/call: worker_command        │
   │ ──────────────────────────────────►│
   │                                    │
-  │  result: { path: ".worktrees/..." }│
+  │  result: { worktree: ".agentmine/worktrees/..." }│
   │ ◄──────────────────────────────────│
 ```
 
@@ -216,9 +216,9 @@ agentmine mcp serve --verbose
       id: { type: "number" },
       title: { type: "string" },
       description: { type: "string" },
-      status: { type: "string" },
       priority: { type: "string" },
-      assignee: { type: "string" }
+      assignee: { type: "string" },
+      labels: { type: "string", description: "Comma-separated labels" }
     },
     required: ["id"]
   }
@@ -230,6 +230,7 @@ agentmine mcp serve --verbose
 #### worker_command
 
 Worker起動用のコマンドを生成（実行はOrchestratorが行う）。
+この時、agentmineがworktree作成/スコープ適用を行う。
 
 ```typescript
 {
@@ -260,9 +261,9 @@ Worker起動用のコマンドを生成（実行はOrchestratorが行う）。
 
 // Response
 {
-  command: "cd /project/.worktrees/task-5 && claude --print \"$(cat <<'PROMPT'\n# Worker: coder\n...\nPROMPT\n)\"",
+  command: "cd /project/.agentmine/worktrees/task-5 && claude --print \"$(cat <<'PROMPT'\n# Worker: coder\n...\nPROMPT\n)\"",
   client: "claude-code",
-  worktree: ".worktrees/task-5",
+  worktree: ".agentmine/worktrees/task-5",
   agent: "coder",
   task: {
     id: 5,
@@ -286,7 +287,9 @@ Worker起動用のコマンドを生成（実行はOrchestratorが行う）。
     type: "object",
     properties: {
       taskId: { type: "number" },
-      agent: { type: "string" }
+      agent: { type: "string" },
+      sessionGroupId: { type: "string" },
+      idempotencyKey: { type: "string" }
     },
     required: ["taskId", "agent"]
   }
@@ -553,8 +556,7 @@ Memory Bankの内容。
   "type": "feature",
   "assigneeType": "ai",
   "assigneeName": "coder",
-  "branchName": "task-5-auth",
-  "prUrl": null,
+  "selectedSessionId": 123,
   "createdAt": "2024-01-15T10:00:00Z",
   "updatedAt": "2024-01-15T12:00:00Z",
   // セッション履歴は含まない（別途 session_list で取得）
@@ -573,8 +575,8 @@ Memory Bankの内容。
   mimeType: "application/yaml"
 }
 
-// コンテンツ形式（YAMLファイルの内容そのまま）
-// promptFile の内容は含まない（パスのみ）
+// コンテンツ形式（DBから生成したYAML）
+// promptContent は必要に応じて省略/短縮可
 `
 name: coder
 description: コード実装担当
@@ -590,7 +592,9 @@ scope:
     - "**/*.env"
 config:
   temperature: 0.3
-  promptFile: ../prompts/coder.md
+promptContent: |
+  # コード実装担当
+  役割と制約をここに記述
 `
 ```
 
@@ -721,15 +725,12 @@ Orchestrator: 3つのタスクを並列実行します。
 <tool_use: task_list status="open">
 → Tasks: #3, #4, #5
 
-# Worktreeは Orchestrator が git を直接使用して作成
-$ git worktree add .worktrees/task-3 -b task-3
-$ git worktree add .worktrees/task-4 -b task-4
-
 <tool_use: session_start taskId=3 agent="coder">
 → Session started: id=101
 
 <tool_use: worker_command taskId=3 agent="coder">
 → Command: claude-code exec "..."
+→ Worktree prepared: .agentmine/worktrees/task-3
 
 Orchestrator: Workerを起動します（サブプロセス）
 ```

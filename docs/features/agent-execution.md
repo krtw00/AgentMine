@@ -70,22 +70,21 @@ Orchestrator/Workerモデルによるタスク実行フロー。
 | 責務 | 内容 |
 |------|------|
 | タスク管理 | CRUD、ステータス遷移、親子関係 |
-| エージェント定義 | YAML読み込み、定義提供 |
+| エージェント定義 | DB読み込み、定義提供（YAMLは編集/インポート用） |
 | セッション記録 | 実行履歴、成果物記録 |
 | Memory Bank | プロジェクト決定事項の永続化 |
-| Workerコマンド生成 | タスク実行用のコマンド出力（`agentmine worker command`） |
+| Worker環境準備 | worktree作成・スコープ適用（`worker run`） |
+| プロンプト生成 | `worker run` / `worker prompt` |
 
 ### Orchestratorの責務（agentmine外）
 
 | 責務 | 内容 |
 |------|------|
 | タスク分解 | PRDやユーザー指示からタスク生成 |
-| Worktree作成 | git worktree add + sparse-checkout設定 |
-| Worker起動 | サブプロセスとしてAIクライアントを起動 |
+| Worker起動 | `agentmine worker run --exec` を実行 |
 | 進捗監視 | Worker状態の確認（exit code, signal） |
 | 結果マージ | ブランチのマージ、コンフリクト解決 |
 | PR作成 | 完了タスクのPR作成 |
-| Worktree削除 | 完了/失敗後にgit worktree remove |
 
 ## Execution Flow
 
@@ -98,22 +97,17 @@ Orchestrator                    agentmine                      Git
  │ ─────────────────────────────────>│                           │
  │  agentmine task add "..."         │                           │
  │                                   │                           │
- │  2. Workerコマンド取得            │                           │
+ │  2. Worker環境準備/起動            │                           │
  │ ─────────────────────────────────>│                           │
- │  agentmine worker command 1       │                           │
- │  (Memory Bank + タスク情報 → プロンプト生成)│                 │
+ │  agentmine worker run 1 [--exec]  │                           │
+ │  (worktree作成 + scope適用 + session開始 + prompt生成)         │
+ │                                   │  git worktree add ...     │
+ │                                   │  git sparse-checkout ...  │
  │                                   │                           │
- │  3. セッション開始記録            │                           │
+ │  3. --execなしの場合               │                           │
  │ ─────────────────────────────────>│                           │
- │  agentmine session start 1 --agent coder                     │
- │                                   │                           │
- │  4. Worktree作成                  │                           │
- │ ────────────────────────────────────────────────────────────>│
- │  git worktree add .worktrees/task-1 -b task-1                │
- │  git sparse-checkout set (スコープ適用)                       │
- │                                   │                           │
- │  5. Worker起動（サブプロセス）                                 │
- │  claude-code --worktree .worktrees/task-1 --prompt "..."     │
+ │  agentmine worker prompt 1        │                           │
+ │  （プロンプト取得→手動起動）        │                           │
  │                                   │                           │
 ```
 
@@ -130,22 +124,14 @@ Orchestrator                    agentmine                    Worker
  │                                  │                     commit│
  │                                  │                     push  │
  │                                  │                           │
- │  6. Worker終了検知                │                       exit│
+ │  4. Worker終了検知                │                       exit│
  │<─────────────────────────────────────────────────────────────│
  │  exit code / signal を取得       │                           │
  │                                   │                           │
- │  7. セッション終了記録            │                           │
+ │  5. 完了処理                       │                           │
  │ ─────────────────────────────────>│                           │
- │  agentmine session end <id>       │                           │
- │    --exit-code 0 --artifacts ...  │                           │
- │                                   │                           │
- │  8. ステータス判定・更新          │                           │
- │ ─────────────────────────────────>│                           │
- │  (exit code == 0 && マージ可能 → done)                       │
- │  (exit code != 0 → failed)        │                           │
- │                                   │                           │
- │  9. Worktree削除                  │                           │
- │  git worktree remove .worktrees/task-1                       │
+ │  agentmine worker done 1          │                           │
+ │  （詳細記録が必要なら session end）│                           │
  │                                   │                           │
 ```
 
@@ -177,8 +163,8 @@ async function buildPromptFromTask(options: BuildPromptOptions): Promise<string>
     parts.push(task.description);
   }
 
-  // 3. エージェント専用プロンプト（promptFile展開）
-  const promptContent = agentService.getPromptFileContent(agent);
+  // 3. エージェント専用プロンプト（DB内promptContent）
+  const promptContent = agent.promptContent;
   if (promptContent) {
     parts.push('## Agent Instructions');
     parts.push(promptContent);
@@ -219,12 +205,12 @@ async function buildPromptFromTask(options: BuildPromptOptions): Promise<string>
 |-----------|------|------|----------|
 | Task Header | タスクID、タイトル、タイプ、優先度 | tasks テーブル | 全文 |
 | Description | タスクの詳細説明 | tasks.description | 全文 |
-| Agent Instructions | エージェント固有の詳細指示 | prompts/*.md | 全文展開 |
-| Scope | ファイルアクセス範囲 | agents/*.yaml | 全文 |
-| Project Context | プロジェクト決定事項 | memory/*.md | **参照のみ** |
+| Agent Instructions | エージェント固有の詳細指示 | agents.promptContent (DB) | 全文 |
+| Scope | ファイルアクセス範囲 | agents.scope (DB) | 全文 |
+| Project Context | プロジェクト決定事項 | Memory Bank（DB → .agentmine/memory） | **参照のみ** |
 | Instructions | 共通の作業指示 | ハードコード | 全文 |
 
-**Note:** Memory Bankはコンテキスト長削減のため参照方式（ファイルパスのみ）。Workerがworktree内の`.agentmine/memory/`を直接読むことで詳細を確認できる。
+**Note:** Memory BankはDBがマスター。`worker run` 実行時に `.agentmine/memory/` をスナップショット生成し、Workerはそこで詳細を参照する。
 
 ### コンテキスト不足による問題と対策
 
@@ -232,37 +218,39 @@ async function buildPromptFromTask(options: BuildPromptOptions): Promise<string>
 
 | 問題 | 原因 | 対策 |
 |------|------|------|
-| モックデータ作成 | 既存サービスの存在を知らない | promptFileに利用可能サービスを明記 |
+| モックデータ作成 | 既存サービスの存在を知らない | promptContentに利用可能サービスを明記 |
 | 不適切な実装 | プロジェクト規約を知らない | Memory Bankファイルの参照を促す |
-| 汎用的すぎる指示 | エージェント固有指示がない | promptFile必須化 |
+| 汎用的すぎる指示 | エージェント固有指示がない | promptContent必須化 |
 
 **ベストプラクティス:**
 1. タスク作成時に`--description`で具体的な要件を記述
-2. エージェントごとに詳細なpromptFileを用意（禁止事項、サービス利用例を含む）
+2. エージェントごとに詳細なpromptContentを用意（禁止事項、サービス利用例を含む）
 3. Memory Bankにプロジェクト決定事項を充実させる（Workerが参照できる）
 
 ## Worktree + スコープ制御
 
 ### sparse-checkoutによるスコープ適用
 
+`agentmine worker run` が内部で git worktree / sparse-checkout を実行してスコープを適用する（実装例）。
+
 ```bash
-# Orchestratorが直接gitコマンドを実行
+# agentmine が内部で実行
 
 # 1. worktree作成
-git worktree add .worktrees/task-1 -b task-1-auth
+git worktree add .agentmine/worktrees/task-1 -b task-1-auth
 
 # 2. sparse-checkout有効化
-cd .worktrees/task-1
+cd .agentmine/worktrees/task-1
 git sparse-checkout init --cone
 
 # 3. スコープ適用（exclude→read→writeの優先順位）
-#    エージェント定義のscopeに基づいてOrchestratorが設定
+#    エージェント定義のscopeに基づいて設定
 git sparse-checkout set src/ tests/ docs/ package.json
 # excludeパターン（.env, secrets/等）は自動的に除外される
 
 # 4. AIクライアント設定を配置
-cp -r ~/.agentmine/client-configs/claude-code/ .worktrees/task-1/.claude/
-# promptFile → CLAUDE.md に変換
+cp -r ~/.agentmine/client-configs/claude-code/ .agentmine/worktrees/task-1/.claude/
+# promptContent → CLAUDE.md に変換
 ```
 
 ### スコープ優先順位
@@ -281,11 +269,11 @@ exclude → read → write
 ### Worktree構造
 
 ```
-.worktrees/
+.agentmine/worktrees/
 ├── task-1/                     # タスク#1用
 │   ├── .claude/                # Claude Code設定
 │   │   ├── settings.json
-│   │   └── CLAUDE.md           # promptFileから生成
+│   │   └── CLAUDE.md           # promptContentから生成
 │   ├── src/                    # write可能（スコープで指定時）
 │   ├── tests/                  # write可能（スコープで指定時）
 │   ├── docs/                   # read専用（sparse-checkoutに含まれるが編集不可）
@@ -326,33 +314,50 @@ exclude → read → write
 
 type TaskStatus = 'open' | 'in_progress' | 'done' | 'failed' | 'cancelled';
 
-function determineTaskStatus(session: Session, gitState: GitState): TaskStatus {
-  // 1. failed判定（異常終了）
-  if (session.exitCode !== 0) {
-    return 'failed';  // exit code != 0
-  }
-  if (session.signal) {
-    return 'failed';  // SIGTERM, SIGKILL等
-  }
-  if (session.dodResult === 'timeout') {
-    return 'failed';  // タイムアウト
+function determineTaskStatus(
+  sessions: Session[],
+  gitState: GitState,
+  selectedSessionId?: number
+): TaskStatus {
+  if (sessions.length === 0) {
+    return 'open';
   }
 
-  // 2. done判定（正常終了 && マージ済み）
-  const isMerged = gitState.branchMergedTo(task.branchName, config.baseBranch);
-  if (session.exitCode === 0 && isMerged) {
+  // runningがあれば進行中
+  if (sessions.some(s => s.status === 'running')) {
+    return 'in_progress';
+  }
+
+  // マージ済みのセッションがあれば完了
+  const merged = sessions.find(s =>
+    s.dodResult === 'merged' ||
+    (s.branchName && gitState.branchMergedTo(s.branchName, config.baseBranch))
+  );
+  if (merged) {
     return 'done';
   }
 
-  // 3. それ以外はin_progress維持
-  return 'in_progress';
+  // 採用セッションが指定されている場合はそれを優先判定
+  if (selectedSessionId) {
+    const selected = sessions.find(s => s.id === selectedSessionId);
+    if (selected && selected.branchName &&
+        gitState.branchMergedTo(selected.branchName, config.baseBranch)) {
+      return 'done';
+    }
+  }
+
+  // それ以外は失敗扱い（全て失敗/取消）
+  const allFailed = sessions.every(s =>
+    s.status === 'failed' || s.status === 'cancelled'
+  );
+  return allFailed ? 'failed' : 'in_progress';
 }
 ```
 
 ### DoD検証（Orchestratorが実行）
 
 ```yaml
-# .agentmine/config.yaml
+# settings snapshot (import/export)
 
 # Definition of Done (プロジェクト全体)
 # Orchestratorがマージ前に検証
@@ -403,6 +408,11 @@ task_types:
 ```typescript
 // sessions テーブルに記録（観測可能な事実）
 interface SessionRecord {
+  sessionGroupId?: string | null;
+  idempotencyKey?: string | null;
+  branchName?: string | null;
+  prUrl?: string | null;
+  worktreePath?: string | null;
   exitCode: number | null;    // プロセス終了コード
   signal: string | null;      // 終了シグナル（SIGTERM等）
   dodResult: 'pending' | 'merged' | 'timeout' | 'error';
@@ -425,15 +435,15 @@ interface SessionRecord {
              └──────────┘
 
 Any state → cancelled
-failed → open (再試行時)
+failed → in_progress (再試行時)
 ```
 
 | 遷移 | トリガー | 判定基準 |
 |------|----------|----------|
-| open → in_progress | Worker起動 | agentmine session start |
+| open → in_progress | セッション開始 | running セッションが1つ以上 |
 | in_progress → done | マージ完了 | git log baseBranch..branch が空 |
-| in_progress → failed | Worker異常終了 | exit code != 0 or signal or timeout |
-| failed → open | 再試行指示 | 人間またはOrchestratorが明示的に指示 |
+| in_progress → failed | 失敗確定 | runningなし、mergedなし、失敗/取消のみ |
+| failed → in_progress | 再試行 | 新しいセッション開始 |
 | * → cancelled | キャンセル | 人間またはOrchestratorが明示的に指示 |
 
 **Note:** review/blockedステータスは削除。Orchestratorの主観的判断に依存するため。
@@ -446,22 +456,19 @@ failed → open (再試行時)
 # タスク管理
 agentmine task list --json
 agentmine task add "タイトル" -t feature
-agentmine task update <id> --status done
+agentmine task update <id> --labels blocked,needs_review
 
 # エージェント定義取得
 agentmine agent list
 agentmine agent show coder --format yaml
 
-# Workerコマンド生成（プロンプト出力）
-agentmine worker command <task-id> --agent coder
+# Worker実行
+agentmine worker run <task-id> --exec
+agentmine worker prompt <task-id> --agent coder
+agentmine worker done <task-id>
 
-# セッション記録
-agentmine session start <task-id> --agent coder
-agentmine session end <session-id> \
-  --exit-code 0 \
-  --signal "" \
-  --dod-result merged \
-  --artifacts '["src/auth.ts", "tests/auth.test.ts"]'
+# セッション記録（詳細に記録したい場合）
+agentmine session end <session-id>   --exit-code 0   --signal ""   --dod-result merged   --artifacts '["src/auth.ts", "tests/auth.test.ts"]'
 
 # Memory Bank
 agentmine memory list --json
@@ -469,8 +476,9 @@ agentmine memory preview
 ```
 
 **Note:**
-- `agentmine worktree` コマンドは削除。Orchestratorがgitを直接使用。
+- worktreeは `worker run` / `worker cleanup` が内部で管理する。
 - Worker向けコマンドは存在しない。Workerはagentmineにアクセスしない。
+- `session start` は手動運用時のみ使用。
 
 ## Worker終了方針
 
@@ -492,14 +500,15 @@ exec mode + timeout の組み合わせ
 # Orchestratorが実行
 TASK_ID=1
 
-# 1. セッション開始（Worker起動前）
-SESSION_ID=$(agentmine session start $TASK_ID --agent coder --quiet)
+# 1. Worker環境準備（worktree作成 + session開始）
+RUN_JSON=$(agentmine worker run $TASK_ID --json)
+SESSION_ID=$(echo "$RUN_JSON" | jq -r '.session.id')
 
 # 2. worktreeに移動
-cd .worktrees/task-$TASK_ID
+cd .agentmine/worktrees/task-$TASK_ID
 
-# 3. プロンプト取得（agentmine worker commandでタスク情報を含むプロンプト生成）
-PROMPT=$(agentmine worker command $TASK_ID)
+# 3. プロンプト取得（タスク情報を含む）
+PROMPT=$(agentmine worker prompt $TASK_ID)
 
 # 4. exec modeで起動（タイムアウト付き）
 timeout --signal=SIGTERM 300 claude-code exec "$PROMPT"
