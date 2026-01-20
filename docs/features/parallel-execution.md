@@ -147,9 +147,9 @@ git sparse-checkout init --cone
 git sparse-checkout set src/ tests/ docs/ package.json
 # excludeパターン（.env, secrets/等）は自動的に除外
 
-# 4. AIクライアント設定を配置
+# 4. AIクライアント設定を配置（必要な場合）
 cp -r ~/.agentmine/client-configs/claude-code/ .agentmine/worktrees/task-3/.claude/
-# promptContentを CLAUDE.md に変換
+# promptContentはworker run/execで直接渡す（ファイル出力しない）
 ```
 
 ### スコープ定義
@@ -190,7 +190,7 @@ exclude → read → write
 ├── task-3/                     # タスク#3用（Worker 1）
 │   ├── .claude/                # Claude Code設定
 │   │   ├── settings.json
-│   │   └── CLAUDE.md           # promptContentから生成
+│   │   └── ...                 # クライアント固有設定（任意）
 │   ├── src/                    # write可能（スコープで指定）
 │   ├── tests/                  # write可能（スコープで指定）
 │   ├── docs/                   # read-only（writeに未指定）

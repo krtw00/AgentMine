@@ -114,12 +114,9 @@ find . -type f \
 forfiles /S /M * /C "cmd /c attrib +R @path"
 # 次にwrite対象のみ attrib -R で解除
 
-# 5. AIクライアント設定を配置
+# 5. AIクライアント設定を配置（必要な場合）
 mkdir -p .claude
-cat > .claude/CLAUDE.md << 'EOF'
-# Worker: coder
-...（promptContentの内容）
-EOF
+# promptContentはworker run/execで直接渡す（ファイル出力しない）
 ```
 
 ## クロスプラットフォーム対応
@@ -258,7 +255,7 @@ async function getChangedFiles(worktreePath: string): Promise<string[]> {
 │   │   # agents/, settings snapshot, prompts/ はスナップショットのため除外
 │   ├── .claude/                # Claude Code設定
 │   │   ├── settings.json
-│   │   └── CLAUDE.md           # promptContentから生成
+│   │   └── ...                 # クライアント固有設定（任意）
 │   ├── src/                    # write可能
 │   ├── tests/                  # write可能
 │   ├── package.json            # write可能
