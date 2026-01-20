@@ -250,7 +250,7 @@ git sparse-checkout set src/ tests/ docs/ package.json
 
 # 4. AIクライアント設定を配置（必要な場合）
 cp -r ~/.agentmine/client-configs/claude-code/ .agentmine/worktrees/task-1/.claude/
-# promptContentはworker run/execで直接渡す（ファイル出力しない）
+# promptContentをクライアント固有のコンテキストファイルに出力（例: .claude/CLAUDE.md）
 ```
 
 ### スコープ優先順位
@@ -273,7 +273,7 @@ exclude → read → write
 ├── task-1/                     # タスク#1用
 │   ├── .claude/                # Claude Code設定
 │   │   ├── settings.json
-│   │   └── ...                 # クライアント固有設定（任意）
+│   │   └── CLAUDE.md           # promptContentから生成
 │   ├── src/                    # write可能（スコープで指定時）
 │   ├── tests/                  # write可能（スコープで指定時）
 │   ├── docs/                   # read専用（sparse-checkoutに含まれるが編集不可）

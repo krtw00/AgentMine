@@ -116,8 +116,23 @@ forfiles /S /M * /C "cmd /c attrib +R @path"
 
 # 5. AIクライアント設定を配置（必要な場合）
 mkdir -p .claude
-# promptContentはworker run/execで直接渡す（ファイル出力しない）
+cat > .claude/CLAUDE.md << 'EOF'
+# Worker: coder
+...（promptContentの内容）
+EOF
 ```
+
+### クライアント固有コンテキスト（暫定枠）
+
+promptContentはAIクライアントが自動で読み込む設定ファイルへ出力する。対応は順次追加する。
+
+| client | config dir | context file | note |
+|--------|------------|--------------|------|
+| claude-code | `.claude/` | `CLAUDE.md` | 自動読込 |
+| codex | (TBD) | (TBD) | placeholder |
+| aider | (TBD) | (TBD) | placeholder |
+| gemini | (TBD) | (TBD) | placeholder |
+| opencode | (TBD) | (TBD) | placeholder |
 
 ## クロスプラットフォーム対応
 
@@ -255,7 +270,7 @@ async function getChangedFiles(worktreePath: string): Promise<string[]> {
 │   │   # agents/, settings snapshot, prompts/ はスナップショットのため除外
 │   ├── .claude/                # Claude Code設定
 │   │   ├── settings.json
-│   │   └── ...                 # クライアント固有設定（任意）
+│   │   └── CLAUDE.md           # promptContentから生成
 │   ├── src/                    # write可能
 │   ├── tests/                  # write可能
 │   ├── package.json            # write可能
