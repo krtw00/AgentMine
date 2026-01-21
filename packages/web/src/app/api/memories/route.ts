@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { memories } from '@agentmine/core';
 import { desc, eq } from 'drizzle-orm';
-import { getDb } from '@/lib/db';
+import { getDb, memories } from '@/lib/db';
 
 /**
  * GET /api/memories - List all memories

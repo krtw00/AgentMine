@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { tasks } from '@agentmine/core';
 import { eq } from 'drizzle-orm';
-import { getDb } from '@/lib/db';
+import { getDb, tasks } from '@/lib/db';
 
 type RouteParams = {
   params: Promise<{ id: string }>;

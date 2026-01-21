@@ -4,18 +4,25 @@ import * as schema from './schema.js'
 import { existsSync, mkdirSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { sql } from 'drizzle-orm'
+import { createPgDb, initializePgDb, closePgDb, type PgDb } from './postgres.js'
 
 // ============================================
 // Types
 // ============================================
 
-export type Db = ReturnType<typeof drizzle<typeof schema>>
+export type SqliteDb = ReturnType<typeof drizzle<typeof schema>>
+// Use SqliteDb as the common interface type since Drizzle ORM APIs are compatible
+// This allows services to work with both SQLite and PostgreSQL without type errors
+export type Db = SqliteDb
+export type DbType = 'sqlite' | 'postgres'
 
 export interface DbOptions {
-  /** Database file path (default: .agentmine/data.db) */
+  /** Database file path for SQLite (default: .agentmine/data.db) */
   path?: string
   /** Project root directory (default: process.cwd()) */
   projectRoot?: string
+  /** Database URL (overrides path, supports postgres:// or file:) */
+  url?: string
 }
 
 // ============================================
@@ -31,10 +38,29 @@ export const DEFAULT_DB_NAME = 'data.db'
 
 let dbInstance: Db | null = null
 let clientInstance: Client | null = null
+let currentDbType: DbType | null = null
 
 // ============================================
 // Database functions
 // ============================================
+
+/**
+ * Detect database type from URL or environment
+ */
+export function detectDbType(url?: string): DbType {
+  const dbUrl = url ?? process.env.DATABASE_URL
+  if (dbUrl?.startsWith('postgres://') || dbUrl?.startsWith('postgresql://')) {
+    return 'postgres'
+  }
+  return 'sqlite'
+}
+
+/**
+ * Get current database type
+ */
+export function getDbType(): DbType | null {
+  return currentDbType
+}
 
 /**
  * Get the .agentmine directory path for a project
@@ -58,11 +84,40 @@ export function isProjectInitialized(projectRoot: string = process.cwd()): boole
 }
 
 /**
- * Create SQLite database connection using libsql
+ * Create database connection (SQLite or PostgreSQL based on DATABASE_URL)
  */
 export function createDb(options: DbOptions = {}): Db {
+  const url = options.url ?? process.env.DATABASE_URL
+  const dbType = detectDbType(url)
+  currentDbType = dbType
+
+  if (dbType === 'postgres') {
+    if (!url) {
+      throw new Error('DATABASE_URL is required for PostgreSQL connection')
+    }
+    // Cast to Db (SqliteDb) since Drizzle ORM APIs are compatible
+    dbInstance = createPgDb(url) as unknown as Db
+    return dbInstance
+  }
+
+  // SQLite
+  return createSqliteDb(options)
+}
+
+/**
+ * Create SQLite database connection using libsql
+ */
+function createSqliteDb(options: DbOptions = {}): SqliteDb {
   const projectRoot = options.projectRoot ?? process.cwd()
-  const dbPath = options.path ?? getDefaultDbPath(projectRoot)
+  const url = options.url ?? process.env.DATABASE_URL
+
+  let dbPath: string
+  if (url?.startsWith('file:')) {
+    dbPath = url.replace('file:', '')
+  } else {
+    dbPath = options.path ?? getDefaultDbPath(projectRoot)
+  }
+
   const absolutePath = resolve(projectRoot, dbPath)
 
   // Ensure directory exists
@@ -77,12 +132,13 @@ export function createDb(options: DbOptions = {}): Db {
 
   clientInstance = client
   dbInstance = drizzle(client, { schema })
+  currentDbType = 'sqlite'
 
-  return dbInstance
+  return dbInstance as SqliteDb
 }
 
 /**
- * Get the underlying libsql client
+ * Get the underlying libsql client (SQLite only)
  */
 export function getClient(): Client | null {
   return clientInstance
@@ -91,9 +147,25 @@ export function getClient(): Client | null {
 /**
  * Initialize database tables
  * Creates tables if they don't exist
- * Based on docs/04-data/data-model.md
+ * Automatically detects database type
  */
 export async function initializeDb(db: Db): Promise<void> {
+  const dbType = currentDbType ?? detectDbType()
+
+  if (dbType === 'postgres') {
+    // Use unknown intermediate cast for PostgreSQL
+    await initializePgDb(db as unknown as PgDb)
+    return
+  }
+
+  // SQLite initialization
+  await initializeSqliteDb(db)
+}
+
+/**
+ * Initialize SQLite database tables
+ */
+async function initializeSqliteDb(db: SqliteDb): Promise<void> {
   // Create projects table
   await db.run(sql`
     CREATE TABLE IF NOT EXISTS projects (
@@ -282,13 +354,57 @@ export async function initializeDb(db: Db): Promise<void> {
   await db.run(sql`CREATE INDEX IF NOT EXISTS idx_decisions_category ON project_decisions(category)`)
 
   // Run migrations for existing databases
-  await runMigrations(db)
+  await runSqliteMigrations(db)
+
+  // Seed default agents
+  await seedDefaultAgentsSqlite(db)
 }
 
 /**
- * Run migrations to update existing databases to the new schema
+ * Seed default agents for SQLite
  */
-async function runMigrations(db: Db): Promise<void> {
+async function seedDefaultAgentsSqlite(db: SqliteDb): Promise<void> {
+  const defaultAgents = [
+    {
+      name: 'coder',
+      description: 'Default coding agent using Claude Code',
+      client: 'claude-code',
+      model: 'sonnet',
+    },
+    {
+      name: 'codex-coder',
+      description: 'Coding agent using OpenAI Codex CLI',
+      client: 'codex',
+      model: 'gpt-4.1',
+    },
+    {
+      name: 'gemini-coder',
+      description: 'Coding agent using Gemini CLI',
+      client: 'gemini-cli',
+      model: 'gemini-2.5-pro',
+    },
+  ]
+
+  for (const agent of defaultAgents) {
+    await db.run(sql`
+      INSERT OR IGNORE INTO agents (name, description, client, model, scope, config, dod)
+      VALUES (
+        ${agent.name},
+        ${agent.description},
+        ${agent.client},
+        ${agent.model},
+        '{"write":[],"exclude":[]}',
+        '{}',
+        '[]'
+      )
+    `)
+  }
+}
+
+/**
+ * Run migrations to update existing SQLite databases to the new schema
+ */
+async function runSqliteMigrations(db: SqliteDb): Promise<void> {
   // Migration: Add new columns to tasks
   try {
     const taskInfo = await db.all(sql`PRAGMA table_info(tasks)`) as Array<{ name: string }>
@@ -366,141 +482,41 @@ async function runMigrations(db: Db): Promise<void> {
   } catch {
     // Ignore errors if columns already exist
   }
-
-  // Migration: Migrate branchName/prUrl from tasks to sessions (if columns exist in tasks)
-  await migrateBranchDataToSessions(db)
-
-  // Migration: Remove UNIQUE constraint on sessions.task_id (recreate table)
-  await removeSessionsTaskIdUniqueConstraint(db)
-}
-
-/**
- * Migrate branchName and prUrl from tasks to sessions
- * This handles the schema change where these fields moved from tasks to sessions
- */
-async function migrateBranchDataToSessions(db: Db): Promise<void> {
-  try {
-    // Check if tasks has branch_name column (old schema)
-    const taskInfo = await db.all(sql`PRAGMA table_info(tasks)`) as Array<{ name: string }>
-    const taskColumns = taskInfo.map((row) => row.name)
-
-    if (!taskColumns.includes('branch_name')) {
-      return // Already migrated or fresh install
-    }
-
-    // Migrate data: Update sessions with branchName/prUrl from their associated tasks
-    await db.run(sql`
-      UPDATE sessions
-      SET branch_name = (
-        SELECT t.branch_name FROM tasks t WHERE t.id = sessions.task_id
-      ),
-      pr_url = (
-        SELECT t.pr_url FROM tasks t WHERE t.id = sessions.task_id
-      )
-      WHERE sessions.branch_name IS NULL
-        AND EXISTS (
-          SELECT 1 FROM tasks t
-          WHERE t.id = sessions.task_id
-            AND (t.branch_name IS NOT NULL OR t.pr_url IS NOT NULL)
-        )
-    `)
-
-    // Note: We don't drop columns from tasks since SQLite doesn't support DROP COLUMN
-    // The columns will be ignored by the new schema
-  } catch {
-    // Ignore errors - migration may have already been applied
-  }
-}
-
-/**
- * Remove UNIQUE constraint on sessions.task_id to support 1:N relationship
- * SQLite doesn't support ALTER TABLE DROP CONSTRAINT, so we need to recreate the table
- */
-async function removeSessionsTaskIdUniqueConstraint(db: Db): Promise<void> {
-  try {
-    // Check if there's a UNIQUE index on task_id
-    const indexInfo = await db.all(sql`
-      SELECT name, sql FROM sqlite_master
-      WHERE type = 'index'
-        AND tbl_name = 'sessions'
-        AND sql LIKE '%task_id%UNIQUE%'
-    `) as Array<{ name: string; sql: string | null }>
-
-    // Also check for UNIQUE constraint in table definition
-    const tableInfo = await db.all(sql`
-      SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'sessions'
-    `) as Array<{ sql: string }>
-
-    const tableSql = tableInfo[0]?.sql || ''
-    const hasUniqueConstraint = tableSql.includes('UNIQUE') && tableSql.includes('task_id')
-    const hasUniqueIndex = indexInfo.length > 0
-
-    if (!hasUniqueConstraint && !hasUniqueIndex) {
-      return // No constraint to remove
-    }
-
-    // Recreate sessions table without UNIQUE constraint
-    // Step 1: Create new table
-    await db.run(sql`
-      CREATE TABLE IF NOT EXISTS sessions_new (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        task_id INTEGER REFERENCES tasks(id),
-        agent_name TEXT NOT NULL,
-        status TEXT NOT NULL DEFAULT 'running' CHECK(status IN ('running', 'completed', 'failed', 'cancelled')),
-        started_at INTEGER NOT NULL DEFAULT (unixepoch()),
-        completed_at INTEGER,
-        duration_ms INTEGER,
-        session_group_id TEXT,
-        idempotency_key TEXT UNIQUE,
-        branch_name TEXT,
-        pr_url TEXT,
-        worktree_path TEXT,
-        exit_code INTEGER,
-        signal TEXT,
-        dod_result TEXT CHECK(dod_result IN ('passed', 'failed', 'skipped', 'timeout')),
-        artifacts TEXT DEFAULT '[]',
-        error TEXT DEFAULT NULL,
-        pid INTEGER,
-        review_status TEXT DEFAULT 'pending' CHECK(review_status IN ('pending', 'approved', 'rejected', 'needs_work')),
-        reviewed_by TEXT,
-        reviewed_at INTEGER,
-        review_comment TEXT
-      )
-    `)
-
-    // Step 2: Copy data
-    await db.run(sql`
-      INSERT INTO sessions_new
-      SELECT id, task_id, agent_name, status, started_at, completed_at, duration_ms,
-             session_group_id, idempotency_key, branch_name, pr_url, worktree_path,
-             exit_code, signal, dod_result, artifacts, error, pid,
-             review_status, reviewed_by, reviewed_at, review_comment
-      FROM sessions
-    `)
-
-    // Step 3: Drop old table and rename new one
-    await db.run(sql`DROP TABLE sessions`)
-    await db.run(sql`ALTER TABLE sessions_new RENAME TO sessions`)
-
-    // Step 4: Recreate indexes
-    await db.run(sql`CREATE INDEX IF NOT EXISTS idx_sessions_task ON sessions(task_id)`)
-    await db.run(sql`CREATE INDEX IF NOT EXISTS idx_sessions_status ON sessions(status)`)
-    await db.run(sql`CREATE INDEX IF NOT EXISTS idx_sessions_idempotency_key ON sessions(idempotency_key)`)
-  } catch {
-    // Ignore errors - migration may have already been applied or table structure differs
-  }
 }
 
 /**
  * Close database connection
  */
-export function closeDb(): void {
-  if (clientInstance) {
+export async function closeDb(): Promise<void> {
+  const dbType = currentDbType
+
+  if (dbType === 'postgres') {
+    await closePgDb()
+  } else if (clientInstance) {
     clientInstance.close()
     clientInstance = null
-    dbInstance = null
   }
+
+  dbInstance = null
+  currentDbType = null
 }
 
-// Re-export schema
+// Re-export SQLite schema (default for backward compatibility)
 export * from './schema.js'
+
+// Re-export PostgreSQL schema tables directly
+export {
+  projects as pgProjects,
+  tasks as pgTasks,
+  sessions as pgSessions,
+  agents as pgAgents,
+  agentHistory as pgAgentHistory,
+  memories as pgMemories,
+  memoryHistory as pgMemoryHistory,
+  settings as pgSettings,
+  auditLogs as pgAuditLogs,
+  projectDecisions as pgProjectDecisions,
+} from './pg-schema.js'
+
+// Re-export PostgreSQL types
+export type { PgDb } from './postgres.js'

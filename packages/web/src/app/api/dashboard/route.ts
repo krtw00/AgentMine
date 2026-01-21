@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
-import { tasks, sessions } from '@agentmine/core';
 import { eq, desc, sql, count } from 'drizzle-orm';
-import { getDb } from '@/lib/db';
+import { getDb, tasks, sessions } from '@/lib/db';
 
 /**
  * GET /api/dashboard - Get dashboard statistics

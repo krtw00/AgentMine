@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sessions, tasks, agents } from '@agentmine/core';
 import { eq } from 'drizzle-orm';
-import { getDb } from '@/lib/db';
+import { getDb, sessions, tasks, agents } from '@/lib/db';
 
 /**
  * GET /api/workers - List active workers (running sessions)

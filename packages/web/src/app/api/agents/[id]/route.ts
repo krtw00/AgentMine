@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { agents } from '@agentmine/core';
 import { eq } from 'drizzle-orm';
-import { getDb } from '@/lib/db';
+import { getDb, agents } from '@/lib/db';
 
 type RouteParams = {
   params: Promise<{ id: string }>;
@@ -72,9 +71,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     // Build update object
-    const updates: Partial<typeof agents.$inferInsert> = {
-      updatedAt: new Date(),
-      version: (existing.version || 1) + 1,
+    const updates: Record<string, unknown> = {
+      updatedAt: Math.floor(Date.now() / 1000),
+      version: ((existing as { version?: number }).version || 1) + 1,
     };
 
     if (name !== undefined) updates.name = name;

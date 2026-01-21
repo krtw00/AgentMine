@@ -25,9 +25,12 @@
     "node": ">=20"
   },
   "devDependencies": {
+    "tsx": "^4.21.0",
     "turbo": "^2.7.5"
   },
   "dependencies": {
+    "@types/pg": "^8.16.0",
+    "pg": "^8.17.2",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1"
   }

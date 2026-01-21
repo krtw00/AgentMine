@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sessions, tasks } from '@agentmine/core';
 import { eq, desc, and } from 'drizzle-orm';
-import { getDb } from '@/lib/db';
+import { getDb, sessions, tasks } from '@/lib/db';
 
 /**
  * GET /api/sessions - List all sessions

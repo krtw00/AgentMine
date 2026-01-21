@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { settings } from '@agentmine/core';
 import { eq } from 'drizzle-orm';
-import { getDb } from '@/lib/db';
+import { getDb, settings } from '@/lib/db';
 
 /**
  * GET /api/settings - List all settings

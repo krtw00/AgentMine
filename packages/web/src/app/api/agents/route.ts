@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { agents } from '@agentmine/core';
 import { desc } from 'drizzle-orm';
-import { getDb } from '@/lib/db';
+import { getDb, agents } from '@/lib/db';
 
 /**
  * GET /api/agents - List all agents
