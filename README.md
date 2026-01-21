@@ -165,7 +165,8 @@ pnpm dev
 |---------|------|
 | `pnpm dev` | 全パッケージ同時起動 |
 | `pnpm build` | ビルド |
-| `pnpm test` | テスト |
+| `pnpm test` | テスト（75+ テスト） |
+| `pnpm lint` | リント |
 
 ---
 

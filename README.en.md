@@ -165,7 +165,8 @@ pnpm dev
 |---------|-------------|
 | `pnpm dev` | Start all packages |
 | `pnpm build` | Build |
-| `pnpm test` | Test |
+| `pnpm test` | Test (75+ tests) |
+| `pnpm lint` | Lint |
 
 ---
 

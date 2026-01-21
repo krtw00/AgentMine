@@ -384,13 +384,13 @@ Worker状態の監視にはServer-Sent Events（SSE）を使用する。
 
 ## 実装優先度
 
-| 優先度 | 機能 |
-|--------|------|
-| P0 | Dashboard、Tasks (List)、基本ナビゲーション、API基盤 |
-| P1 | Sessions監視、Task詳細・編集、Worker制御UI、リアルタイム更新 |
-| P2 | Agents (UI/YAML編集)、Tasks (Board View) |
-| P3 | Memory Bank、Settings (UI/YAML編集) |
-| P4 | Tasks (Hierarchy View)、キーボード完全対応 |
+| 優先度 | 機能 | 状態 |
+|--------|------|:----:|
+| P0 | Dashboard、Tasks (List)、基本ナビゲーション、API基盤 | 完了 |
+| P1 | Sessions監視、Task詳細・編集、Worker制御UI | 完了 |
+| P2 | Agents管理、Memory Bank、Settings | 完了 |
+| P3 | Tasks (Board View)、キーボード完全対応、リアルタイム更新（SSE） | 未実装 |
+| P4 | Tasks (Hierarchy View)、Monaco Editor統合 | 未実装 |
 
 ## 未確定事項
 
