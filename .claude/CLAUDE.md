@@ -44,7 +44,24 @@ packages/
 └── core/     # 共有ロジック（Services, Models, DB）
 ```
 
-## コマンド
+## 開発環境（Docker）
+
+```bash
+# 起動（Traefik起動後）
+cd ~/work/projects/agentmine
+docker compose up -d
+
+# アクセス
+http://agentmine.localhost
+
+# ログ確認
+docker compose logs -f web
+
+# 停止
+docker compose down
+```
+
+## ローカルコマンド
 
 ```bash
 pnpm dev          # 全パッケージ同時起動

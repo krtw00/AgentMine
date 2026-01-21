@@ -52,7 +52,50 @@ flowchart TB
 
 ---
 
-## インストール
+## 開発環境（Docker）
+
+### 必要条件
+
+- Docker Desktop
+- Traefik起動済み（`~/work/infra/traefik`）
+
+### 起動
+
+```bash
+# Traefikネットワーク作成（初回のみ）
+docker network create traefik
+
+# Traefik起動
+cd ~/work/infra/traefik && docker compose up -d
+
+# プロジェクト起動
+cd ~/work/projects/agentmine
+docker compose up -d
+```
+
+### アクセス
+
+- Web UI: http://agentmine.localhost
+
+### コマンド
+
+```bash
+# 起動
+docker compose up -d
+
+# ログ確認
+docker compose logs -f web
+
+# 停止
+docker compose down
+
+# 再ビルド
+docker compose up -d --build
+```
+
+---
+
+## インストール（CLIツール）
 
 ```bash
 npm install -g agentmine

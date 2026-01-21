@@ -1,0 +1,14 @@
+node_modules
+**/node_modules
+.next
+**/.next
+.turbo
+**/.turbo
+.git
+.gitignore
+*.md
+.env*
+.agentmine
+.claude/
+.serena/
+docs/
