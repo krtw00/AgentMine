@@ -3,6 +3,7 @@ import { sql } from 'drizzle-orm'
 
 // ============================================
 // SQLite Schema (Primary for local development)
+// Based on docs/04-data/data-model.md
 // ============================================
 
 /**
@@ -34,8 +35,9 @@ export const tasks = sqliteTable('tasks', {
   title: text('title').notNull(),
   description: text('description'),
 
+  // Status: dod_failed added per design doc
   status: text('status', {
-    enum: ['open', 'in_progress', 'done', 'failed', 'cancelled']
+    enum: ['open', 'in_progress', 'done', 'failed', 'dod_failed', 'cancelled']
   }).notNull().default('open'),
 
   priority: text('priority', {
@@ -51,13 +53,10 @@ export const tasks = sqliteTable('tasks', {
   }),
   assigneeName: text('assignee_name'),
 
-  branchName: text('branch_name'),
-  prUrl: text('pr_url'),
-
-  // 選択されたセッション（複数セッション実行後のベスト選択）
+  // Selected session (for parallel comparison)
   selectedSessionId: integer('selected_session_id'),
 
-  // ラベル（タグ付け用）
+  // Labels (for tagging)
   labels: text('labels', { mode: 'json' })
     .$type<string[]>()
     .default([]),
@@ -75,66 +74,256 @@ export const tasks = sqliteTable('tasks', {
 /**
  * Sessions table
  * エージェント実行セッションの記録
- * 1タスク1セッション制約（UNIQUE）
+ * 1タスク複数セッション可（並列比較サポート）
  */
 export const sessions = sqliteTable('sessions', {
   id: integer('id').primaryKey({ autoIncrement: true }),
 
+  // No UNIQUE constraint - allows multiple sessions per task
   taskId: integer('task_id')
-    .references(() => tasks.id)
-    .unique(), // 1タスク1セッション制約
+    .references(() => tasks.id),
   agentName: text('agent_name').notNull(),
 
-  // 並列実行サポート
-  sessionGroupId: text('session_group_id'), // 同時実行グループID
-  idempotencyKey: text('idempotency_key').unique(), // 重複実行防止キー
-
+  // Session status
   status: text('status', {
     enum: ['running', 'completed', 'failed', 'cancelled']
   }).notNull().default('running'),
 
-  // 実行時間
+  // Execution timing
   startedAt: integer('started_at', { mode: 'timestamp' })
     .notNull()
     .default(sql`(unixepoch())`),
   completedAt: integer('completed_at', { mode: 'timestamp' }),
   durationMs: integer('duration_ms'),
 
-  // Worker終了情報（観測可能な事実）
+  // Parallel execution support
+  sessionGroupId: text('session_group_id'), // 同時実行グループID
+  idempotencyKey: text('idempotency_key').unique(), // 重複実行防止キー
+
+  // Git info (moved from tasks per design doc)
+  branchName: text('branch_name'),
+  prUrl: text('pr_url'),
+
+  // Worktree info
+  worktreePath: text('worktree_path'),
+
+  // Worker termination info (observable facts)
   exitCode: integer('exit_code'),
   signal: text('signal'), // SIGTERM, SIGKILL等
 
-  // DoD判定結果
+  // DoD result per design doc: passed, failed, skipped, timeout
   dodResult: text('dod_result', {
-    enum: ['pending', 'merged', 'timeout', 'error']
-  }).default('pending'),
+    enum: ['passed', 'failed', 'skipped', 'timeout']
+  }),
 
-  // 成果物（JSON配列: 変更されたファイルパス）
+  // Artifacts (JSON array: changed file paths)
   artifacts: text('artifacts', { mode: 'json' })
     .$type<string[]>()
     .default([]),
 
-  // エラー情報（JSON: 失敗時の詳細）
+  // Error info (JSON: failure details)
   error: text('error', { mode: 'json' })
     .$type<SessionError | null>()
     .default(null),
 
-  // Detachモード用: プロセス情報
-  pid: integer('pid'), // バックグラウンドプロセスのPID
-  worktreePath: text('worktree_path'), // Worktreeのパス
+  // Detach mode: process info
+  pid: integer('pid'), // Background process PID
 
-  // レビュー情報
+  // Review info
   reviewStatus: text('review_status', {
     enum: ['pending', 'approved', 'rejected', 'needs_work']
   }).default('pending'),
-  reviewedBy: text('reviewed_by'), // レビュワー名
-  reviewedAt: integer('reviewed_at', { mode: 'timestamp' }), // レビュー日時
-  reviewComment: text('review_comment'), // レビューコメント
+  reviewedBy: text('reviewed_by'),
+  reviewedAt: integer('reviewed_at', { mode: 'timestamp' }),
+  reviewComment: text('review_comment'),
 })
 
 /**
- * Project decisions table
- * プロジェクトの決定事項（Memory Bank の補助）
+ * Agents table
+ * エージェント定義（DBマスター）
+ */
+export const agents = sqliteTable('agents', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  projectId: integer('project_id').references(() => projects.id),
+
+  name: text('name').notNull(),
+  description: text('description'),
+
+  client: text('client').notNull(), // claude-code, codex, gemini-cli等
+  model: text('model').notNull(),   // opus, sonnet, haiku, gpt-4等
+
+  // Scope control (JSON)
+  // { read?: string[], write: string[], exclude: string[] }
+  scope: text('scope', { mode: 'json' })
+    .$type<AgentScope>()
+    .notNull()
+    .default({ write: [], exclude: [] }),
+
+  // Additional config (JSON)
+  config: text('config', { mode: 'json' })
+    .$type<AgentConfig>()
+    .default({}),
+
+  // Prompt content (Markdown)
+  promptContent: text('prompt_content'),
+
+  // DoD verification commands (JSON array) - per design doc
+  dod: text('dod', { mode: 'json' })
+    .$type<string[]>()
+    .default([]),
+
+  // Version management
+  version: integer('version').notNull().default(1),
+  createdBy: text('created_by'),
+
+  createdAt: integer('created_at', { mode: 'timestamp' })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  updatedAt: integer('updated_at', { mode: 'timestamp' })
+    .notNull()
+    .default(sql`(unixepoch())`),
+}, (table) => ({
+  uniqueNamePerProject: unique().on(table.projectId, table.name),
+}))
+
+/**
+ * Agent history table
+ * エージェント定義の変更履歴
+ */
+export const agentHistory = sqliteTable('agent_history', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  agentId: integer('agent_id')
+    .references(() => agents.id)
+    .notNull(),
+
+  // Snapshot of previous state (JSON)
+  snapshot: text('snapshot', { mode: 'json' })
+    .$type<AgentSnapshot>()
+    .notNull(),
+
+  version: integer('version').notNull(),
+  changedBy: text('changed_by'),
+  changeSummary: text('change_summary'),
+
+  changedAt: integer('changed_at', { mode: 'timestamp' })
+    .notNull()
+    .default(sql`(unixepoch())`),
+})
+
+/**
+ * Memories table
+ * Memory Bank（DBマスター）
+ */
+export const memories = sqliteTable('memories', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  projectId: integer('project_id').references(() => projects.id),
+
+  category: text('category').notNull(), // architecture, convention, tooling, rule等
+  title: text('title').notNull(),
+  summary: text('summary'), // 短い要約（AIコンテキスト用）
+
+  content: text('content').notNull(), // 本文（Markdown）
+
+  status: text('status', {
+    enum: ['draft', 'active', 'archived']
+  }).notNull().default('active'),
+
+  // Metadata
+  tags: text('tags', { mode: 'json' })
+    .$type<string[]>()
+    .default([]),
+
+  relatedTaskId: integer('related_task_id').references(() => tasks.id),
+
+  // Version management - per design doc
+  version: integer('version').notNull().default(1),
+
+  createdBy: text('created_by'),
+  createdAt: integer('created_at', { mode: 'timestamp' })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  updatedAt: integer('updated_at', { mode: 'timestamp' })
+    .notNull()
+    .default(sql`(unixepoch())`),
+})
+
+/**
+ * Memory history table
+ * Memory変更履歴 - per design doc
+ */
+export const memoryHistory = sqliteTable('memory_history', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  memoryId: integer('memory_id')
+    .references(() => memories.id)
+    .notNull(),
+
+  // Snapshot of previous state (JSON)
+  snapshot: text('snapshot', { mode: 'json' })
+    .$type<MemorySnapshot>()
+    .notNull(),
+
+  version: integer('version').notNull(),
+  changedBy: text('changed_by'),
+  changeSummary: text('change_summary'),
+
+  changedAt: integer('changed_at', { mode: 'timestamp' })
+    .notNull()
+    .default(sql`(unixepoch())`),
+})
+
+/**
+ * Settings table
+ * プロジェクト設定（DBマスター） - per design doc
+ */
+export const settings = sqliteTable('settings', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  projectId: integer('project_id').references(() => projects.id),
+
+  key: text('key').notNull(), // e.g., git.baseBranch, execution.maxWorkers
+  value: text('value', { mode: 'json' })
+    .$type<unknown>()
+    .notNull(),
+
+  updatedBy: text('updated_by'),
+  updatedAt: integer('updated_at', { mode: 'timestamp' })
+    .notNull()
+    .default(sql`(unixepoch())`),
+}, (table) => ({
+  uniqueKeyPerProject: unique().on(table.projectId, table.key),
+}))
+
+/**
+ * Audit logs table
+ * 監査ログ - per design doc
+ */
+export const auditLogs = sqliteTable('audit_logs', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  projectId: integer('project_id').references(() => projects.id),
+
+  userId: text('user_id').notNull(), // 操作者（人間 or AI識別子）
+
+  action: text('action', {
+    enum: ['create', 'update', 'delete', 'start', 'stop', 'export']
+  }).notNull(),
+
+  entityType: text('entity_type', {
+    enum: ['task', 'agent', 'memory', 'session', 'settings']
+  }).notNull(),
+  entityId: text('entity_id').notNull(),
+
+  // Changes (JSON: before/after)
+  changes: text('changes', { mode: 'json' })
+    .$type<AuditLogChanges>()
+    .default({}),
+
+  createdAt: integer('created_at', { mode: 'timestamp' })
+    .notNull()
+    .default(sql`(unixepoch())`),
+})
+
+/**
+ * Project decisions table (Legacy - kept for backward compatibility)
+ * Note: Prefer using memories table with category='decision'
  */
 export const projectDecisions = sqliteTable('project_decisions', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -159,19 +348,75 @@ export const projectDecisions = sqliteTable('project_decisions', {
 // Type definitions
 // ============================================
 
-export type TaskStatus = 'open' | 'in_progress' | 'done' | 'failed' | 'cancelled'
+export type TaskStatus = 'open' | 'in_progress' | 'done' | 'failed' | 'dod_failed' | 'cancelled'
 export type TaskPriority = 'low' | 'medium' | 'high' | 'critical'
 export type TaskType = 'task' | 'feature' | 'bug' | 'refactor'
 export type AssigneeType = 'ai' | 'human'
 export type SessionStatus = 'running' | 'completed' | 'failed' | 'cancelled'
-export type DodResult = 'pending' | 'merged' | 'timeout' | 'error'
+export type DodResult = 'passed' | 'failed' | 'skipped' | 'timeout'
 export type ReviewStatus = 'pending' | 'approved' | 'rejected' | 'needs_work'
 export type DecisionCategory = 'architecture' | 'tooling' | 'convention' | 'rule'
+export type MemoryStatus = 'draft' | 'active' | 'archived'
+export type AuditAction = 'create' | 'update' | 'delete' | 'start' | 'stop' | 'export'
+export type EntityType = 'task' | 'agent' | 'memory' | 'session' | 'settings'
 
 export interface SessionError {
   type: 'timeout' | 'crash' | 'signal' | 'unknown'
   message: string
   details?: Record<string, unknown>
+}
+
+export interface AgentScope {
+  /** 参照可能（globパターン）- 省略時はexcludeを除く全ファイル */
+  read?: string[]
+  /** 編集可能（globパターン） */
+  write: string[]
+  /** アクセス不可（globパターン） */
+  exclude: string[]
+}
+
+export interface AgentConfig {
+  temperature?: number
+  maxTokens?: number
+  promptFile?: string
+  [key: string]: unknown
+}
+
+export interface AgentSnapshot {
+  name: string
+  description?: string
+  client: string
+  model: string
+  scope: AgentScope
+  config?: AgentConfig
+  promptContent?: string
+  dod?: string[]
+}
+
+export interface MemorySnapshot {
+  category: string
+  title: string
+  summary?: string
+  content: string
+  status: MemoryStatus
+  tags?: string[]
+}
+
+export interface AuditLogChanges {
+  before?: Record<string, unknown>
+  after?: Record<string, unknown>
+}
+
+// Legacy interface for backward compatibility
+export interface AgentDefinition {
+  name: string
+  description?: string
+  client: string
+  model: string
+  scope: AgentScope
+  config?: AgentConfig
+  promptContent?: string
+  dod?: string[]
 }
 
 // Inferred types from schema
@@ -187,154 +432,6 @@ export type NewSession = typeof sessions.$inferInsert
 export type ProjectDecision = typeof projectDecisions.$inferSelect
 export type NewProjectDecision = typeof projectDecisions.$inferInsert
 
-// ============================================
-// Agents table (DB-based management)
-// ============================================
-
-/**
- * Agents table
- * エージェント定義（DBマスター）
- */
-export const agents = sqliteTable('agents', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  projectId: integer('project_id').references(() => projects.id),
-
-  name: text('name').notNull(),
-  description: text('description'),
-
-  client: text('client').notNull(), // claude-code, codex, gemini-cli等
-  model: text('model').notNull(),   // opus, sonnet, haiku, gpt-4等
-
-  // スコープ制御（JSON）
-  // { read?: string[], write: string[], exclude: string[] }
-  // read省略時はデフォルトで全ファイル読み取り可能
-  scope: text('scope', { mode: 'json' })
-    .$type<AgentScope>()
-    .notNull()
-    .default({ write: [], exclude: [] }),
-
-  // 追加設定（JSON）
-  config: text('config', { mode: 'json' })
-    .$type<AgentConfig>()
-    .default({}),
-
-  // プロンプト内容（Markdown）
-  promptContent: text('prompt_content'),
-
-  // バージョン管理
-  version: integer('version').notNull().default(1),
-  createdBy: text('created_by'),
-
-  createdAt: integer('created_at', { mode: 'timestamp' })
-    .notNull()
-    .default(sql`(unixepoch())`),
-  updatedAt: integer('updated_at', { mode: 'timestamp' })
-    .notNull()
-    .default(sql`(unixepoch())`),
-})
-
-/**
- * Agent history table
- * エージェント定義の変更履歴
- */
-export const agentHistory = sqliteTable('agent_history', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  agentId: integer('agent_id')
-    .references(() => agents.id)
-    .notNull(),
-
-  // 変更前のスナップショット（JSON）
-  snapshot: text('snapshot', { mode: 'json' })
-    .$type<AgentSnapshot>()
-    .notNull(),
-
-  version: integer('version').notNull(),
-  changedBy: text('changed_by'),
-  changeSummary: text('change_summary'),
-
-  changedAt: integer('changed_at', { mode: 'timestamp' })
-    .notNull()
-    .default(sql`(unixepoch())`),
-})
-
-// ============================================
-// Memories table (DB-based Memory Bank)
-// ============================================
-
-/**
- * Memories table
- * Memory Bank（DBマスター）
- */
-export const memories = sqliteTable('memories', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  projectId: integer('project_id').references(() => projects.id),
-
-  category: text('category').notNull(), // architecture, convention, tooling, rule等
-  title: text('title').notNull(),
-  summary: text('summary'), // 短い要約（AIコンテキスト用）
-
-  content: text('content').notNull(), // 本文（Markdown）
-
-  status: text('status', {
-    enum: ['draft', 'active', 'archived']
-  }).notNull().default('active'),
-
-  // メタデータ
-  tags: text('tags', { mode: 'json' })
-    .$type<string[]>()
-    .default([]),
-
-  relatedTaskId: integer('related_task_id').references(() => tasks.id),
-
-  createdBy: text('created_by'),
-  createdAt: integer('created_at', { mode: 'timestamp' })
-    .notNull()
-    .default(sql`(unixepoch())`),
-  updatedAt: integer('updated_at', { mode: 'timestamp' })
-    .notNull()
-    .default(sql`(unixepoch())`),
-})
-
-// ============================================
-// Agent types
-// ============================================
-
-export interface AgentScope {
-  /** 参照可能（globパターン）- 省略時はexcludeを除く全ファイル */
-  read?: string[]
-  /** 編集可能（globパターン） */
-  write: string[]
-  /** アクセス不可（globパターン） */
-  exclude: string[]
-}
-
-export interface AgentConfig {
-  temperature?: number
-  maxTokens?: number
-}
-
-export interface AgentSnapshot {
-  name: string
-  description?: string
-  client: string
-  model: string
-  scope: AgentScope
-  config?: AgentConfig
-  promptContent?: string
-}
-
-// Legacy interface for backward compatibility
-export interface AgentDefinition {
-  name: string
-  description?: string
-  client: string
-  model: string
-  scope: AgentScope
-  config?: AgentConfig
-  promptContent?: string
-}
-
-// Inferred types from agent/memory tables
 export type Agent = typeof agents.$inferSelect
 export type NewAgent = typeof agents.$inferInsert
 
@@ -344,10 +441,17 @@ export type NewAgentHistoryRecord = typeof agentHistory.$inferInsert
 export type Memory = typeof memories.$inferSelect
 export type NewMemory = typeof memories.$inferInsert
 
-export type MemoryStatus = 'draft' | 'active' | 'archived'
+export type MemoryHistoryRecord = typeof memoryHistory.$inferSelect
+export type NewMemoryHistoryRecord = typeof memoryHistory.$inferInsert
+
+export type Setting = typeof settings.$inferSelect
+export type NewSetting = typeof settings.$inferInsert
+
+export type AuditLog = typeof auditLogs.$inferSelect
+export type NewAuditLog = typeof auditLogs.$inferInsert
 
 // ============================================
-// Config definition (from YAML)
+// Config definition (from YAML - legacy)
 // ============================================
 
 export interface AgentmineConfig {

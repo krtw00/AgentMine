@@ -1,4 +1,4 @@
-import { eq, and, desc, asc, isNull, sql } from 'drizzle-orm'
+import { eq, and, desc, isNull, sql } from 'drizzle-orm'
 import type { Db } from '../db/index.js'
 import {
   tasks,
@@ -39,8 +39,6 @@ export interface CreateTaskInput {
   assigneeName?: string
   parentId?: number
   projectId?: number
-  branchName?: string
-  prUrl?: string
   complexity?: number
 }
 
@@ -53,8 +51,8 @@ export interface UpdateTaskInput {
   assigneeType?: AssigneeType | null
   assigneeName?: string | null
   parentId?: number | null
-  branchName?: string | null
-  prUrl?: string | null
+  selectedSessionId?: number | null
+  labels?: string[]
   complexity?: number | null
 }
 
@@ -88,8 +86,6 @@ export class TaskService {
         assigneeName: input.assigneeName,
         parentId: input.parentId,
         projectId: input.projectId,
-        branchName: input.branchName,
-        prUrl: input.prUrl,
         complexity: input.complexity,
       })
       .returning()
@@ -240,6 +236,7 @@ export class TaskService {
       in_progress: 0,
       done: 0,
       failed: 0,
+      dod_failed: 0,
       cancelled: 0,
     }
 
@@ -248,6 +245,21 @@ export class TaskService {
     }
 
     return counts
+  }
+
+  /**
+   * Select a session as the winner for this task
+   */
+  async selectSession(taskId: number, sessionId: number): Promise<Task> {
+    const existing = await this.findById(taskId)
+    if (!existing) {
+      throw new TaskNotFoundError(taskId)
+    }
+
+    return this.update(taskId, {
+      selectedSessionId: sessionId,
+      status: 'done',
+    })
   }
 
   /**

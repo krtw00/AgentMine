@@ -58,7 +58,19 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     const body = await request.json();
-    const { status, exitCode, error: sessionError } = body;
+    const {
+      status,
+      exitCode,
+      error: sessionError,
+      branchName,
+      prUrl,
+      dodResult,
+      reviewStatus,
+      reviewedBy,
+      reviewComment,
+      signal,
+      artifacts,
+    } = body;
 
     const db = getDb();
 
@@ -79,10 +91,27 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       // Set completedAt if session is completed/failed
       if (status === 'completed' || status === 'failed' || status === 'cancelled') {
         updates.completedAt = new Date();
+        // Calculate duration
+        if (existing.startedAt) {
+          updates.durationMs = new Date().getTime() - new Date(existing.startedAt).getTime();
+        }
       }
     }
     if (exitCode !== undefined) updates.exitCode = exitCode;
     if (sessionError !== undefined) updates.error = sessionError;
+    if (branchName !== undefined) updates.branchName = branchName;
+    if (prUrl !== undefined) updates.prUrl = prUrl;
+    if (dodResult !== undefined) updates.dodResult = dodResult;
+    if (signal !== undefined) updates.signal = signal;
+    if (artifacts !== undefined) updates.artifacts = artifacts;
+
+    // Review fields
+    if (reviewStatus !== undefined) {
+      updates.reviewStatus = reviewStatus;
+      updates.reviewedAt = new Date();
+    }
+    if (reviewedBy !== undefined) updates.reviewedBy = reviewedBy;
+    if (reviewComment !== undefined) updates.reviewComment = reviewComment;
 
     const [updated] = await db
       .update(sessions)

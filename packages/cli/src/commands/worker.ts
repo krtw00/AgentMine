@@ -264,9 +264,8 @@ workerCommand
         }
       }
 
-      // Update task with branch name
+      // Update task status
       await taskService.update(parseInt(taskId), {
-        branchName: worktreeInfo.branchName,
         status: 'in_progress',
       })
     } else {
@@ -280,10 +279,17 @@ workerCommand
       session = await sessionService.start({
         taskId: parseInt(taskId),
         agentName: options.agent,
+        branchName: worktreeInfo?.branchName,
+        worktreePath: worktreeInfo?.path,
       })
     } catch (error) {
-      // Session might already exist
-      session = await sessionService.findByTask(parseInt(taskId))
+      // Get existing running session if start fails
+      const running = await sessionService.findRunningByTask(parseInt(taskId))
+      session = running[0]
+      if (!session) {
+        // Try to get latest session
+        session = await sessionService.findLatestByTask(parseInt(taskId))
+      }
       if (!session) {
         throw error
       }
@@ -446,13 +452,16 @@ workerCommand
       process.exit(5)
     }
 
-    // End session if exists
-    const session = await sessionService.findByTask(parseInt(taskId))
-    if (session && session.status === 'running') {
+    // End running sessions
+    const runningSessions = await sessionService.findRunningByTask(parseInt(taskId))
+    let endedSession = null
+    for (const session of runningSessions) {
       await sessionService.end(session.id, {
         status: options.status as 'completed' | 'failed',
       })
+      endedSession = session
     }
+    const session = endedSession
 
     // Update task status
     const taskStatus = options.status === 'completed' ? 'done' : 'failed'
@@ -493,10 +502,11 @@ workerCommand
     }
 
     // Show merge instructions if completed
-    if (options.status === 'completed' && task.branchName) {
+    const latestSession = await sessionService.findLatestByTask(parseInt(taskId))
+    if (options.status === 'completed' && latestSession?.branchName) {
       console.log('')
       console.log(chalk.bold('To merge changes:'))
-      console.log(chalk.cyan(`  git merge ${task.branchName}`))
+      console.log(chalk.cyan(`  git merge ${latestSession.branchName}`))
       console.log(chalk.gray('  or create a PR'))
     }
   })
@@ -529,13 +539,14 @@ workerCommand
 
     for (const wt of worktrees) {
       const task = await taskService.findById(wt.taskId)
-      const session = await sessionService.findByTask(wt.taskId)
+      const sessions = await sessionService.findByTask(wt.taskId)
+      const latestSession = sessions[0]
 
       console.log(chalk.cyan(`Task #${wt.taskId}:`), task?.title || '(unknown)')
       console.log(chalk.gray(`  Branch:   ${wt.branchName}`))
       console.log(chalk.gray(`  Path:     ${wt.path}`))
-      if (session) {
-        console.log(chalk.gray(`  Session:  #${session.id} (${session.status})`))
+      if (latestSession) {
+        console.log(chalk.gray(`  Session:  #${latestSession.id} (${latestSession.status})`))
       }
       console.log('')
     }
@@ -628,7 +639,8 @@ workerCommand
     }
 
     const subtasks = await taskService.getSubtasks(parseInt(taskId))
-    const session = await sessionService.findByTask(parseInt(taskId))
+    const sessions = await sessionService.findByTask(parseInt(taskId))
+    const session = sessions[0] // Latest session
     const worktree = worktreeService.getInfo(parseInt(taskId))
 
     let parentTask = null
@@ -640,7 +652,8 @@ workerCommand
       task,
       parentTask,
       subtasks,
-      session,
+      sessions,
+      session, // Latest session for backward compatibility
       worktree,
     }
 
@@ -717,9 +730,11 @@ workerCommand
       sessions = []
       for (const taskIdStr of taskIds) {
         const taskId = parseInt(taskIdStr)
-        const session = await sessionService.findByTask(taskId)
-        if (session && session.pid) {
-          sessions.push(session)
+        const taskSessions = await sessionService.findRunningByTask(taskId)
+        for (const session of taskSessions) {
+          if (session.pid) {
+            sessions.push(session)
+          }
         }
       }
     }
@@ -802,19 +817,15 @@ workerCommand
 
     for (const taskIdStr of taskIds) {
       const taskId = parseInt(taskIdStr)
-      const session = await sessionService.findByTask(taskId)
+      const runningSessions = await sessionService.findRunningByTask(taskId)
+      const session = runningSessions.find(s => s.pid !== null)
 
       if (!session) {
-        results.push({ taskId, pid: 0, stopped: false, error: 'Session not found' })
+        results.push({ taskId, pid: 0, stopped: false, error: 'No running session with process' })
         continue
       }
 
-      if (!session.pid) {
-        results.push({ taskId, pid: 0, stopped: false, error: 'No running process' })
-        continue
-      }
-
-      const pid = session.pid
+      const pid = session.pid!
 
       try {
         // Send signal
@@ -856,7 +867,7 @@ workerCommand
 
     if (taskId) {
       // Show status for specific task
-      const session = await sessionService.findByTask(parseInt(taskId))
+      const session = await sessionService.findLatestByTask(parseInt(taskId))
       const task = await taskService.findById(parseInt(taskId))
       const worktree = worktreeService.getInfo(parseInt(taskId))
 

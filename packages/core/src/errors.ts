@@ -60,6 +60,13 @@ export class SessionAlreadyEndedError extends AgentmineError {
   }
 }
 
+export class IdempotencyKeyConflictError extends AgentmineError {
+  constructor(public readonly idempotencyKey: string) {
+    super(`Session with idempotency key "${idempotencyKey}" already exists`, 6, { idempotencyKey })
+    this.name = 'IdempotencyKeyConflictError'
+  }
+}
+
 // ============================================
 // Agent Errors
 // ============================================

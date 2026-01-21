@@ -8,10 +8,8 @@ import {
   SessionService,
   AgentService,
   SessionNotFoundError,
-  SessionAlreadyExistsError,
   SessionAlreadyEndedError,
   TaskNotFoundError,
-  AgentNotFoundError,
   type Db,
   type Session,
   type SessionStatus,
@@ -113,11 +111,11 @@ function formatSessionList(sessions: Session[], options: OutputOptions): void {
     }[session.status] ?? chalk.white
 
     const dodColor = {
-      pending: chalk.gray,
-      merged: chalk.green,
+      passed: chalk.green,
+      failed: chalk.red,
+      skipped: chalk.gray,
       timeout: chalk.yellow,
-      error: chalk.red,
-    }[session.dodResult ?? 'pending'] ?? chalk.white
+    }[session.dodResult as string] ?? chalk.gray
 
     table.push([
       chalk.cyan(`#${session.id}`),
@@ -125,7 +123,7 @@ function formatSessionList(sessions: Session[], options: OutputOptions): void {
       session.agentName,
       statusColor(session.status),
       formatDuration(session.durationMs),
-      dodColor(session.dodResult ?? 'pending'),
+      session.dodResult ? dodColor(session.dodResult) : chalk.gray('-'),
     ])
   }
 
@@ -178,10 +176,6 @@ sessionCommand
         console.error(chalk.red(`Task #${taskId} not found`))
         process.exit(5)
       }
-      if (error instanceof SessionAlreadyExistsError) {
-        console.error(chalk.red(`Task #${taskId} already has a session`))
-        process.exit(6)
-      }
       throw error
     }
   })
@@ -193,7 +187,7 @@ sessionCommand
   .option('-s, --status <status>', 'End status (completed, failed, cancelled)', 'completed')
   .option('-e, --exit-code <code>', 'Exit code')
   .option('--signal <signal>', 'Signal (SIGTERM, SIGKILL, etc)')
-  .option('--dod <result>', 'DoD result (pending, merged, timeout, error)', 'pending')
+  .option('--dod <result>', 'DoD result (passed, failed, skipped, timeout)')
   .option('--json', 'JSON output')
   .option('--quiet', 'Minimal output')
   .action(async (sessionId, options) => {
@@ -319,10 +313,10 @@ sessionCommand
     console.log('')
   })
 
-// session cleanup
+// session delete
 sessionCommand
-  .command('cleanup <sessionId>')
-  .description('Delete a session and reset task status')
+  .command('delete <sessionId>')
+  .description('Delete a session')
   .option('--json', 'JSON output')
   .option('--quiet', 'Minimal output')
   .action(async (sessionId, options) => {
@@ -331,15 +325,14 @@ sessionCommand
     const service = getSessionService(db)
 
     try {
-      await service.cleanup(parseInt(sessionId))
+      await service.delete(parseInt(sessionId))
 
       if (options.json) {
         console.log(JSON.stringify({ deleted: true, id: parseInt(sessionId) }))
       } else if (options.quiet) {
         console.log(sessionId)
       } else {
-        console.log(chalk.green('✓ Cleaned up session'), chalk.cyan(`#${sessionId}`))
-        console.log(chalk.gray('  Task status reset to open'))
+        console.log(chalk.green('✓ Deleted session'), chalk.cyan(`#${sessionId}`))
       }
     } catch (error) {
       if (error instanceof SessionNotFoundError) {

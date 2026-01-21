@@ -67,8 +67,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       parentId,
       assigneeName,
       assigneeType,
-      branchName,
       labels,
+      selectedSessionId,
+      complexity,
     } = body;
 
     const db = getDb();
@@ -95,8 +96,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     if (parentId !== undefined) updates.parentId = parentId;
     if (assigneeName !== undefined) updates.assigneeName = assigneeName;
     if (assigneeType !== undefined) updates.assigneeType = assigneeType;
-    if (branchName !== undefined) updates.branchName = branchName;
     if (labels !== undefined) updates.labels = labels;
+    if (selectedSessionId !== undefined) updates.selectedSessionId = selectedSessionId;
+    if (complexity !== undefined) updates.complexity = complexity;
 
     const [updated] = await db
       .update(tasks)

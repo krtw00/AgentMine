@@ -210,8 +210,8 @@ taskCommand
     console.log(chalk.gray('Priority:  '), task.priority)
     console.log(chalk.gray('Type:      '), task.type)
     console.log(chalk.gray('Assignee:  '), task.assigneeName ?? '-')
-    console.log(chalk.gray('Branch:    '), task.branchName ?? '-')
-    console.log(chalk.gray('PR:        '), task.prUrl ?? '-')
+    console.log(chalk.gray('Session:   '), task.selectedSessionId ? `#${task.selectedSessionId}` : '-')
+    console.log(chalk.gray('Labels:    '), task.labels?.length ? task.labels.join(', ') : '-')
     console.log(chalk.gray('Created:   '), task.createdAt?.toISOString() ?? '-')
     if (task.description) {
       console.log('')

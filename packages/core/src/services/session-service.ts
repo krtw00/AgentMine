@@ -1,4 +1,4 @@
-import { eq, and, desc, isNull, sql } from 'drizzle-orm'
+import { eq, and, desc, sql } from 'drizzle-orm'
 import type { Db } from '../db/index.js'
 import {
   sessions,
@@ -13,15 +13,15 @@ import {
 import {
   TaskNotFoundError,
   SessionNotFoundError,
-  SessionAlreadyExistsError,
   SessionAlreadyEndedError,
+  IdempotencyKeyConflictError,
 } from '../errors.js'
 
 // Re-export errors for convenience
 export {
   SessionNotFoundError,
-  SessionAlreadyExistsError,
   SessionAlreadyEndedError,
+  IdempotencyKeyConflictError,
 } from '../errors.js'
 
 // ============================================
@@ -33,6 +33,7 @@ export interface SessionFilters {
   agentName?: string
   status?: SessionStatus
   dodResult?: DodResult
+  sessionGroupId?: string
   limit?: number
   offset?: number
 }
@@ -40,6 +41,14 @@ export interface SessionFilters {
 export interface StartSessionInput {
   taskId: number
   agentName: string
+  /** Optional session group ID for parallel execution */
+  sessionGroupId?: string
+  /** Optional idempotency key to prevent duplicate sessions */
+  idempotencyKey?: string
+  /** Branch name for this session */
+  branchName?: string
+  /** Worktree path for this session */
+  worktreePath?: string
 }
 
 export interface EndSessionInput {
@@ -49,6 +58,7 @@ export interface EndSessionInput {
   dodResult?: DodResult
   artifacts?: string[]
   error?: SessionError
+  prUrl?: string
 }
 
 export interface SessionResult {
@@ -66,12 +76,16 @@ export interface ReviewSessionInput {
 // SessionService
 // ============================================
 
+/**
+ * Session service - manages Worker execution sessions
+ * Supports 1:N relationship (one task can have multiple sessions for parallel comparison)
+ */
 export class SessionService {
   constructor(private db: Db) {}
 
   /**
    * Start a new session for a task
-   * Enforces 1 task = 1 session constraint
+   * Allows multiple sessions per task for parallel execution/comparison
    */
   async start(input: StartSessionInput): Promise<Session> {
     // Check task exists
@@ -85,15 +99,17 @@ export class SessionService {
       throw new TaskNotFoundError(input.taskId)
     }
 
-    // Check if task already has a session (UNIQUE constraint)
-    const [existing] = await this.db
-      .select()
-      .from(sessions)
-      .where(eq(sessions.taskId, input.taskId))
-      .limit(1)
+    // Check idempotency key if provided
+    if (input.idempotencyKey) {
+      const [existing] = await this.db
+        .select()
+        .from(sessions)
+        .where(eq(sessions.idempotencyKey, input.idempotencyKey))
+        .limit(1)
 
-    if (existing) {
-      throw new SessionAlreadyExistsError(input.taskId)
+      if (existing) {
+        throw new IdempotencyKeyConflictError(input.idempotencyKey)
+      }
     }
 
     // Create session
@@ -103,14 +119,20 @@ export class SessionService {
         taskId: input.taskId,
         agentName: input.agentName,
         status: 'running',
+        sessionGroupId: input.sessionGroupId,
+        idempotencyKey: input.idempotencyKey,
+        branchName: input.branchName,
+        worktreePath: input.worktreePath,
       })
       .returning()
 
-    // Update task status to in_progress
-    await this.db
-      .update(tasks)
-      .set({ status: 'in_progress', updatedAt: new Date() })
-      .where(eq(tasks.id, input.taskId))
+    // Update task status to in_progress (if not already)
+    if (task.status === 'open') {
+      await this.db
+        .update(tasks)
+        .set({ status: 'in_progress', updatedAt: new Date() })
+        .where(eq(tasks.id, input.taskId))
+    }
 
     return session
   }
@@ -140,24 +162,13 @@ export class SessionService {
         durationMs,
         exitCode: input.exitCode,
         signal: input.signal,
-        dodResult: input.dodResult ?? 'pending',
+        dodResult: input.dodResult,
         artifacts: input.artifacts ?? [],
         error: input.error ?? null,
+        prUrl: input.prUrl,
       })
       .where(eq(sessions.id, sessionId))
       .returning()
-
-    // Update task status based on session result
-    if (existing.taskId) {
-      const taskStatus = input.status === 'completed' ? 'done' :
-                        input.status === 'failed' ? 'failed' :
-                        'cancelled'
-
-      await this.db
-        .update(tasks)
-        .set({ status: taskStatus, updatedAt: new Date() })
-        .where(eq(tasks.id, existing.taskId))
-    }
 
     return { session, durationMs }
   }
@@ -176,16 +187,43 @@ export class SessionService {
   }
 
   /**
-   * Find session by task ID
+   * Find all sessions for a task (supports multiple sessions per task)
    */
-  async findByTask(taskId: number): Promise<Session | null> {
-    const [session] = await this.db
+  async findByTask(taskId: number): Promise<Session[]> {
+    return this.db
       .select()
       .from(sessions)
       .where(eq(sessions.taskId, taskId))
+      .orderBy(desc(sessions.startedAt))
+  }
+
+  /**
+   * Find the latest session for a task
+   */
+  async findLatestByTask(taskId: number): Promise<Session | null> {
+    const results = await this.db
+      .select()
+      .from(sessions)
+      .where(eq(sessions.taskId, taskId))
+      .orderBy(desc(sessions.startedAt))
       .limit(1)
 
-    return session ?? null
+    return results[0] ?? null
+  }
+
+  /**
+   * Find running sessions for a task
+   */
+  async findRunningByTask(taskId: number): Promise<Session[]> {
+    return this.db
+      .select()
+      .from(sessions)
+      .where(
+        and(
+          eq(sessions.taskId, taskId),
+          eq(sessions.status, 'running')
+        )
+      )
   }
 
   /**
@@ -208,6 +246,10 @@ export class SessionService {
 
     if (filters.dodResult) {
       conditions.push(eq(sessions.dodResult, filters.dodResult))
+    }
+
+    if (filters.sessionGroupId) {
+      conditions.push(eq(sessions.sessionGroupId, filters.sessionGroupId))
     }
 
     let query = this.db
@@ -238,6 +280,13 @@ export class SessionService {
   }
 
   /**
+   * Find sessions in a session group (for parallel comparison)
+   */
+  async findByGroup(sessionGroupId: string): Promise<Session[]> {
+    return this.findAll({ sessionGroupId })
+  }
+
+  /**
    * Update DoD result
    */
   async updateDodResult(sessionId: number, dodResult: DodResult): Promise<Session> {
@@ -251,6 +300,14 @@ export class SessionService {
       .set({ dodResult })
       .where(eq(sessions.id, sessionId))
       .returning()
+
+    // Update task status if DoD failed
+    if (dodResult === 'failed' && existing.taskId) {
+      await this.db
+        .update(tasks)
+        .set({ status: 'dod_failed', updatedAt: new Date() })
+        .where(eq(tasks.id, existing.taskId))
+    }
 
     return session
   }
@@ -269,6 +326,27 @@ export class SessionService {
     const [session] = await this.db
       .update(sessions)
       .set({ artifacts })
+      .where(eq(sessions.id, sessionId))
+      .returning()
+
+    return session
+  }
+
+  /**
+   * Update branch info
+   */
+  async updateBranchInfo(sessionId: number, branchName: string, prUrl?: string): Promise<Session> {
+    const existing = await this.findById(sessionId)
+    if (!existing) {
+      throw new SessionNotFoundError(sessionId)
+    }
+
+    const [session] = await this.db
+      .update(sessions)
+      .set({
+        branchName,
+        ...(prUrl && { prUrl }),
+      })
       .where(eq(sessions.id, sessionId))
       .returning()
 
@@ -302,24 +380,15 @@ export class SessionService {
   }
 
   /**
-   * Cleanup: delete session and reset task status
+   * Delete a session
    */
-  async cleanup(sessionId: number): Promise<void> {
+  async delete(sessionId: number): Promise<void> {
     const existing = await this.findById(sessionId)
     if (!existing) {
       throw new SessionNotFoundError(sessionId)
     }
 
-    // Delete session
     await this.db.delete(sessions).where(eq(sessions.id, sessionId))
-
-    // Reset task status if task exists
-    if (existing.taskId) {
-      await this.db
-        .update(tasks)
-        .set({ status: 'open', updatedAt: new Date() })
-        .where(eq(tasks.id, existing.taskId))
-    }
   }
 
   /**
@@ -435,5 +504,31 @@ export class SessionService {
         )
       )
       .orderBy(desc(sessions.completedAt))
+  }
+
+  /**
+   * Select a session as the winner for a task (for parallel comparison)
+   */
+  async selectAsWinner(sessionId: number): Promise<Session> {
+    const existing = await this.findById(sessionId)
+    if (!existing) {
+      throw new SessionNotFoundError(sessionId)
+    }
+
+    if (!existing.taskId) {
+      throw new Error('Session has no associated task')
+    }
+
+    // Update task to reference this session
+    await this.db
+      .update(tasks)
+      .set({
+        selectedSessionId: sessionId,
+        status: 'done',
+        updatedAt: new Date(),
+      })
+      .where(eq(tasks.id, existing.taskId))
+
+    return existing
   }
 }

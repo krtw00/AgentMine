@@ -26,7 +26,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { taskId, agentName, worktreePath } = body;
+    const { taskId, agentName, worktreePath, branchName, sessionGroupId, idempotencyKey } = body;
 
     if (!taskId) {
       return NextResponse.json(
@@ -58,6 +58,9 @@ export async function POST(request: NextRequest) {
       taskId,
       agentName,
       worktreePath,
+      branchName,
+      sessionGroupId,
+      idempotencyKey,
       status: 'running',
       startedAt: new Date(),
     }).returning();

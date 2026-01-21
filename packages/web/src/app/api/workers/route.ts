@@ -80,25 +80,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate worktree path
+    // Generate worktree path and branch name
     const worktreePath = `.agentmine/worktrees/task-${taskId}`;
     const branchName = `task-${taskId}`;
 
-    // Create session
+    // Create session (branchName is now stored in session, not task)
     const [session] = await db.insert(sessions).values({
       taskId,
       agentName,
       worktreePath,
+      branchName,
       status: 'running',
       startedAt: new Date(),
     }).returning();
 
-    // Update task
+    // Update task status (branchName moved to session)
     await db
       .update(tasks)
       .set({
         status: 'in_progress',
-        branchName,
         assigneeName: agentName,
         assigneeType: 'ai',
         updatedAt: new Date(),
