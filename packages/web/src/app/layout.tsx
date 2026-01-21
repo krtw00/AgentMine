@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
+import { Providers } from '@/components/providers';
+import { AppLayout } from '@/components/layout';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -13,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'agentmine',
+  title: 'AgentMine',
   description: 'Safe Parallel AI Development Environment',
 };
 
@@ -23,11 +25,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ja">
+    <html lang="ja" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-background`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
+        <Providers>
+          <AppLayout>
+            {children}
+          </AppLayout>
+        </Providers>
       </body>
     </html>
   );

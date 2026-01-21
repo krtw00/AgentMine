@@ -1,16 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sessions, tasks } from '@agentmine/core';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, and } from 'drizzle-orm';
 import { getDb } from '@/lib/db';
 
 /**
  * GET /api/sessions - List all sessions
+ * Query params:
+ *   - taskId: Filter by task ID
+ *   - status: Filter by status
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url);
+    const taskId = searchParams.get('taskId');
+    const status = searchParams.get('status');
+
     const db = getDb();
-    const allSessions = await db.select().from(sessions).orderBy(desc(sessions.startedAt));
-    return NextResponse.json(allSessions);
+
+    // Build where conditions
+    const conditions = [];
+    if (taskId) {
+      conditions.push(eq(sessions.taskId, parseInt(taskId)));
+    }
+    if (status) {
+      conditions.push(eq(sessions.status, status as 'running' | 'completed' | 'failed' | 'cancelled'));
+    }
+
+    // Execute query with or without conditions
+    let result;
+    if (conditions.length === 0) {
+      result = await db.select().from(sessions).orderBy(desc(sessions.startedAt));
+    } else if (conditions.length === 1) {
+      result = await db.select().from(sessions).where(conditions[0]).orderBy(desc(sessions.startedAt));
+    } else {
+      result = await db.select().from(sessions).where(and(...conditions)).orderBy(desc(sessions.startedAt));
+    }
+
+    return NextResponse.json(result);
   } catch (error) {
     console.error('Failed to fetch sessions:', error);
     return NextResponse.json(
