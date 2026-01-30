@@ -196,7 +196,7 @@ Worker環境（worktree）の管理。
 
 ## 関連ドキュメント
 
-- MCP設計: @06-interfaces/mcp/overview.md
-- Web UI設計: @06-interfaces/web/overview.md
-- Worker実行フロー: @07-runtime/worker-lifecycle.md
-- 用語集: @appendix/glossary.md
+- MCP設計: [mcp/overview.md](../mcp/overview.md)
+- Web UI設計: [web/overview.md](../web/overview.md)
+- Worker実行フロー: [worker-lifecycle.md](../../07-runtime/worker-lifecycle.md)
+- 用語集: [glossary.md](../../appendix/glossary.md)

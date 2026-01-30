@@ -72,5 +72,5 @@ https://github.com/langfuse/langfuse
 
 ## 関連ドキュメント
 
-- Web UI設計: @06-interfaces/web/overview.md
-- 用語集: @appendix/glossary.md
+- Web UI設計: [overview.md](./overview.md)
+- 用語集: [glossary.md](../../appendix/glossary.md)
