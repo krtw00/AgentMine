@@ -9,7 +9,7 @@ agentmine CLIの設計を定義する。本ドキュメントはCLI設計のSSoT
 AgentMineは3つのインターフェース（CLI、MCP、Web UI）を提供する。CLIは主にOrchestratorとスクリプト向けだが、人間も監視・介入に使用できる。
 
 **なぜDBファーストか:**
-- 従来のSHOGUN（tmux + テキスト）では状態管理がガバガバだった
+- 従来のSHOGUN（tmux + テキスト）では状態管理の一貫性を保ちにくかった
 - DBを源泉とすることで、CLI/Web UI/MCPが同じ状態を参照できる
 - 履歴・親子関係の追跡が容易になる
 
