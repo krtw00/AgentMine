@@ -2,478 +2,341 @@
 
 ## 目的
 
-人間がAIエージェント（Worker）を管理・監視するためのインターフェースを提供する。CLIを使わずに全操作を完結できることを目指す。
+タスク実行の**監視と介入**のためのインターフェース。AIが分解・実行するタスクを可視化し、必要に応じて人間が介入できる。
 
-## 背景
+## 設計思想
 
-AgentMineはOrchestrator/Workerモデルを採用しており、OrchestratorはAI（CLI/MCP経由）と人間（Web UI経由）の両方が担うことができる。人間がOrchestratorとして機能するためには、CLIを使わずにすべての操作を完結できるインターフェースが必要。
+### コアコンセプト
 
-**なぜCLI不要を目指すか:**
-- 人間はGUIの方が直感的に操作できる
-- AIはCLI/MCPの方が効率的（スクリプト化、自動化）
-- 両者が同じデータを見られることが協業の前提
+| コンセプト | 説明 |
+|-----------|------|
+| **監視・介入中心** | ワークフロー編集は不要（AIがタスク分解）。実行状況の可視化と介入がメイン |
+| **DBファースト** | 状態管理の源泉はDB。UI/CLIはDBを参照・更新 |
+| **人間もアクター** | AIだけでなく人間もタスク実行者として同列に扱う |
+| **客観的完了判定** | 自己申告で完了にできない。第三者（AI/人間）が判定 |
+
+### 参考UI
+
+主に**Jaeger UI**（分散トレーシング）のコンセプトを採用：
+
+- **ツリー＋ウォーターフォール** - 親子関係とタイムラインを同時表示
+- **DevToolsネットワークパネル的** - 折りたたみ、詳細展開、エラー表示
+
+その他参考：
+- [AgentOps](https://github.com/AgentOps-AI/agentops) - AIエージェント監視、セッションリプレイ
+- [Langfuse](https://github.com/langfuse/langfuse) - LLM Observability
 
 ## 設計原則
 
 | 原則 | 説明 | 理由 |
 |------|------|------|
-| Web UI完結 | CLIなしで全操作可能 | 人間のOrchestratorをサポート |
+| 監視ファースト | 実行状況の可視化が最優先 | AIの動きを把握するため |
+| 介入可能 | いつでも一時停止・修正・承認できる | 人間が制御を維持 |
 | キーボードファースト | マウス不要で操作可能 | 開発者の効率性 |
-| デュアルエディタ | UI形式 + YAML/Markdown直編集 | 初心者と上級者両方をサポート |
-| リアルタイム | セッション状態の即座な反映 | Worker監視に必須 |
-| ダークモード | 開発者向けに必須 | 目の疲れ軽減 |
+| リアルタイム | タスク状態の即座な反映 | 監視に必須 |
+| ダークモード | 開発者向け | 目の疲れ軽減 |
 
 ## 画面構成
 
-| 画面 | 読み取り | 編集 | 説明 |
-|------|:--------:|:----:|------|
-| Dashboard | O | - | 統計・概要・クイックアクセス |
-| Tasks | O | O | タスクCRUD、複数ビュー |
-| Sessions | O | O | 実行監視、開始・キャンセル |
-| Agents | O | O | UI編集 + YAML直編集 |
-| Memory Bank | O | O | Markdownエディタ内蔵 |
-| Settings | O | O | UI編集 + YAML直編集 |
+| 画面 | 役割 | 優先度 |
+|------|------|:------:|
+| **Task Monitor** | タスク実行監視（メイン画面） | P0 |
+| Dashboard | 統計・概要・クイックアクセス | P1 |
+| Task Queue | 待機中タスク一覧、アサイン | P1 |
+| History | 過去のセッション履歴 | P2 |
+| Agents | エージェント管理 | P2 |
+| Settings | 設定 | P3 |
 
-## アクターモデル（人間とAIの統合管理）
+## Task Monitor（メイン画面）
+
+### 概要
+
+Jaeger UI風の**ツリー＋ウォーターフォール**表示でタスク実行状況を可視化。
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  AgentMine - Task Monitor                            [Session: #42] │
+├─────────────────────────────────────────────────────────────────────┤
+│ 0ms        500ms       1000ms      1500ms      2000ms      2500ms   │
+│ ├──────────┼───────────┼───────────┼───────────┼───────────┤        │
+├─────────────────────────────────────────────────────────────────────┤
+│ ▼ Task & Agent           │ Timeline                    │ Actions   │
+├─────────────────────────────────────────────────────────────────────┤
+│ ▼ 認証機能実装           │ ████████████████████░░░░░░░ │ ⏸ 👁      │
+│   └─ Orchestrator        │ ████░░░░░░░░░░░░░░░░░░░░░░░ │           │
+│   ├─ DBスキーマ設計      │     ████████░░░░░░░░░░░░░░░ │ ✅        │
+│   │  └─ coder            │     ████████░░░░░░░░░░░░░░░ │           │
+│   ├─ API実装             │             ████████████░░░ │ 🔄        │
+│   │  └─ coder            │             ████████████░░░ │           │
+│   └─ UI実装              │                         ░░░ │ ⏳ blocked│
+│      └─ (未割当)         │                             │ [Assign]  │
+├─────────────────────────────────────────────────────────────────────┤
+│ [詳細パネル]                                                        │
+│ Task: API実装                                                       │
+│ Agent: coder                Status: running                         │
+│ Started: 12:30:15           Duration: 1m 23s                        │
+│ ─────────────────────────────────────────────────────────────────── │
+│ Input:                                                              │
+│   認証APIのエンドポイントを実装してください...                       │
+│ ─────────────────────────────────────────────────────────────────── │
+│ Output: (streaming)                                                 │
+│   > src/api/auth.ts を作成中...                                     │
+│ ─────────────────────────────────────────────────────────────────── │
+│ [⏸ Pause] [✏️ Edit] [🔄 Retry] [❌ Cancel]                          │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### 構成要素
+
+| 要素 | 説明 |
+|------|------|
+| ツリービュー | タスクの親子関係を折りたたみ可能なツリーで表示 |
+| ウォーターフォール | 各タスクの実行時間を横棒で可視化 |
+| ステータス | 成功✅/実行中🔄/待機⏳/失敗❌/要介入⚠️ |
+| Actions | 介入ボタン（Pause, Edit, Retry, Cancel） |
+| 詳細パネル | タスククリックで入力/出力/ログを表示 |
+
+### ステータス表示
+
+| ステータス | アイコン | 色 | 説明 |
+|-----------|---------|-----|------|
+| pending | ⏳ | gray | 待機中（依存タスク完了待ち） |
+| queued | 📋 | blue | キュー投入済み、実行待ち |
+| running | 🔄 | blue | 実行中 |
+| paused | ⏸ | yellow | 一時停止中 |
+| needs_review | ⚠️ | orange | 人間のレビュー/承認待ち |
+| completed | ✅ | green | 完了（客観判定済み） |
+| failed | ❌ | red | 失敗 |
+| cancelled | 🚫 | gray | キャンセル済み |
+
+### 介入機能
+
+| 操作 | 説明 | 対象ステータス |
+|------|------|---------------|
+| **Pause** | 実行中タスクを一時停止 | running |
+| **Resume** | 停止中タスクを再開 | paused |
+| **Edit** | タスクの入力/指示を編集 | paused, pending |
+| **Retry** | 失敗タスクを再実行 | failed |
+| **Cancel** | タスクをキャンセル | running, paused, pending |
+| **Approve** | 完了を承認 | needs_review |
+| **Reject** | 結果を却下、再実行指示 | needs_review |
+
+### 完了判定フロー
+
+```
+タスク実行完了
+      │
+      ▼
+┌─────────────────┐
+│ 客観判定が必要？ │
+└────────┬────────┘
+    Yes  │  No（自動判定可能）
+         │         │
+         ▼         ▼
+   needs_review  completed
+         │
+    人間が確認
+         │
+    ┌────┴────┐
+    ▼         ▼
+ Approve   Reject
+    │         │
+    ▼         ▼
+completed  failed/retry
+```
+
+## Task Queue
+
+待機中・未割当のタスク一覧。
+
+### 機能
+
+- タスク一覧（フィルタ可能）
+- 優先度変更
+- 担当者アサイン（人間/AI）
+- タスク作成
+
+### 表示項目
+
+| 項目 | 説明 |
+|------|------|
+| タスク名 | タスクの概要 |
+| 優先度 | critical / high / medium / low |
+| 担当者 | アサインされたアクター（人間 or Agent） |
+| 依存 | ブロックしているタスク |
+| 作成日時 | タスク作成日時 |
+
+## Dashboard
+
+### 概要
+
+全体の統計と状況サマリー。
+
+### 表示内容
+
+- **ステータス別カウント** - running / completed / failed / pending
+- **アクティブセッション** - 現在実行中のセッション一覧
+- **最近のアクティビティ** - 直近の完了/失敗タスク
+- **介入が必要なタスク** - needs_review 状態のタスク
+
+## History
+
+### 概要
+
+過去のセッション・タスク実行履歴。
+
+### 機能
+
+- セッション一覧（日時、結果、duration）
+- セッション詳細（Task Monitor同様のビューで過去データ表示）
+- 検索・フィルタ
+- 再実行（同じ設定で新規セッション作成）
+
+## Agents
+
+### 概要
+
+利用可能なエージェントの管理。
+
+### 機能
+
+- エージェント一覧
+- エージェント詳細（スコープ、設定）
+- UI編集 / YAML直編集の切り替え
+
+## アクターモデル
 
 タスクの担当者として、人間とAgentを「アクター」として統一的に扱う。
 
-```mermaid
-flowchart TB
-    subgraph Actors["アクター（担当者）"]
-        H1[井口さん]
-        H2[田中さん]
-        A1[coder]
-        A2[reviewer]
-    end
-
-    subgraph Tasks["タスク"]
-        T1[認証実装]
-        T2[バグ修正]
-        T3[ドキュメント]
-        T4[レビュー]
-    end
-
-    T1 --> A1
-    T2 --> H1
-    T3 --> H2
-    T4 --> A2
+```
+タスクキュー
+├── Task A → 実行者: coder (AI)
+├── Task B → 実行者: クロトワ (人間) ← 手動で進捗更新
+├── Task C → 実行者: reviewer (AI)
+└── Task D → 実行者: 未割当 → 誰かアサイン
 ```
 
-**なぜ統合管理か:**
-- 人間のタスクもAIのタスクも同一画面で管理できる
-- 担当者選択時に人間もAgentも同列に表示される
-- 個人利用（自分 + 複数Agent）から組織利用（チームメンバー + Agent群）まで自然にスケール
+| アクター種別 | ステータス管理 | 完了判定 |
+|-------------|---------------|---------|
+| agent | 自動（実行結果から判定） | 客観判定（別のAgent/人間） |
+| human | 手動更新不可 | 客観判定（別のAgent/人間） |
 
-| アクター種別 | ステータス管理 | 例 |
-|-------------|---------------|-----|
-| human | 手動更新 | 井口さん、田中さん |
-| agent | 事実ベース自動判定 | coder、reviewer |
-
-## Board View（軸切り替え対応）
-
-タスクをKanban形式で表示する際、複数の軸で切り替え可能。
-
-**なぜ軸切り替えが必要か:**
-- AIタスクのstatusは観測事実から自動判定されるため、ドラッグで変更できない
-- statusをカラムにしたBoardは「見るだけ」になり、AIタスクには使いにくい
-- 代わりにlabel/priority/assigneeをカラムにすれば、ドラッグで変更可能
-
-| 軸 | カラム例 | ドラッグ操作 |
-|----|---------|-------------|
-| status | open, in_progress, done | 人間タスクのみ変更可能 |
-| label | blocked, needs_review, ready | 全タスク変更可能 |
-| priority | critical, high, medium, low | 全タスク変更可能 |
-| assignee | coder, reviewer, 井口さん | 全タスク変更可能 |
-
-**デフォルトラベル:**
-- blocked（ブロック中）
-- needs_review（レビュー待ち）
-- ready（着手可能）
-- candidate（候補）
-- on_hold（保留）
-
-## エディタシステム（VSCode級品質）
-
-### なぜ高品位なエディタが必要か
-
-AIのプロンプトや設定を編集する以上、ミスが致命的な結果を招く可能性がある。
-
-**具体的なユースケース:**
-- プロンプトの長文作成（数百行になることもある）
-- 複数YAMLファイルの編集（Agent定義、設定など）
-- スコープパターンの記述（globパターンのミスは危険）
-
-**エラーを発見しやすくするための要件:**
-- リアルタイムの構文検証
-- スキーマベースの入力補完
-- フォーマットの自動整形
-
-### 編集対象と検証要件
-
-| 対象 | 形式 | スキーマ検証 | カスタムLint | フォーマット |
-|------|------|:------------:|:------------:|:------------:|
-| Agent定義 | YAML | O | - | O |
-| Config | YAML | O | - | O |
-| Prompts | Markdown | - | O（テンプレート変数） | O |
-| Memory Bank | Markdown | - | O（構造検証） | O |
-
-### Monaco Editor採用理由
-
-| 選択肢 | 評価 | 理由 |
-|--------|------|------|
-| Monaco Editor | 採用 | VSCodeと同じエンジン、JSON Schema対応、IntelliSense |
-| CodeMirror | 不採用 | 軽量だがスキーマ検証が弱い |
-| Ace Editor | 不採用 | 古いアーキテクチャ |
-
-### エディタ機能要件
-
-| 機能 | 実装方法 |
-|------|---------|
-| JSON Schemaによるリアルタイム検証 | monaco-yaml統合 |
-| IntelliSense（補完・ホバー情報） | カスタムCompletionProvider |
-| 入力中のエラーハイライト | Monaco Diagnostics API |
-| Prettier統合の自動フォーマット | Prettier standalone |
-| プロンプト専用カスタムLint | カスタムLintルール |
-
-### プレビュー機能について
-
-**Markdownプレビューは不要。**
-
-**理由:** プロンプトテキストは「ソースコード」であり、人間が読むためのドキュメントではない。プレビューで見た目を確認する必要がなく、構文の正しさのみが重要。
-
-## キーボード操作
-
-### グローバルショートカット
-
-| キー | 操作 |
-|------|------|
-| Cmd/Ctrl + K | コマンドパレット |
-| g → d | Go to Dashboard |
-| g → t | Go to Tasks |
-| g → s | Go to Sessions |
-| g → a | Go to Agents |
-| g → m | Go to Memory Bank |
-| g → , | Go to Settings |
-| ? | ショートカット一覧表示 |
-
-### リスト操作
-
-| キー | 操作 |
-|------|------|
-| j / ↓ | 次の項目 |
-| k / ↑ | 前の項目 |
-| Enter | 詳細を開く |
-| Esc | 閉じる / 戻る |
-
-### 共通編集操作
-
-| キー | 操作 |
-|------|------|
-| n | 新規作成 |
-| e | 編集モード |
-| d | 削除（確認あり） |
-| / | フィルタ/検索 |
-| Cmd/Ctrl + S | 保存 |
-
-### エディタ操作
-
-| キー | 操作 |
-|------|------|
-| Cmd/Ctrl + Shift + F | フォーマット |
-| Cmd/Ctrl + . | クイックフィックス |
-| Cmd/Ctrl + Space | 補完を表示 |
-| F8 | 次のエラーへ移動 |
-| Shift + F8 | 前のエラーへ移動 |
-
-## 画面詳細
-
-### Dashboard
-
-**機能:**
-- タスクステータス別の集計カード
-- アクティブセッションのリアルタイム表示（経過時間更新）
-- 最近完了したタスク一覧
-- クイックアクションボタン
-
-### Tasks
-
-**ビュー切り替え:**
-
-| ビュー | 用途 |
-|--------|------|
-| List | シンプルな一覧（デフォルト） |
-| Board | 軸切り替え可能なKanban |
-| Hierarchy | 親子関係をツリー表示 |
-
-**Task詳細で表示する情報:**
-- ステータス（自動判定、変更不可）
-- 優先度、タイプ、複雑度
-- ラベル（編集可能）
-- 説明
-- 担当アクター
-- 親子タスク関係
-- セッション情報
-
-### Sessions（5層セッション可視化）
-
-**機能:**
-- ステータス別フィルタ（Running, Completed, Failed）
-- 5層プロセスのリアルタイム可視化（Orchestrator/Planner/Supervisor/Worker/Reviewer）
-- 各層の出力ストリーム表示（WebSocket経由）
-- セッションの開始・キャンセル
-- 成果物（artifacts）の確認
-
-**5層セッションUI:**
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│  AgentMine - Session: auth-feature                          │
-├─────────────────────────────────────────────────────────────┤
-│ [Orchestrator] [Planner] [Supervisor] [Workers ▼] [Reviewer]│
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  Orchestrator                                      [入力 ▼] │
-│  ─────────────────────────────────────────────────────────  │
-│  > 認証機能を実装してください                                │
-│  < 了解しました。Plannerにタスク分解を依頼します。            │
-│  < Planner完了: 3タスクに分解されました                      │
-│  < Supervisor: Worker起動中 (1/3)                           │
-│  ...                                                        │
-│                                                             │
-├─────────────────────────────────────────────────────────────┤
-│  タスク状況                                                  │
-│  #1 認証機能 ████████░░ 2/3 完了                            │
-│    ├─ #1-1 DBスキーマ ✅                                    │
-│    ├─ #1-2 API実装 🔄 Worker-2                              │
-│    └─ #1-3 UI実装 ⏳ blocked by #1-2                        │
-└─────────────────────────────────────────────────────────────┘
-```
-
-**Session詳細で表示する情報:**
-- ステータス、Agent情報
-- 開始時刻、経過時間
-- 5層プロセス状態（各層の起動状態、出力）
-- DoD結果
-- exit code
-- 成果物（変更ファイル一覧）
-
-### Agents（デュアルエディタ）
-
-**UI編集モード:**
-- フォーム形式で各フィールドを編集
-- プルダウンやチェックボックスで簡単操作
-
-**YAML編集モード:**
-- Monaco Editorで直接YAML編集
-- JSON Schemaによる検証
-- IntelliSenseによる補完
-
-### Memory Bank
-
-**機能:**
-- 左ペイン: ファイルツリー（カテゴリ/ファイル）
-- 右ペイン: Markdownエディタ（プレビューなし）
-- 新規フォルダ/ファイル作成
-- Front Matter検証
-
-### Settings（デュアルエディタ）
-
-Agents同様、UI編集モードとYAML編集モードを切り替え可能。
-
-## Worker制御（Web UI完結）
-
-CLIの`agentmine worker run`コマンドと同等の機能をWeb UIから操作可能にする。
-
-```mermaid
-flowchart LR
-    Create[タスク作成] --> Select[Agent選択]
-    Select --> Start[Worker起動]
-    Start --> Monitor[監視]
-    Monitor --> Complete[完了]
-```
-
-**CLIコマンドとの対応:**
-
-| Web UI操作 | 対応するCLIコマンド |
-|------------|---------------------|
-| Worker起動 | agentmine worker run --exec |
-| バックグラウンド起動 | agentmine worker run --exec --detach |
-| Worker停止 | agentmine worker stop |
-| 状態確認 | agentmine worker status |
-| クリーンアップ | agentmine worker done |
+**重要:** 人間もAIも「自分で完了」と言えない。必ず第三者が判定する。
 
 ## リアルタイム更新
 
-### SSE（Worker状態監視）
+### WebSocket
 
-Worker状態の監視にはServer-Sent Events（SSE）を使用する。
-
-**なぜSSEか:**
-- WebSocketより軽量
-- 単方向通信で十分（サーバー → クライアント）
-- 再接続が自動的に行われる
-
-**更新対象:**
-- Worker実行状態（running/completed/failed）
-- 経過時間
-- 進捗情報（利用可能な場合）
-
-### WebSocket（5層セッション可視化）
-
-5層セッションのリアルタイム出力配信にはWebSocketを使用する。
-
-**なぜWebSocketか:**
-- 双方向通信が必要（入力送信 + 出力受信）
-- 複数プロセスの出力を同時配信
-- 低レイテンシが必要
-
-**WebSocket API:**
+タスク状態のリアルタイム更新にWebSocketを使用。
 
 ```typescript
-// クライアント → サーバー
-interface ClientMessage {
-  type: 'subscribe' | 'unsubscribe' | 'input'
-  sessionId?: string
-  processId?: string  // 入力先プロセス指定
-  text?: string
-}
-
 // サーバー → クライアント
-interface ServerMessage {
-  type: 'output' | 'status' | 'task_update'
-  processId?: string
-  role?: 'orchestrator' | 'planner' | 'supervisor' | 'worker' | 'reviewer'
-  stream?: 'stdout' | 'stderr'
-  data: any
+interface TaskUpdate {
+  type: 'task_update' | 'output' | 'status_change'
+  taskId: string
+  sessionId: string
+  data: {
+    status?: TaskStatus
+    output?: string  // streaming output
+    duration?: number
+    error?: string
+  }
   timestamp: Date
 }
 ```
 
-**セッション管理API:**
+### 更新対象
 
-| メソッド | パス | 説明 |
-|----------|------|------|
-| POST | /api/sessions/start | 5層セッション開始 |
-| POST | /api/sessions/{id}/send | 特定プロセスへ入力送信 |
-| POST | /api/sessions/{id}/stop | セッション終了 |
-| GET | /api/sessions/{id}/ws | WebSocket接続 |
+- タスクステータス変更
+- 実行中タスクの出力（streaming）
+- Duration（経過時間）
+- エラー情報
+
+## キーボード操作
+
+### グローバル
+
+| キー | 操作 |
+|------|------|
+| Cmd/Ctrl + K | コマンドパレット |
+| g → m | Go to Monitor |
+| g → q | Go to Queue |
+| g → d | Go to Dashboard |
+| g → h | Go to History |
+| ? | ショートカット一覧 |
+
+### Task Monitor
+
+| キー | 操作 |
+|------|------|
+| j / ↓ | 次のタスク |
+| k / ↑ | 前のタスク |
+| Enter | 詳細パネル展開 |
+| Esc | 詳細パネル閉じる |
+| Space | 折りたたみ切り替え |
+| p | Pause / Resume |
+| e | Edit |
+| r | Retry |
+| c | Cancel |
+| a | Approve |
+| x | Reject |
 
 ## API Routes
 
-### エンドポイント一覧
+### タスク
 
 | メソッド | パス | 説明 |
 |----------|------|------|
-| GET | /api/tasks | タスク一覧（フィルタ対応） |
+| GET | /api/tasks | タスク一覧 |
 | POST | /api/tasks | タスク作成 |
-| GET | /api/tasks/counts | ステータス別カウント |
 | GET | /api/tasks/{id} | タスク詳細 |
 | PATCH | /api/tasks/{id} | タスク更新 |
-| DELETE | /api/tasks/{id} | タスク削除 |
+| POST | /api/tasks/{id}/pause | 一時停止 |
+| POST | /api/tasks/{id}/resume | 再開 |
+| POST | /api/tasks/{id}/retry | 再実行 |
+| POST | /api/tasks/{id}/cancel | キャンセル |
+| POST | /api/tasks/{id}/approve | 承認 |
+| POST | /api/tasks/{id}/reject | 却下 |
+
+### セッション
+
+| メソッド | パス | 説明 |
+|----------|------|------|
 | GET | /api/sessions | セッション一覧 |
+| POST | /api/sessions | セッション作成 |
 | GET | /api/sessions/{id} | セッション詳細 |
+| GET | /api/sessions/{id}/ws | WebSocket接続 |
+
+### エージェント
+
+| メソッド | パス | 説明 |
+|----------|------|------|
 | GET | /api/agents | エージェント一覧 |
 | GET | /api/agents/{name} | エージェント詳細 |
 | PUT | /api/agents/{name} | エージェント更新 |
-| POST | /api/workers/{taskId}/run | Worker起動 |
-| POST | /api/workers/{taskId}/stop | Worker停止 |
-| GET | /api/workers/{taskId}/status | Worker状態 |
-| GET | /api/workers/{taskId}/events | SSEストリーム |
-| POST | /api/workers/{taskId}/done | 完了処理 |
-| GET | /api/memory | Memory一覧 |
-| GET | /api/memory/{path} | Memoryファイル |
-| PUT | /api/memory/{path} | Memory更新 |
 
 ## 技術スタック
 
-| 機能 | ライブラリ | 選定理由 |
-|------|------------|---------|
-| フレームワーク | Next.js 14+ (App Router) | React最新、SSR対応 |
-| UIコンポーネント | shadcn/ui + Tailwind | カスタマイズ性、モダン |
-| コマンドパレット | cmdk | Linear風、軽量 |
-| キーボードナビ | react-hotkeys-hook | 柔軟なキー設定 |
-| コードエディタ | Monaco Editor | VSCode同等品質 |
-| YAML検証 | monaco-yaml | JSON Schema統合 |
-| フォーマット | Prettier (standalone) | ブラウザ実行可能 |
-| リアルタイム更新 | Server-Sent Events | 軽量、単方向 |
-| 状態管理 | React Server Components + SWR | シンプル、キャッシュ |
-| ドラッグ&ドロップ | @dnd-kit | 柔軟、アクセシブル |
-| 国際化 | next-intl | Next.js App Router対応 |
-
-## 国際化（i18n）
-
-### 対応言語
-
-| 言語 | コード | 状態 |
-|------|--------|------|
-| 日本語 | ja | プライマリ |
-| 英語 | en | セカンダリ |
-
-### 設計方針
-
-| 方針 | 説明 |
-|------|------|
-| URLベースのロケール | /ja/tasks, /en/tasks のようなパス構造 |
-| サーバーコンポーネント対応 | Next.js App Routerと統合 |
-| フォールバック | 未翻訳の場合は日本語を表示 |
-
-### 翻訳対象
-
-| 対象 | 翻訳 | 備考 |
-|------|:----:|------|
-| UIラベル | O | ボタン、メニュー、見出し等 |
-| エラーメッセージ | O | ユーザー向けメッセージ |
-| 日時フォーマット | O | ロケールに応じた表示 |
-| ユーザーコンテンツ | - | タスク説明、Agent定義等は翻訳しない |
-
-### 実装構成
-
-| ディレクトリ | 内容 |
-|-------------|------|
-| messages/ja.json | 日本語翻訳ファイル |
-| messages/en.json | 英語翻訳ファイル |
-| app/[locale]/ | ロケール対応ルート |
-| lib/i18n.ts | 国際化設定 |
-
-## コンポーネント構成
-
-| ディレクトリ | 内容 |
-|-------------|------|
-| app/ | ページ、APIルート |
-| components/ui/ | shadcn/uiコンポーネント |
-| components/layout/ | サイドバー、ヘッダー、コマンドパレット |
-| components/tasks/ | タスク一覧、ボード、詳細 |
-| components/sessions/ | セッション一覧、詳細 |
-| components/agents/ | エージェント一覧、UI/YAML編集 |
-| components/memory/ | ファイルツリー、Markdownエディタ |
-| components/editor/ | Monaco Editor関連 |
-| hooks/ | カスタムフック |
-| lib/ | ユーティリティ、API |
-| lib/editor/ | エディタ設定、スキーマ、Linter |
+| 機能 | ライブラリ |
+|------|------------|
+| フレームワーク | Next.js 14+ (App Router) |
+| UIコンポーネント | shadcn/ui + Tailwind |
+| コマンドパレット | cmdk |
+| キーボードナビ | react-hotkeys-hook |
+| リアルタイム | WebSocket |
+| 状態管理 | React Server Components + SWR |
 
 ## 実装優先度
 
-| 優先度 | 機能 | 状態 |
-|--------|------|:----:|
-| P0 | Dashboard、Tasks (List)、基本ナビゲーション、API基盤 | 完了 |
-| P1 | Sessions監視、Task詳細・編集、Worker制御UI | 完了 |
-| P2 | Agents管理、Memory Bank、Settings | 完了 |
-| P3 | Tasks (Board View)、キーボード完全対応、リアルタイム更新（SSE） | 未実装 |
-| P4 | Tasks (Hierarchy View)、Monaco Editor統合 | 未実装 |
-
-## 未確定事項
-
-| 項目 | 現状 | 検討中 |
-|------|------|--------|
-| Board Viewのカラムカスタマイズ | 固定軸から選択 | ユーザー定義カラム |
-| Worker進捗表示 | exit codeのみ | AIクライアントからの進捗取得 |
-| 複数プロジェクト対応 | 単一プロジェクト | プロジェクト切り替えUI |
+| 優先度 | 機能 |
+|--------|------|
+| P0 | Task Monitor（ツリー＋ウォーターフォール）、介入機能 |
+| P1 | Task Queue、Dashboard、WebSocket接続 |
+| P2 | History、Agents |
+| P3 | 詳細なキーボード操作、設定画面 |
 
 ## 関連ドキュメント
 
-- 概要: @01-introduction/overview.md
-- アーキテクチャ: @02-architecture/architecture.md
-- Worker実行フロー: @07-runtime/worker-lifecycle.md
-- CLIインターフェース: @06-interfaces/cli/overview.md
-- 用語集: @appendix/glossary.md
+- [CLI設計](../cli/overview.md)
+- [データモデル](../../04-data/data-model.md)
+- [UI参考資料](./ui-reference.md)
