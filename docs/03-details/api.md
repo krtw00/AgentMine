@@ -60,7 +60,7 @@ ai_summary: "APIの対象リソースと認証方針（詳細は今後定義）"
 | projects | Project登録（Git repo） |
 | tasks | タスク/イシュー管理 |
 | task_dependencies | 依存関係管理 |
-| agent_profiles | 実行プロファイル（runner/model/scope/DoD） |
+| agent_profiles | 実行プロファイル（runner/model/prompt/デフォルト制約） |
 | runs | 実行run/ログ |
 | checks | DoD等の検証結果 |
 | scope_violations | スコープ違反と承認状態 |

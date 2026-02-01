@@ -69,6 +69,10 @@ ai_summary: "ドメイン用語・技術用語・システム固有用語の定�
 | RunnerAdapter | runner差を吸収するアダプタ | runner-adapter.md |
 | log_ref | runログの参照文字列 | log-storage.md |
 | output_ref | checkログの参照文字列 | log-storage.md |
+| Check | runに対する検証の実行結果（pending/passed/failed） | definition-of-done.md |
+| check_key | チェック識別子（Project内で一意） | definition-of-done.md |
+| DoD Runner | DoDの必須チェックを実行し結果を記録するDaemon内コンポーネント | structure.md |
+| head_sha | run終了時点のHEADコミット（監査とdone判定補助） | data-model.md |
 | Worker | 隔離worktreeで実装するAI | structure.md |
 | Planner | タスク分解と依存設計を担う役割 | task-decomposition.md |
 | Supervisor | runの起動/停止と並列度管理を担う役割 | role-model.md |

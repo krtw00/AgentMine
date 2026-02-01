@@ -57,6 +57,7 @@ erDiagram
         exit_code number
         branch_name string
         worktree_path string
+        head_sha string
         log_ref string
         scope_snapshot json
     }
@@ -64,6 +65,8 @@ erDiagram
     CHECKS {
         id integer PK
         run_id integer FK
+        check_key string
+        label string
         kind string
         status string
         exit_code number
@@ -182,6 +185,7 @@ runは「タスクに対する1回の実行」である。continue/retryはrun�
 | exit_code | - | 終了コード |
 | branch_name | ○ | タスク作業ブランチ |
 | worktree_path | ○ | 実行worktree |
+| head_sha | - | run終了時点のHEADコミット（監査とdone判定補助） |
 | log_ref | - | runログ参照（→ログ保存） |
 | scope_snapshot | ○ | 実行時の有効スコープ（再現性のため） |
 
@@ -192,6 +196,8 @@ DoD等の「検証」をrun配下のチェックとして記録する。
 | カラム | 必須 | 説明 |
 |--------|:---:|------|
 | run_id | ○ | 対象run |
+| check_key | ○ | チェック識別子（Project内で一意） |
+| label | ○ | UI表示名 |
 | kind | ○ | dod / lint / test / build 等 |
 | status | ○ | pending / passed / failed |
 | exit_code | - | 終了コード |

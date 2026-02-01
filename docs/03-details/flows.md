@@ -149,3 +149,4 @@ flowchart TD
 - [principles.md](../02-architecture/principles.md) - 設計原則
 - [structure.md](../02-architecture/structure.md) - コンポーネント構成
 - [task-decomposition.md](./task-decomposition.md) - タスク分解ルール
+- [definition-of-done.md](./definition-of-done.md) - DoDの具体仕様
