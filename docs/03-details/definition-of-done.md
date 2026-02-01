@@ -42,7 +42,7 @@ done判定が「マージ」かつ「DoD passed」であること自体はADR-00
 ## チェック定義（Project設定）
 
 DoDは「必須チェックの集合」である。
-必須チェックはProject設定（settings）として保持する。
+必須チェックはProject設定（settings）の `dod.requiredChecks` として保持する（→Project設定）。
 
 ### チェック定義の要素（論理モデル）
 
@@ -87,6 +87,8 @@ checkログはファイルとして保存し、DBは参照（output_ref）を保
 
 注:
 - 実行対象のコミットは`runs.head_sha`として記録する（→データモデル）。
+注:
+- DoD定義はrun開始時点のスナップショットとして`runs.dod_snapshot`に保存する（→Project設定）。
 
 ---
 
@@ -128,3 +130,4 @@ done判定はADR-0002に従い、以下の両方を満たす場合に成立す�
 - [ログ保存](./log-storage.md) - checkログの保存
 - [業務ルール](./business-rules.md) - runは追記、再実行の扱い
 - [worktree管理](./worktree-management.md) - dirty runの扱い
+- [Project設定](./settings.md) - `dod.requiredChecks` とsnapshot

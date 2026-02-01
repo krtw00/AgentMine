@@ -61,6 +61,7 @@ erDiagram
         worktree_dirty bool
         log_ref string
         scope_snapshot json
+        dod_snapshot json
     }
 
     CHECKS {
@@ -190,6 +191,7 @@ runは「タスクに対する1回の実行」である。continue/retryはrun�
 | worktree_dirty | - | run終了時点で未コミット変更があるか |
 | log_ref | - | runログ参照（→ログ保存） |
 | scope_snapshot | ○ | 実行時の有効スコープ（再現性のため） |
+| dod_snapshot | ○ | 実行時のDoD定義スナップショット（再現性のため） |
 
 ### checks
 
@@ -222,7 +224,7 @@ DoD等の「検証」をrun配下のチェックとして記録する。
 | カラム | 必須 | 説明 |
 |--------|:---:|------|
 | project_id | ○ | 所属Project |
-| key | ○ | 設定キー（例: `git.baseBranch`） |
+| key | ○ | 設定キー（例: `dod.requiredChecks`） |
 | value | ○ | 設定値（JSON） |
 
 ---

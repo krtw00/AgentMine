@@ -78,6 +78,7 @@ flowchart LR
 | [prompt-composition.md](./03-details/prompt-composition.md) | プロンプト組み立て（runner非依存） |
 | [definition-of-done.md](./03-details/definition-of-done.md) | DoD定義（必須チェックと集計） |
 | [worktree-management.md](./03-details/worktree-management.md) | worktree運用（命名/再利用/削除/dirty） |
+| [settings.md](./03-details/settings.md) | Project設定（キー体系とスナップショット） |
 | [log-storage.md](./03-details/log-storage.md) | ログ保存（参照と保持） |
 | [api.md](./03-details/api.md) | API設計（Web UI/Daemon） |
 | [ui.md](./03-details/ui.md) | UI設計（監視・介入） |

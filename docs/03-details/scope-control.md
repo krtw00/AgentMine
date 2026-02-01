@@ -55,7 +55,7 @@ ai_summary: "Workerのアクセス範囲を物理制約で限定し、違反は�
 
 | 入力元 | 反映先 | 目的 |
 |---|---|---|
-| Project設定（例: default_exclude） | exclude | プロジェクト共通の秘匿情報を除外する |
+| Project設定（`scope.defaultExclude`） | exclude | プロジェクト共通の秘匿情報を除外する |
 | agent profile（default_exclude） | exclude | runner/用途ごとの除外を足す |
 | task（write_scope） | write | このタスクで編集してよい範囲を明示する |
 
@@ -129,3 +129,4 @@ MVPでは両者を合成してrunの有効スコープを決める。
 - [観測可能な事実](./observable-facts.md) - 違反の記録とtask状態への反映
 - [データモデル](./data-model.md) - scope_violationsの保持
 - [Agent Profiles](./agent-profiles.md) - default_excludeの定義
+- [Project設定](./settings.md) - `scope.defaultExclude`

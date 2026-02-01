@@ -74,6 +74,8 @@ ai_summary: "ドメイン用語・技術用語・システム固有用語の定�
 | DoD Runner | DoDの必須チェックを実行し結果を記録するDaemon内コンポーネント | structure.md |
 | head_sha | run終了時点のHEADコミット（監査とdone判定補助） | data-model.md |
 | worktree_dirty | run終了時点で未コミット変更があるか | worktree-management.md |
+| Settings | Projectごとの可変設定（key/value） | settings.md |
+| dod_snapshot | run開始時点のDoD定義スナップショット | settings.md |
 | Worker | 隔離worktreeで実装するAI | structure.md |
 | Planner | タスク分解と依存設計を担う役割 | task-decomposition.md |
 | Supervisor | runの起動/停止と並列度管理を担う役割 | role-model.md |
