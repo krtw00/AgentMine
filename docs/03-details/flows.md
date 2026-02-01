@@ -45,7 +45,7 @@ ai_summary: "主要業務フローのシーケンス図・処理ステップ・�
 |------|------|
 | 概要 | 依頼をタスク化し分解案を作成する |
 | トリガー | Humanが要件を提示 |
-| アクター | Human, Orchestrator, Planner/Scheduler, AgentMine |
+| アクター | Human, Orchestrator, Planner, AgentMine |
 | 前提条件 | Projectが登録済みである |
 | 事後条件 | 親子タスクと依存がDBに登録される |
 
@@ -56,7 +56,7 @@ sequenceDiagram
     actor H as Human
     participant UI as Web UI
     participant A as AgentMine
-    participant P as Planner/Scheduler
+    participant P as Planner
 
     H->>UI: タスク作成
     UI->>A: create task
@@ -148,3 +148,4 @@ flowchart TD
 - [data-model.md](./data-model.md) - データモデル
 - [principles.md](../02-architecture/principles.md) - 設計原則
 - [structure.md](../02-architecture/structure.md) - コンポーネント構成
+- [task-decomposition.md](./task-decomposition.md) - タスク分解ルール

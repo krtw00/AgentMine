@@ -128,3 +128,4 @@ MVPでは両者を合成してrunの有効スコープを決める。
 - [設計原則](../02-architecture/principles.md) - 安全性は制約で担保する
 - [観測可能な事実](./observable-facts.md) - 違反の記録とtask状態への反映
 - [データモデル](./data-model.md) - scope_violationsの保持
+- [Agent Profiles](./agent-profiles.md) - default_excludeの定義

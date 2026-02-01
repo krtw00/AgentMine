@@ -28,7 +28,7 @@ AgentMineは、
 ### 1. 判断しない
 
 - AgentMineは最終判断を行わない。
-- 判断はOrchestratorとPlannerに委ねる。
+- 判断はOrchestrator/Planner/Supervisorに委ねる。
 - AgentMineは判断材料の提供に専念する。
 
 ### 2. Orchestratorはインターフェースである
@@ -101,3 +101,4 @@ AgentMineは、
 - [summary.md](../01-overview/summary.md) - プロジェクト概要
 - [goals.md](../01-overview/goals.md) - 目的・解決する課題
 - [scope.md](../01-overview/scope.md) - スコープ・対象外
+- [role-model.md](./role-model.md) - 役割と責務分離

@@ -43,7 +43,7 @@ ai_summary: "MVPの機能要件（Project/Task/Run/スコープ/DoD/可視化）
 
 | # | 要件 | 説明 | 優先度 |
 |---:|------|------|:------:|
-| FR-020 | run開始 | runnerを選びrunを開始できる | MUST |
+| FR-020 | run開始 | agent profileを選びrunを開始できる | MUST |
 | FR-021 | stop | 実行中runを停止できる | MUST |
 | FR-022 | retry | 同一Taskに新しいrunを追加できる | MUST |
 | FR-023 | continue | 同一Taskに新しいrunを追加できる | MUST |

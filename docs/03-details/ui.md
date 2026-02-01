@@ -33,7 +33,7 @@ ai_summary: "Task Monitor中心の監視・介入UI（ツリー+タイムライ�
 | S001 | Task Monitor | 実行状況の監視（メイン） | 定義中 |
 | S002 | Task Queue | 待機中/依存関係/割り当て | 定義中 |
 | S003 | Runs | 実行履歴・ログ・検証結果 | 定義中 |
-| S004 | Agent Profiles | runner/model/scope/DoD定義 | 定義中 |
+| S004 | Agent Profiles | runner/model/prompt/デフォルト制約 | 定義中 |
 | S005 | Settings | プロジェクト設定 | 定義中 |
 
 ---
@@ -87,3 +87,4 @@ flowchart TB
 - [principles.md](../02-architecture/principles.md) - 設計原則
 - [observable-facts.md](./observable-facts.md) - task/run状態の導出ルール
 - [data-model.md](./data-model.md) - UIが参照するエンティティ
+- [agent-profiles.md](./agent-profiles.md) - 実行プロファイルの定義

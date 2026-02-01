@@ -28,7 +28,8 @@ ai_summary: "ドメイン用語・技術用語・システム固有用語の定�
 | AgentMine | えーじぇんとまいん | AI並列開発の実行基盤と判断材料を提供するプロジェクト管理基盤 |
 | Project | ぷろじぇくと | 1つのGitリポジトリを管理単位として登録したもの |
 | Orchestrator | おーけすとれーたー | 人間とAIの境界で要件整理と判断を行うインターフェース |
-| Planner/Scheduler | ぷらんなー/すけじゅーらー | タスク分解と依存・割当設計を担う役割 |
+| Planner | ぷらんなー | タスク分解と依存設計を担う役割 |
+| Supervisor | すーぱーばいざー | 実行管理（起動/停止/並列度）を担う役割 |
 | タスク | たすく | 開発作業の単位。親子と依存を持つ |
 | Run | らん | タスクに対する1回の実行記録。終了コードやログ等の事実を持つ |
 | Agent Profile | えーじぇんとぷろふぁいる | runner/model/デフォルト除外/DoD等の実行設定 |
@@ -69,7 +70,8 @@ ai_summary: "ドメイン用語・技術用語・システム固有用語の定�
 | log_ref | runログの参照文字列 | log-storage.md |
 | output_ref | checkログの参照文字列 | log-storage.md |
 | Worker | 隔離worktreeで実装するAI | structure.md |
-| Planner/Scheduler | タスク分解と依存・割当を設計する役割 | flows.md |
+| Planner | タスク分解と依存設計を担う役割 | task-decomposition.md |
+| Supervisor | runの起動/停止と並列度管理を担う役割 | role-model.md |
 | Reviewer | DoD検証を担うAI | flows.md |
 
 ---

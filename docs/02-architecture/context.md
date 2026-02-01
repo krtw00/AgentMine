@@ -46,7 +46,8 @@ flowchart LR
 |----------|------|------|----------|
 | Human | 人間 | 目的の提示と最終判断を行う | 依頼、承認、介入 |
 | Orchestrator | 役割 | 人間の要件を整理し判断する窓口 | 依頼受付、移譲、判断 |
-| Planner/Scheduler | 役割 | タスク分解と依存・割当設計 | 分解、依存設計、worker数決定 |
+| Planner | 役割 | タスク分解と依存設計 | 分解、依存設計 |
+| Supervisor | 役割 | runの起動/停止と並列度管理 | 起動可否判断、run開始/停止 |
 | Worker | 役割 | 隔離worktreeで実装を担当 | コード作成、テスト |
 | Reviewer | 役割 | DoD検証を担当 | 検証、結果記録 |
 
@@ -111,7 +112,8 @@ flowchart LR
 | 項目 | 担当 | 説明 |
 |------|------|------|
 | 最終判断 | Human/Orchestrator | 仕様の正しさや優先度の決定 |
-| タスク分解のルール | Planner/Scheduler | 分解粒度やworker数の判断 |
+| タスク分解のルール | Planner | 分解粒度や依存設計の判断 |
+| 実行順序/並列度の判断 | Supervisor | 起動可否、停止、並列度の判断 |
 | LLMの品質 | LLMプロバイダ | モデル性能や学習は外部要素 |
 
 ---
@@ -121,3 +123,4 @@ flowchart LR
 - [summary.md](../01-overview/summary.md) - プロジェクト概要
 - [principles.md](./principles.md) - 設計原則
 - [structure.md](./structure.md) - 主要コンポーネント構成
+- [role-model.md](./role-model.md) - 役割と責務分離

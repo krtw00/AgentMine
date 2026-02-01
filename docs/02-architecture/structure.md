@@ -129,6 +129,7 @@ project/
 ## 関連ドキュメント
 
 - [システム境界・外部連携](./context.md) - C4 Context図と外部システム定義
+- [役割モデル（5層）](./role-model.md) - Human/Orchestrator/Planner/Supervisor/Worker/Reviewer
 - [技術スタック](./tech-stack.md) - 技術選定と選定理由
 - [データモデル](../03-details/data-model.md) - エンティティ定義とER図
 - [Local Daemon（起動・停止）](../03-details/daemon.md) - Daemonのライフサイクル

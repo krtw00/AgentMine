@@ -58,6 +58,7 @@ flowchart LR
 | [principles.md](./02-architecture/principles.md) | 設計原則（思想SSoT） |
 | [context.md](./02-architecture/context.md) | システム境界・外部連携 |
 | [structure.md](./02-architecture/structure.md) | 主要コンポーネント構成 |
+| [role-model.md](./02-architecture/role-model.md) | 役割モデル（5層） |
 | [tech-stack.md](./02-architecture/tech-stack.md) | 技術スタック |
 | [non-functional.md](./02-architecture/non-functional.md) | 非機能要件（MVP） |
 
@@ -68,10 +69,12 @@ flowchart LR
 | [data-model.md](./03-details/data-model.md) | データモデル・ER図 |
 | [observable-facts.md](./03-details/observable-facts.md) | 観測可能な事実（状態の自動判定ルール） |
 | [business-rules.md](./03-details/business-rules.md) | 業務ルール（不変条件/同時実行制約） |
+| [task-decomposition.md](./03-details/task-decomposition.md) | タスク分解（判定基準/パターン） |
 | [scope-control.md](./03-details/scope-control.md) | スコープ制御（worktree隔離と物理制約） |
 | [daemon.md](./03-details/daemon.md) | Local Daemon（起動・停止） |
 | [event-stream.md](./03-details/event-stream.md) | イベント配信（SSE） |
 | [runner-adapter.md](./03-details/runner-adapter.md) | RunnerAdapter（claude/codex差の吸収） |
+| [agent-profiles.md](./03-details/agent-profiles.md) | Agent Profiles（runner/model/prompt） |
 | [log-storage.md](./03-details/log-storage.md) | ログ保存（参照と保持） |
 | [api.md](./03-details/api.md) | API設計（Web UI/Daemon） |
 | [ui.md](./03-details/ui.md) | UI設計（監視・介入） |
@@ -112,8 +115,9 @@ flowchart LR
 ### 設計を理解したい場合
 
 1. [structure.md](./02-architecture/structure.md) - コンポーネント構成
-2. [tech-stack.md](./02-architecture/tech-stack.md) - 技術選定理由
-3. [04-decisions/](./04-decisions/) - 設計判断の根拠
+2. [role-model.md](./02-architecture/role-model.md) - 役割と責務分離
+3. [tech-stack.md](./02-architecture/tech-stack.md) - 技術選定理由
+4. [04-decisions/](./04-decisions/) - 設計判断の根拠
 
 ### 実装時に参照する場合
 

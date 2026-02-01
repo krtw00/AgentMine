@@ -17,7 +17,7 @@ ai_summary: "プロジェクトの1ページ概要（目的・主要機能・対
 
 AgentMineは、ローカル環境でAI作業を安全に実行し、
 結果をDBに集約して可視化・追跡できるプロジェクト管理基盤である。
-基本構成はHuman→Orchestrator→Planner/Scheduler→Worker→Reviewerとする。
+基本構成はHuman→Orchestrator→Planner→Supervisor→Worker→Reviewerとする。
 
 ---
 
@@ -49,7 +49,8 @@ AgentMineは、ローカル環境でAI作業を安全に実行し、
 |--------------|------|----------------|
 | 個人開発者 | ローカルで安全にAI並列開発したい | 複数タスクを並列に進める |
 | Orchestrator | 人間の要件を整理し判断する窓口 | 要件整理・優先度決定・介入判断 |
-| Planner/Scheduler | タスク分解と依存・割当を設計する | 分解・依存設計・worker数の決定 |
+| Planner | タスク分解と依存設計を担う | 分解・依存設計 |
+| Supervisor | 実行管理（起動/停止/並列度）を担う | 起動可否判断・run開始/停止 |
 
 ---
 
@@ -81,3 +82,4 @@ flowchart LR
 - [スコープ・対象外](./scope.md) - 対象範囲とフェーズ分割
 - [設計原則](../02-architecture/principles.md) - 判断と実行基盤の分離方針
 - [システム境界・外部連携](../02-architecture/context.md) - C4 Context図と外部システム定義
+- [役割モデル（5層）](../02-architecture/role-model.md) - 役割と責務分離

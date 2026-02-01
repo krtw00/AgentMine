@@ -83,9 +83,13 @@ erDiagram
         id integer PK
         project_id integer FK
         name string
+        description string
         runner string
         model string
+        prompt_template string
         default_exclude json
+        default_write_scope json
+        config json
     }
 
     SETTINGS {
@@ -154,9 +158,13 @@ erDiagram
 | id | ○ | プロファイル識別子 |
 | project_id | ○ | 所属Project |
 | name | ○ | 表示名 |
+| description | - | 説明 |
 | runner | ○ | `claude-cli` / `codex-cli` 等 |
 | model | - | runnerに渡すモデル名（任意） |
+| prompt_template | - | 役割としての固定指示（任意） |
 | default_exclude | ○ | デフォルト除外（glob配列） |
+| default_write_scope | - | write_scopeの提案値（glob配列、任意） |
+| config | - | runner向け追加設定（JSON、任意） |
 
 ### runs
 
