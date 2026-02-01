@@ -79,11 +79,11 @@ flowchart TB
 
 ## Task Monitor（S001）
 
-中心画面。Jaeger UI風に **ツリー（親子）** と **タイムライン（ウォーターフォール）** を並べる。
+中心画面。MVPではChrome DevToolsのNetwork風に **Run一覧テーブル** と **ウォーターフォール** を並べる（→UI仕様）。
 
 | 要素 | 内容 |
 |---|---|
-| ツリー | tasksの親子/依存を折りたたみ表示 |
+| テーブル | runsの一覧を表示し、status/reasonでトリアージできる |
 | タイムライン | runsの開始/終了から実行時間を可視化 |
 | ステータス | task.status（観測事実から導出）を色で表現 |
 | 詳細パネル | 選択task/runのfacts（diff/DoD/violations/log参照） |

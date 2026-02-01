@@ -106,16 +106,30 @@ Project選択後は常にサイドナビを表示する。
 
 ### Task Monitor（S001）
 
-Jaeger UI風に「ツリー + タイムライン + 詳細」を同時に表示する。
+Chrome DevToolsのNetwork風に「Run一覧テーブル + ウォーターフォール + 詳細」を同時に表示する。
+Monitorは「今起きていること」と「次に人間が介入すべきこと」を最短で判断できる画面である。
 
 | 領域 | 表示 |
 |------|------|
-| ツリー | 親子タスク、task.status、reason codes |
-| タイムライン | runsの開始/終了/実行時間 |
-| 詳細パネル | 選択task/runのfacts（logs/checks/violations/git/worktree） |
+| テーブル | Run一覧（status/task/reasons/agent_profile/started/duration/dod/violations/head_sha/worktree_dirty） |
+| ウォーターフォール | runの開始/終了/実行時間（右端で視覚化） |
+| 詳細パネル | 選択runのfacts（logs/checks/violations/git/worktree） |
+
+注:
+- Taskはツリー表示を必須にしない。必要な場合は「Group by task」を提供する（任意）。
+
+#### フィルタ（MVP）
+
+| 種別 | 例 |
+|------|---|
+| status | running / failed / completed |
+| reason codes | needs_review理由、dod_failed 等 |
+| task | task_id、title検索 |
+| agent_profile | name |
 
 | 操作 | 条件/挙動 |
 |------|-----------|
+| Task作成 | title/write_scopeが必須。依存は任意。作成後にstart runできる |
 | start run | write_scope未設定は不可（設定導線を出す）。Agent Profileを選択する |
 | stop | runningなrunに対してのみ表示する |
 | retry | 対象Taskに新runを追加する（追加入力なし） |
