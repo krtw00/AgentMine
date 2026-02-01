@@ -1,0 +1,579 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AgentMine UI Prototype - Monitor (Run list)</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <div class="app">
+      <div class="topbar">
+        <div class="brand">AgentMine</div>
+        <div class="pill"><span class="muted">Project</span> <strong>AgentMine</strong></div>
+        <div class="pill"><span class="muted">SSE</span> <strong id="sseState">connected</strong></div>
+        <div class="spacer"></div>
+        <button class="btn" id="btnSettings">Settings</button>
+        <button class="btn" id="btnAgents">Agent Profiles</button>
+      </div>
+
+      <div class="main">
+        <div class="left">
+          <div class="section">
+            <h2>Monitor（Run一覧）</h2>
+            <div class="row">
+              <input
+                class="search"
+                id="search"
+                placeholder="検索: task / run / reason / agent_profile"
+                autocomplete="off"
+              />
+              <label class="toggle">
+                <input type="checkbox" id="groupByTask" checked />
+                Group by task（既定）
+              </label>
+              <button class="btn primary" id="btnNewTask">+ Task</button>
+            </div>
+            <div class="row" style="margin-top: 8px">
+              <span class="pill"><span class="muted">Filter</span> <strong>running</strong></span>
+              <span class="pill"><span class="muted">Filter</span> <strong>needs_review</strong></span>
+              <span class="pill"><span class="muted">Filter</span> <strong>dod_failed</strong></span>
+              <span class="pill"><span class="muted">Hint</span> <strong>click row</strong></span>
+            </div>
+          </div>
+
+          <div class="tableWrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 100px">Status</th>
+                  <th style="width: 260px">Task</th>
+                  <th style="width: 260px">Reasons</th>
+                  <th style="width: 160px">Agent</th>
+                  <th style="width: 110px">Started</th>
+                  <th style="width: 90px">Duration</th>
+                  <th style="width: 90px">DoD</th>
+                  <th style="width: 90px">Violations</th>
+                  <th class="waterfall">Waterfall</th>
+                </tr>
+              </thead>
+              <tbody id="rows"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="right">
+          <div class="section">
+            <h2>Details</h2>
+            <div class="row">
+              <span class="pill"><span class="muted">Selected</span> <strong id="selLabel">none</strong></span>
+              <span class="pill"
+                ><span class="muted">head_sha</span> <strong class="mono" id="selSha">-</strong></span
+              >
+            </div>
+          </div>
+
+          <div class="tabs" id="tabs"></div>
+          <div class="panel" id="panel"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Task drawer -->
+    <div class="drawerBackdrop" id="drawerBackdrop"></div>
+    <div class="drawer" id="drawer">
+      <div class="drawerHeader">
+        <div class="drawerTitle">Create Task</div>
+        <div class="spacer"></div>
+        <button class="btn" id="btnCloseDrawer">Close</button>
+      </div>
+      <div class="drawerBody">
+        <div class="field">
+          <label class="label">Title（必須）</label>
+          <input class="input" value="Implement Monitor UI" />
+        </div>
+        <div class="field">
+          <label class="label">Description</label>
+          <textarea class="textarea">MonitorをRun一覧（Network風）で実装する。</textarea>
+        </div>
+
+        <div class="field">
+          <label class="label">write_scope（必須）</label>
+          <div class="seg" role="tablist" aria-label="write_scope input modes">
+            <button class="active" data-mode="A" type="button">A: glob</button>
+            <button data-mode="B" type="button">B: tree</button>
+            <button data-mode="C" type="button">C: both</button>
+          </div>
+          <div class="hint">
+            ここは未確定。A/B/Cを見比べて決めるためのプロトタイプである。
+          </div>
+        </div>
+
+        <div id="modeA" class="field">
+          <label class="label">Glob（改行区切り）</label>
+          <textarea class="textarea mono" id="globInput">apps/web/**
+packages/**
+docs/**</textarea>
+          <div class="hint">最短で実装できる。入力ミスは起きやすい。</div>
+        </div>
+
+        <div id="modeB" class="field" style="display: none">
+          <label class="label">Tree selection（例）</label>
+          <div class="tree" id="tree">
+            <ul>
+              <li>
+                <label><input type="checkbox" data-glob="apps/web/**" checked /> apps/web/</label>
+              </li>
+              <li>
+                <label><input type="checkbox" data-glob="apps/daemon/**" /> apps/daemon/</label>
+              </li>
+              <li>
+                <label><input type="checkbox" data-glob="packages/**" checked /> packages/</label>
+                <ul>
+                  <li>
+                    <label><input type="checkbox" data-glob="packages/core/**" /> packages/core/</label>
+                  </li>
+                  <li>
+                    <label><input type="checkbox" data-glob="packages/ui/**" /> packages/ui/</label>
+                  </li>
+                </ul>
+              </li>
+              <li>
+                <label><input type="checkbox" data-glob="docs/**" checked /> docs/</label>
+              </li>
+            </ul>
+          </div>
+          <div class="hint">視覚的で安全。ファイルツリーの取得と表現が必要。</div>
+        </div>
+
+        <div id="modeC" class="field" style="display: none">
+          <label class="label">Tree + Glob（例）</label>
+          <div class="hint">Treeで大枠を決め、細部はglobで足す方式。</div>
+          <div class="tree" style="margin-top: 8px" id="tree2">
+            <ul>
+              <li>
+                <label><input type="checkbox" data-glob="apps/web/**" checked /> apps/web/</label>
+              </li>
+              <li>
+                <label><input type="checkbox" data-glob="packages/**" checked /> packages/</label>
+              </li>
+            </ul>
+          </div>
+          <div style="height: 10px"></div>
+          <textarea class="textarea mono" id="globExtra">packages/core/**</textarea>
+        </div>
+
+        <div class="field">
+          <label class="label">プレビュー（最終write_scope）</label>
+          <div class="chips" id="scopePreview"></div>
+          <div class="hint">
+            実装では、この結果をTask.write_scopeとして保存する。run開始時はscope_snapshotに固定される。
+          </div>
+        </div>
+      </div>
+      <div class="drawerFooter">
+        <button class="btn">Cancel</button>
+        <button class="btn primary">Create</button>
+      </div>
+    </div>
+
+    <script>
+      const data = [
+        {
+          taskId: 12,
+          taskTitle: "Monitor UI (Run-first)",
+          runs: [
+            {
+              runId: 41,
+              status: "running",
+              reasons: ["merge_pending"],
+              agent: "coder",
+              started: "12:41",
+              durationSec: 132,
+              dod: "pending",
+              violations: 0,
+              headSha: "3f09a1b",
+            },
+            {
+              runId: 40,
+              status: "failed",
+              reasons: ["dod_failed"],
+              agent: "coder",
+              started: "12:10",
+              durationSec: 488,
+              dod: "failed",
+              violations: 0,
+              headSha: "1e2c9d4",
+            },
+          ],
+        },
+        {
+          taskId: 13,
+          taskTitle: "Fix scope violation handling",
+          runs: [
+            {
+              runId: 39,
+              status: "completed",
+              reasons: ["scope_violation_pending"],
+              agent: "generalist",
+              started: "11:22",
+              durationSec: 301,
+              dod: "passed",
+              violations: 2,
+              headSha: "9ad0b2c",
+            },
+          ],
+        },
+        {
+          taskId: 14,
+          taskTitle: "Define DoD checks",
+          runs: [],
+        },
+      ];
+
+      const elRows = document.getElementById("rows");
+      const elGroupBy = document.getElementById("groupByTask");
+      const elSearch = document.getElementById("search");
+
+      const maxDuration = Math.max(
+        ...data.flatMap((t) => t.runs.map((r) => r.durationSec)),
+        1
+      );
+
+      function badgeStatus(status) {
+        if (status === "running") return '<span class="badge warn">running</span>';
+        if (status === "failed") return '<span class="badge danger">failed</span>';
+        if (status === "completed") return '<span class="badge ok">completed</span>';
+        return `<span class="badge">${status}</span>`;
+      }
+
+      function badgeDoD(dod) {
+        if (dod === "passed") return '<span class="badge ok">passed</span>';
+        if (dod === "failed") return '<span class="badge danger">failed</span>';
+        return '<span class="badge warn">pending</span>';
+      }
+
+      function render() {
+        const q = elSearch.value.trim().toLowerCase();
+        const group = elGroupBy.checked;
+        elRows.innerHTML = "";
+
+        const flat = [];
+        for (const t of data) {
+          if (t.runs.length === 0) {
+            flat.push({
+              kind: "task",
+              task: t,
+            });
+            continue;
+          }
+          for (const r of t.runs) {
+            flat.push({
+              kind: "run",
+              task: t,
+              run: r,
+            });
+          }
+        }
+
+        const matches = (text) => text.toLowerCase().includes(q);
+        const runMatches = (t, r) => {
+          if (!q) return true;
+          return (
+            matches(t.taskTitle) ||
+            matches(String(t.taskId)) ||
+            matches(String(r.runId)) ||
+            matches(r.status) ||
+            matches(r.agent) ||
+            r.reasons.some((x) => matches(x)) ||
+            matches(r.dod) ||
+            matches(r.headSha)
+          );
+        };
+
+        if (group) {
+          for (const t of data) {
+            const visibleRuns = t.runs.filter((r) => runMatches(t, r));
+            const showTaskRow = !q ? true : visibleRuns.length > 0 || matches(t.taskTitle) || matches(String(t.taskId));
+            if (!showTaskRow) continue;
+
+            const trG = document.createElement("tr");
+            trG.className = "groupRow";
+            trG.innerHTML = `<td colspan="9">Task #${t.taskId}: ${t.taskTitle} <span class="muted">(${t.runs.length} runs)</span></td>`;
+            elRows.appendChild(trG);
+
+            if (t.runs.length === 0) {
+              const tr = document.createElement("tr");
+              tr.innerHTML = `
+                <td class="muted">-</td>
+                <td class="muted">(no runs)</td>
+                <td class="muted">open</td>
+                <td class="muted">-</td>
+                <td class="muted">-</td>
+                <td class="muted">-</td>
+                <td class="muted">pending</td>
+                <td class="muted">0</td>
+                <td class="waterfall"><div class="bar"><span style="width:0%"></span></div></td>
+              `;
+              elRows.appendChild(tr);
+              continue;
+            }
+
+            for (const r of visibleRuns) {
+              elRows.appendChild(runRow(t, r));
+            }
+          }
+          return;
+        }
+
+        for (const item of flat) {
+          if (item.kind === "task") {
+            if (q && !matches(item.task.taskTitle) && !matches(String(item.task.taskId))) continue;
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+              <td class="muted">-</td>
+              <td>Task #${item.task.taskId}: ${item.task.taskTitle}</td>
+              <td class="muted">open</td>
+              <td class="muted">-</td>
+              <td class="muted">-</td>
+              <td class="muted">-</td>
+              <td class="muted">pending</td>
+              <td class="muted">0</td>
+              <td class="waterfall"><div class="bar"><span style="width:0%"></span></div></td>
+            `;
+            elRows.appendChild(tr);
+            continue;
+          }
+          if (!runMatches(item.task, item.run)) continue;
+          elRows.appendChild(runRow(item.task, item.run));
+        }
+      }
+
+      function runRow(task, run) {
+        const tr = document.createElement("tr");
+        tr.dataset.kind = "run";
+        tr.dataset.runId = String(run.runId);
+        tr.dataset.taskId = String(task.taskId);
+        tr.innerHTML = `
+          <td>${badgeStatus(run.status)}</td>
+          <td>Task #${task.taskId}: ${task.taskTitle} <span class="muted">/ Run #${run.runId}</span></td>
+          <td>${run.reasons.map((x) => `<span class="chip">${x}</span>`).join(" ")}</td>
+          <td><span class="chip">${run.agent}</span></td>
+          <td class="muted">${run.started}</td>
+          <td class="mono">${run.durationSec}s</td>
+          <td>${badgeDoD(run.dod)}</td>
+          <td class="mono">${run.violations}</td>
+          <td class="waterfall">
+            <div class="bar"><span style="width:${Math.max(4, Math.round((run.durationSec / maxDuration) * 100))}%"></span></div>
+          </td>
+        `;
+
+        tr.addEventListener("click", () => selectRun(task, run, tr));
+        return tr;
+      }
+
+      const tabs = [
+        { id: "Output", label: "Output" },
+        { id: "Meta", label: "Meta" },
+        { id: "Timing", label: "Timing" },
+        { id: "Checks", label: "Checks" },
+        { id: "Violations", label: "Violations" },
+        { id: "Git", label: "Git/Worktree" },
+      ];
+
+      const elTabs = document.getElementById("tabs");
+      const elPanel = document.getElementById("panel");
+      const elSel = document.getElementById("selLabel");
+      const elSha = document.getElementById("selSha");
+      let selected = null;
+      let activeTab = "Output";
+
+      function renderTabs() {
+        elTabs.innerHTML = "";
+        for (const t of tabs) {
+          const div = document.createElement("div");
+          div.className = "tab" + (t.id === activeTab ? " active" : "");
+          div.textContent = t.label;
+          div.addEventListener("click", () => {
+            activeTab = t.id;
+            renderTabs();
+            renderPanel();
+          });
+          elTabs.appendChild(div);
+        }
+      }
+
+      function renderPanel() {
+        if (!selected) {
+          elPanel.innerHTML = `<div class="muted">行を選択すると詳細が表示される。</div>`;
+          return;
+        }
+        const { task, run } = selected;
+        if (activeTab === "Meta") {
+          elPanel.innerHTML = `
+            <div class="kv">
+              <div>task_id</div><div class="mono">${task.taskId}</div>
+              <div>run_id</div><div class="mono">${run.runId}</div>
+              <div>agent_profile</div><div>${run.agent}</div>
+              <div>prompt</div><div class="mono">[prompt saved to run meta]</div>
+              <div>scope_snapshot</div><div class="mono">write_scope + defaultExclude</div>
+            </div>
+          `;
+          return;
+        }
+        if (activeTab === "Timing") {
+          elPanel.innerHTML = `
+            <div class="kv">
+              <div>scope_apply</div><div class="mono">120ms</div>
+              <div>runner_exec</div><div class="mono">${Math.max(1, run.durationSec - 2)}s</div>
+              <div>post_check</div><div class="mono">1.2s</div>
+              <div>dod_checks</div><div class="mono">3.8s</div>
+            </div>
+          `;
+          return;
+        }
+        if (activeTab === "Checks") {
+          elPanel.innerHTML = `
+            <div class="kv">
+              <div>dod.status</div><div>${badgeDoD(run.dod)}</div>
+              <div>checks</div><div class="mono">lint: passed / test: pending</div>
+              <div>output_ref</div><div class="mono">checks/run-${run.runId}/lint.log</div>
+            </div>
+          `;
+          return;
+        }
+        if (activeTab === "Violations") {
+          elPanel.innerHTML = `
+            <div class="kv">
+              <div>count</div><div class="mono">${run.violations}</div>
+              <div>pending</div><div class="mono">${run.violations > 0 ? "2" : "0"}</div>
+              <div>action</div><div><button class="btn">approve</button> <button class="btn">reject</button></div>
+            </div>
+          `;
+          return;
+        }
+        if (activeTab === "Git") {
+          elPanel.innerHTML = `
+            <div class="kv">
+              <div>head_sha</div><div class="mono">${run.headSha}</div>
+              <div>worktree_dirty</div><div class="mono">${run.status === "running" ? "unknown" : "false"}</div>
+              <div>branch</div><div class="mono">agentmine/task-${task.taskId}</div>
+              <div>worktree_path</div><div class="mono">~/.agentmine/worktrees/{project_id}/task-${task.taskId}/</div>
+            </div>
+          `;
+          return;
+        }
+
+        // Output (default)
+        elPanel.innerHTML = `
+          <div class="log">
+[stdout] running step: analyze…\n
+[stdout] changed files: docs/03-details/ui-mvp.md\n
+[meta] prompt saved\n
+[stderr] (none)\n
+          </div>
+        `;
+      }
+
+      function clearSelection() {
+        for (const tr of document.querySelectorAll('tbody tr[data-kind="run"]')) {
+          tr.classList.remove("selected");
+        }
+      }
+
+      function selectRun(task, run, tr) {
+        clearSelection();
+        tr.classList.add("selected");
+        selected = { task, run };
+        elSel.textContent = `Task #${task.taskId} / Run #${run.runId}`;
+        elSha.textContent = run.headSha;
+        renderPanel();
+      }
+
+      renderTabs();
+      renderPanel();
+      render();
+      elGroupBy.addEventListener("change", render);
+      elSearch.addEventListener("input", render);
+
+      // Drawer
+      const drawer = document.getElementById("drawer");
+      const drawerBackdrop = document.getElementById("drawerBackdrop");
+      const btnNewTask = document.getElementById("btnNewTask");
+      const btnCloseDrawer = document.getElementById("btnCloseDrawer");
+
+      function openDrawer() {
+        drawerBackdrop.classList.add("open");
+        drawer.classList.add("open");
+        updateScopePreview();
+      }
+      function closeDrawer() {
+        drawerBackdrop.classList.remove("open");
+        drawer.classList.remove("open");
+      }
+
+      btnNewTask.addEventListener("click", openDrawer);
+      btnCloseDrawer.addEventListener("click", closeDrawer);
+      drawerBackdrop.addEventListener("click", closeDrawer);
+
+      // write_scope modes
+      const segButtons = Array.from(document.querySelectorAll(".seg button"));
+      const modeA = document.getElementById("modeA");
+      const modeB = document.getElementById("modeB");
+      const modeC = document.getElementById("modeC");
+
+      let mode = "A";
+      for (const b of segButtons) {
+        b.addEventListener("click", () => {
+          mode = b.dataset.mode;
+          for (const x of segButtons) x.classList.toggle("active", x.dataset.mode === mode);
+          modeA.style.display = mode === "A" ? "block" : "none";
+          modeB.style.display = mode === "B" ? "block" : "none";
+          modeC.style.display = mode === "C" ? "block" : "none";
+          updateScopePreview();
+        });
+      }
+
+      const globInput = document.getElementById("globInput");
+      const globExtra = document.getElementById("globExtra");
+      const scopePreview = document.getElementById("scopePreview");
+
+      function readGlobLines(textarea) {
+        return textarea
+          .value.split("\n")
+          .map((x) => x.trim())
+          .filter((x) => x.length > 0);
+      }
+
+      function readTreeGlobs(rootId) {
+        const root = document.getElementById(rootId);
+        if (!root) return [];
+        const checked = Array.from(root.querySelectorAll('input[type="checkbox"]:checked'));
+        return checked.map((x) => x.dataset.glob).filter(Boolean);
+      }
+
+      function updateScopePreview() {
+        let scopes = [];
+        if (mode === "A") scopes = readGlobLines(globInput);
+        if (mode === "B") scopes = readTreeGlobs("tree");
+        if (mode === "C") scopes = [...readTreeGlobs("tree2"), ...readGlobLines(globExtra)];
+        scopes = Array.from(new Set(scopes));
+
+        scopePreview.innerHTML = scopes.map((s) => `<span class="chip">${escapeHtml(s)}</span>`).join("");
+      }
+
+      function escapeHtml(s) {
+        return s.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+      }
+
+      globInput.addEventListener("input", updateScopePreview);
+      globExtra.addEventListener("input", updateScopePreview);
+      for (const id of ["tree", "tree2"]) {
+        const root = document.getElementById(id);
+        if (!root) continue;
+        root.addEventListener("change", updateScopePreview);
+      }
+    </script>
+  </body>
+</html>
+
