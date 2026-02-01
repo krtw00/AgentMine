@@ -116,7 +116,8 @@ Monitorは「今起きていること」と「次に人間が介入すべきこ�
 | 詳細パネル | 選択runのfacts（logs/checks/violations/git/worktree） |
 
 注:
-- Taskはツリー表示を必須にしない。必要な場合は「Group by task」を提供する（任意）。
+- Taskはツリー表示を必須にしない。MVPでは「Group by task」をデフォルトONとする。
+- フラットなRun一覧に切り替えるトグルを提供する（任意）。
 
 #### フィルタ（MVP）
 

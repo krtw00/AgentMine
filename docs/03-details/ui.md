@@ -80,6 +80,7 @@ flowchart TB
 ## Task Monitor（S001）
 
 中心画面。MVPではChrome DevToolsのNetwork風に **Run一覧テーブル** と **ウォーターフォール** を並べる（→UI仕様）。
+既定表示は「Group by task」である（task単位にrunを束ねて表示する）。
 
 | 要素 | 内容 |
 |---|---|
