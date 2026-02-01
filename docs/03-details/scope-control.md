@@ -104,12 +104,9 @@ flowchart LR
 | 自動マージ | ブロック（手動/上位AIの判断が必要） |
 | 承認/却下 | **Humanのみ**がdecisionとして記録し、追跡可能にする |
 
-未確定:
-- 承認後に `done` 判定へ進めるか（推奨: 承認=「違反は受容」扱い）
-- 違反の重大度（warning/error）を導入するか
-
 決定:
-- 承認（approved）は「違反を受容した」扱いとし、以降の done 判定（merge+DoD）を妨げない。
+- 承認（approved）は「違反を受容した」扱いとする。done判定（merge+DoD）を妨げない。
+- MVPでは違反の重大度（warning/error）を導入しない。
 
 ---
 

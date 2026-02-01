@@ -57,6 +57,7 @@ erDiagram
         exit_code number
         branch_name string
         worktree_path string
+        log_ref string
         scope_snapshot json
     }
 
@@ -173,6 +174,7 @@ runは「タスクに対する1回の実行」である。continue/retryはrun�
 | exit_code | - | 終了コード |
 | branch_name | ○ | タスク作業ブランチ |
 | worktree_path | ○ | 実行worktree |
+| log_ref | - | runログ参照（→ログ保存） |
 | scope_snapshot | ○ | 実行時の有効スコープ（再現性のため） |
 
 ### checks

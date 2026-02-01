@@ -2,6 +2,7 @@
 depends_on:
   - ../02-architecture/structure.md
   - ./data-model.md
+  - ./event-stream.md
 tags: [details, api, endpoints, rest]
 ai_summary: "APIの対象リソースと認証方針（詳細は今後定義）"
 ---
@@ -24,6 +25,31 @@ ai_summary: "APIの対象リソースと認証方針（詳細は今後定義）"
 | ベースURL | `http://127.0.0.1:{port}`（MVP） |
 | 認証方式 | なし（MVP: ローカル一人運用） |
 | レスポンス形式 | JSON |
+
+---
+
+## イベント配信
+
+イベント配信はSSEで行う。
+詳細は[イベント配信](./event-stream.md)（SSEとイベント種別）を参照。
+
+---
+
+## MVPの必須エンドポイント（概要）
+
+| 種別 | 例 | 目的 |
+|------|---|------|
+| Project | `POST /api/projects` | repo登録 |
+| Task | `POST /api/tasks` | タスク作成 |
+| Run | `POST /api/runs` | run開始 |
+| Run | `POST /api/runs/{id}/stop` | stop |
+| Run | `POST /api/runs/{id}/retry` | retry |
+| Run | `POST /api/runs/{id}/continue` | continue |
+| Logs | `GET /api/runs/{id}/log` | runログ取得 |
+| Events | `GET /api/events` | イベント配信 |
+
+注:
+- ルーティングとパラメータ形式は実装に委ねる。
 
 ---
 
@@ -75,3 +101,4 @@ ai_summary: "APIの対象リソースと認証方針（詳細は今後定義）"
 
 - [data-model.md](./data-model.md) - データモデル
 - [flows.md](./flows.md) - 主要フロー
+- [event-stream.md](./event-stream.md) - イベント配信

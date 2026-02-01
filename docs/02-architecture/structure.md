@@ -131,4 +131,8 @@ project/
 - [システム境界・外部連携](./context.md) - C4 Context図と外部システム定義
 - [技術スタック](./tech-stack.md) - 技術選定と選定理由
 - [データモデル](../03-details/data-model.md) - エンティティ定義とER図
+- [Local Daemon（起動・停止）](../03-details/daemon.md) - Daemonのライフサイクル
+- [イベント配信](../03-details/event-stream.md) - Web UIへのイベント配信
+- [RunnerAdapter](../03-details/runner-adapter.md) - runner差の吸収
+- [ログ保存](../03-details/log-storage.md) - ログの保存方式
 - [主要フロー](../03-details/flows.md) - 業務フローのシーケンス図

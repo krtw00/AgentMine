@@ -60,6 +60,10 @@ ai_summary: "ドメイン用語・技術用語・システム固有用語の定�
 | 観測可能な事実 | AIの主観ではなく事実で状態を判定する原則 | principles.md |
 | スコープ制御 | 物理的制約でアクセス範囲を限定する仕組み | principles.md |
 | scope snapshot | run開始時点の有効スコープを保存したもの | data-model.md |
+| Runner | AIを実行する手段（CLI/API等）の総称 | runner-adapter.md |
+| RunnerAdapter | runner差を吸収するアダプタ | runner-adapter.md |
+| log_ref | runログの参照文字列 | log-storage.md |
+| output_ref | checkログの参照文字列 | log-storage.md |
 | Worker | 隔離worktreeで実装するAI | structure.md |
 | Planner/Scheduler | タスク分解と依存・割当を設計する役割 | flows.md |
 | Reviewer | DoD検証を担うAI | flows.md |

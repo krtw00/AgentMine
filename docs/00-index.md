@@ -66,6 +66,10 @@ flowchart LR
 | [data-model.md](./03-details/data-model.md) | データモデル・ER図 |
 | [observable-facts.md](./03-details/observable-facts.md) | 観測可能な事実（状態の自動判定ルール） |
 | [scope-control.md](./03-details/scope-control.md) | スコープ制御（worktree隔離と物理制約） |
+| [daemon.md](./03-details/daemon.md) | Local Daemon（起動・停止） |
+| [event-stream.md](./03-details/event-stream.md) | イベント配信（SSE） |
+| [runner-adapter.md](./03-details/runner-adapter.md) | RunnerAdapter（claude/codex差の吸収） |
+| [log-storage.md](./03-details/log-storage.md) | ログ保存（参照と保持） |
 | [api.md](./03-details/api.md) | API設計（Web UI/Daemon） |
 | [ui.md](./03-details/ui.md) | UI設計（監視・介入） |
 | [flows.md](./03-details/flows.md) | 主要フロー・シーケンス |
@@ -80,6 +84,10 @@ flowchart LR
 | [0004-agentmine-home-dir.md](./04-decisions/0004-agentmine-home-dir.md) | AgentMine Home（`~/.agentmine`） |
 | [0005-continue-adds-new-run.md](./04-decisions/0005-continue-adds-new-run.md) | continue/retryは新run |
 | [0006-task-write-scope-required.md](./04-decisions/0006-task-write-scope-required.md) | write_scope必須 + scope snapshot |
+| [0007-event-stream-uses-sse.md](./04-decisions/0007-event-stream-uses-sse.md) | イベント配信はSSE |
+| [0008-log-storage-as-files.md](./04-decisions/0008-log-storage-as-files.md) | ログはファイル保存 |
+| [0009-runner-adapter-interface.md](./04-decisions/0009-runner-adapter-interface.md) | RunnerAdapter導入 |
+| [0010-daemon-single-instance-and-localhost.md](./04-decisions/0010-daemon-single-instance-and-localhost.md) | localhost単一インスタンス |
 
 ### 99 - Appendix（付録）
 
