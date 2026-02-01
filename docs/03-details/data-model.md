@@ -58,6 +58,7 @@ erDiagram
         branch_name string
         worktree_path string
         head_sha string
+        worktree_dirty bool
         log_ref string
         scope_snapshot json
     }
@@ -186,6 +187,7 @@ runは「タスクに対する1回の実行」である。continue/retryはrun�
 | branch_name | ○ | タスク作業ブランチ |
 | worktree_path | ○ | 実行worktree |
 | head_sha | - | run終了時点のHEADコミット（監査とdone判定補助） |
+| worktree_dirty | - | run終了時点で未コミット変更があるか |
 | log_ref | - | runログ参照（→ログ保存） |
 | scope_snapshot | ○ | 実行時の有効スコープ（再現性のため） |
 

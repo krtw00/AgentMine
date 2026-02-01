@@ -113,7 +113,7 @@ DoDは「チェックの集合」として扱い、集計結果を task 判定�
 |------|------|
 | latest_run | `started_at` が最大のrun |
 | latest_run_dod | latest_run のchecksを集計したDoD状態 |
-| merged_passed_run_exists | baseブランチが `head_sha` を含み、DoDがpassedのrunが存在する |
+| merged_passed_run_exists | baseブランチが `head_sha` を含み、DoDがpassedで、かつ`worktree_dirty = false`のrunが存在する |
 
 | 優先順位 | 条件 | task.status |
 |---:|---|---|
