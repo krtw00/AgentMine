@@ -53,6 +53,47 @@ RunnerAdapterは以下の操作を提供する。
 
 ---
 
+## capabilitiesの意図
+
+RunnerAdapterのcapabilitiesは「このrunnerで何ができるか」を機械可読に返すための情報である。
+runner固有の機能差をUI/Daemonに直接持ち込まず、差分はcapabilitiesで吸収する。
+
+capabilitiesの主な用途は以下である。
+
+| 用途 | 目的 |
+|------|------|
+| UIの機能出し分け | 対応していない入力項目（例: model）を選べないようにする |
+| 実行前バリデーション | 対応していない要求をrun開始前に拒否し、失敗理由を明確化する |
+
+---
+
+## capabilitiesの最小フィールド（MVP）
+
+MVPで扱うcapabilitiesは最小限とし、runner差がある項目のみを露出する。
+
+| フィールド | 型 | 意味 |
+|-----------|----|------|
+| supports_model | boolean | `model` を指定できるか |
+| supports_non_interactive | boolean | 非対話実行が成立するか（自動承認等） |
+| supports_prompt_file_inclusion | boolean | ファイル内容の埋め込み（添付）ができるか |
+
+注:
+- `supports_prompt_file_inclusion` は将来拡張のためのフィールドである。MVPでは使用しない（→プロンプト組み立て）。
+
+---
+
+## バリデーション方針（MVP）
+
+run開始時、DaemonはAgent Profile/入力とcapabilitiesの整合を検証する。
+未対応の要求がある場合は、run開始前にエラーとして返す。
+
+| 例 | 未対応capability | 挙動 |
+|----|------------------|------|
+| model指定あり | supports_model = false | 失敗（入力不正） |
+| 非対話不可 | supports_non_interactive = false | 失敗（実行不可） |
+
+---
+
 ## startの入力
 
 | 項目 | 必須 | 説明 |

@@ -141,7 +141,7 @@ stdout/stderrとは別に、metaは「実行の前提情報」を追跡する用
 
 | 追加候補 | 意味 |
 |---------|------|
-| ファイル内容の部分埋め込み | RunnerAdapterのcapabilityで対応する |
+| ファイル内容の部分埋め込み | `supports_prompt_file_inclusion` がtrueのrunnerに限り対応する |
 | promptの差分表示 | metaログ間のdiffとして実現する |
 | 役割別の厳密テンプレート管理 | Agent Profileのバージョニングで扱う |
 
