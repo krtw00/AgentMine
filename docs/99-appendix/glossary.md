@@ -42,9 +42,13 @@ ai_summary: "ドメイン用語・技術用語・システム固有用語の定�
 |------|----------|------|
 | ADR | Architecture Decision Record | 重要な設計判断と理由を記録する文書 |
 | API | Application Programming Interface | アプリケーション間のインターフェース |
+| Authentication | Authentication | 利用者を識別する仕組み（MVPでは対象外） |
+| Authorization | Authorization | 利用者が実行できる操作を制御する仕組み |
 | C4 | C4 Model | ソフトウェア構造を表現する図法 |
 | DoD | Definition of Done | 完了条件の検証基準 |
 | MCP | Model Context Protocol | AIクライアント向けツール連携規格 |
+| NFR | Non-Functional Requirements | 非機能要件（性能/信頼性/運用性等） |
+| SSoT | Single Source of Truth | 正しい情報源を1つに定める設計原則 |
 | Worktree | Git Worktree | 同一リポジトリの隔離作業領域 |
 | SSE | Server-Sent Events | サーバ→クライアントの単方向イベント配信 |
 

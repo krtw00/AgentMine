@@ -69,8 +69,11 @@ AgentMine Home配下に保存する。
 | フィールド | 説明 |
 |-----------|------|
 | timestamp | 出力時刻 |
-| stream | stdout / stderr |
-| data | 出力テキスト |
+| stream | stdout / stderr / meta |
+| data | 出力テキストまたはメタ情報 |
+
+注:
+- `meta` はrun開始時のprompt等、stdout/stderr以外の追跡情報に使用する。
 
 ---
 

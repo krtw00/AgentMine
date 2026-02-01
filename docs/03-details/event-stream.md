@@ -44,7 +44,7 @@ MVPではSSE（Server-Sent Events）を採用する。
 
 | event | 発生条件 | 主な用途 |
 |-------|----------|----------|
-| run.output | runnerのstdout/stderrに出力が出た | ログ表示 |
+| run.output | stdout/stderr/metaの出力が出た | ログ表示 |
 | run.status_changed | runの状態が変わった | 実行状態の反映 |
 | check.status_changed | checkの状態が変わった | DoD結果の反映 |
 | scope_violation.created | scope違反を検出した | 承認待ちの提示 |
@@ -70,7 +70,7 @@ MVPではSSE（Server-Sent Events）を採用する。
 | フィールド | 必須 | 説明 |
 |-----------|:---:|------|
 | run_id | ○ | 対象run |
-| stream | ○ | stdout / stderr |
+| stream | ○ | stdout / stderr / meta |
 | data | ○ | 出力テキスト |
 
 注:

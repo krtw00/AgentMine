@@ -2,6 +2,7 @@
 depends_on:
   - ../02-architecture/structure.md
   - ../03-details/flows.md
+  - ../03-details/log-storage.md
   - ../04-decisions/0005-continue-adds-new-run.md
   - ../04-decisions/0009-runner-adapter-interface.md
 tags: [details, runner, adapter, execution]
@@ -61,6 +62,9 @@ RunnerAdapterは以下の操作を提供する。
 | env | - | runnerに渡す環境変数 |
 | model | - | runnerに渡すモデル名（runnerが対応する場合のみ） |
 
+注:
+- 監査と再現性のため、Daemonはstart直前にpromptをrunログの`meta`として記録する（→ログ保存）。
+
 ---
 
 ## 出力と観測可能な事実
@@ -95,5 +99,6 @@ RunnerAdapterが生成する主要な事実は以下である。
 
 - [主要フロー](./flows.md) - run開始とstop/retry/continue
 - [主要コンポーネント構成](../02-architecture/structure.md) - Runner Manager
+- [ログ保存](./log-storage.md) - promptと出力の追跡
 - [ADR-0005](../04-decisions/0005-continue-adds-new-run.md) - continue/retryは新run
 - [ADR-0009](../04-decisions/0009-runner-adapter-interface.md) - RunnerAdapter I/F

@@ -49,6 +49,7 @@ flowchart LR
 | [summary.md](./01-overview/summary.md) | プロジェクト概要（1枚で全体把握） |
 | [goals.md](./01-overview/goals.md) | 目的・解決する課題 |
 | [scope.md](./01-overview/scope.md) | スコープ・対象外 |
+| [requirements.md](./01-overview/requirements.md) | 機能要件（MVP） |
 
 ### 02 - Architecture（設計）
 
@@ -58,6 +59,7 @@ flowchart LR
 | [context.md](./02-architecture/context.md) | システム境界・外部連携 |
 | [structure.md](./02-architecture/structure.md) | 主要コンポーネント構成 |
 | [tech-stack.md](./02-architecture/tech-stack.md) | 技術スタック |
+| [non-functional.md](./02-architecture/non-functional.md) | 非機能要件（MVP） |
 
 ### 03 - Details（詳細）
 
@@ -65,6 +67,7 @@ flowchart LR
 |--------------|------|
 | [data-model.md](./03-details/data-model.md) | データモデル・ER図 |
 | [observable-facts.md](./03-details/observable-facts.md) | 観測可能な事実（状態の自動判定ルール） |
+| [business-rules.md](./03-details/business-rules.md) | 業務ルール（不変条件/同時実行制約） |
 | [scope-control.md](./03-details/scope-control.md) | スコープ制御（worktree隔離と物理制約） |
 | [daemon.md](./03-details/daemon.md) | Local Daemon（起動・停止） |
 | [event-stream.md](./03-details/event-stream.md) | イベント配信（SSE） |
@@ -73,6 +76,7 @@ flowchart LR
 | [api.md](./03-details/api.md) | API設計（Web UI/Daemon） |
 | [ui.md](./03-details/ui.md) | UI設計（監視・介入） |
 | [flows.md](./03-details/flows.md) | 主要フロー・シーケンス |
+| [authorization.md](./03-details/authorization.md) | 認証・認可（MVP） |
 
 ### 04 - Decisions（決定記録）
 
