@@ -44,6 +44,20 @@ Agent Profileは役割モデル上の「Worker/Planner/Reviewer等」に対応�
 
 ---
 
+## RunnerAdapter capabilitiesとの関係
+
+Agent Profileはrunnerを選択するため、RunnerAdapterのcapabilitiesと整合する必要がある。
+
+| Agent Profileの要素 | 関連capability | 方針 |
+|---------------------|----------------|------|
+| model | supports_model | falseの場合、modelは指定できない |
+| 実行方式 | supports_non_interactive | falseの場合、MVPの自動実行はできない |
+
+注:
+- UIはcapabilitiesに基づき入力を制限するが、最終判断はDaemonが行う（RunnerAdapterのバリデーション）。
+
+---
+
 ## 組み込みプロファイル（例）
 
 MVPではプロジェクト作成時に、最低限のプロファイルを用意できる。

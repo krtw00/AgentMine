@@ -67,6 +67,21 @@ capabilitiesの主な用途は以下である。
 
 ---
 
+## capabilitiesは「入力の許容範囲」である
+
+capabilitiesは、Agent Profileやrun開始入力が取りうる値の「許容範囲（制約）」である。
+
+| 概念 | 役割 | 例 |
+|------|------|----|
+| Agent Profile | 「こう実行したい」という希望 | modelを指定したい |
+| capabilities | 「それが実行手段として可能か」という制約 | supports_model=trueである |
+
+原則:
+- UIはcapabilitiesに基づき入力を制限する（選べない/表示しない）。
+- Daemonはcapabilitiesで最終バリデーションする（UIの制限を信用しない）。
+
+---
+
 ## capabilitiesの最小フィールド（MVP）
 
 MVPで扱うcapabilitiesは最小限とし、runner差がある項目のみを露出する。
@@ -82,6 +97,19 @@ MVPで扱うcapabilitiesは最小限とし、runner差がある項目のみを�
 
 ---
 
+## UIでの扱い（例）
+
+| 例 | UIの挙動 | 理由 |
+|----|----------|------|
+| supports_model=false | model入力を非表示/無効化する | 不正入力を事前に防ぐ |
+| supports_non_interactive=false | 「このrunnerは自動実行できない」を明示する | 実行方式の制約を可視化する |
+| supports_prompt_file_inclusion=false | ファイル“内容”の添付UIを出さない | runner依存の添付を前提にしない |
+
+注:
+- MVPでは、プロンプトはrunner固有の添付に依存せず「パス列挙」を基本とする（→プロンプト組み立て）。
+
+---
+
 ## バリデーション方針（MVP）
 
 run開始時、DaemonはAgent Profile/入力とcapabilitiesの整合を検証する。
@@ -91,6 +119,15 @@ run開始時、DaemonはAgent Profile/入力とcapabilitiesの整合を検証す
 |----|------------------|------|
 | model指定あり | supports_model = false | 失敗（入力不正） |
 | 非対話不可 | supports_non_interactive = false | 失敗（実行不可） |
+
+---
+
+## 将来拡張の方針
+
+capabilitiesは将来拡張する。拡張は原則として後方互換（フィールド追加）で行う。
+
+注:
+- 追加フィールドは「UI出し分け」または「実行前バリデーション」のどちらに使うかを明記する。
 
 ---
 

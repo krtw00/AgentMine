@@ -41,6 +41,7 @@ ai_summary: "APIの対象リソースと認証方針（詳細は今後定義）"
 |------|---|------|
 | Project | `POST /api/projects` | repo登録 |
 | Task | `POST /api/tasks` | タスク作成 |
+| Runner | `GET /api/runners` | 利用可能runnerとcapabilities取得 |
 | Run | `POST /api/runs` | run開始 |
 | Run | `POST /api/runs/{id}/stop` | stop |
 | Run | `POST /api/runs/{id}/retry` | retry |
@@ -60,6 +61,7 @@ ai_summary: "APIの対象リソースと認証方針（詳細は今後定義）"
 | projects | Project登録（Git repo） |
 | tasks | タスク/イシュー管理 |
 | task_dependencies | 依存関係管理 |
+| runners | 利用可能runnerとcapabilities（実行手段のカタログ） |
 | agent_profiles | 実行プロファイル（runner/model/prompt/デフォルト制約） |
 | runs | 実行run/ログ |
 | checks | DoD等の検証結果 |
