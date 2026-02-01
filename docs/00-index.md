@@ -81,7 +81,8 @@ flowchart LR
 | [settings.md](./03-details/settings.md) | Project設定（キー体系とスナップショット） |
 | [log-storage.md](./03-details/log-storage.md) | ログ保存（参照と保持） |
 | [api.md](./03-details/api.md) | API設計（Web UI/Daemon） |
-| [ui.md](./03-details/ui.md) | UI設計（監視・介入） |
+| [ui.md](./03-details/ui.md) | UI設計（概要） |
+| [ui-mvp.md](./03-details/ui-mvp.md) | UI仕様（MVP） |
 | [flows.md](./03-details/flows.md) | 主要フロー・シーケンス |
 | [authorization.md](./03-details/authorization.md) | 認証・認可（MVP） |
 

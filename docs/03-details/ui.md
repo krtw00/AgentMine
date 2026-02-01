@@ -16,6 +16,20 @@ ai_summary: "Task Monitor中心の監視・介入UI（ツリー+タイムライ�
 
 ---
 
+## 本ドキュメントの位置づけ
+
+UIに関しては、以下を役割分担とする。
+
+| ドキュメント | 位置づけ |
+|--------------|----------|
+| `ui.md` | 方向性と全体像（将来像を含む） |
+| `ui-mvp.md` | MVPで実装する具体仕様（実装の正） |
+
+注:
+- MVP実装は `ui-mvp.md` を正とする。
+
+---
+
 ## 目的
 
 - 人間がAIの実行状況を監視できること
@@ -29,12 +43,12 @@ ai_summary: "Task Monitor中心の監視・介入UI（ツリー+タイムライ�
 
 | 画面ID | 画面名 | 説明 | 状態 |
 |--------|--------|------|------|
-| S000 | Project Switcher | Project切替（グローバル） | 定義中 |
-| S001 | Task Monitor | 実行状況の監視（メイン） | 定義中 |
-| S002 | Task Queue | 待機中/依存関係/割り当て | 定義中 |
-| S003 | Runs | 実行履歴・ログ・検証結果 | 定義中 |
-| S004 | Agent Profiles | runner/model/prompt/デフォルト制約 | 定義中 |
-| S005 | Settings | プロジェクト設定 | 定義中 |
+| S000 | Project Switcher | Project切替（グローバル） | MVP定義済み（`ui-mvp.md`） |
+| S001 | Task Monitor | 実行状況の監視（メイン） | MVP定義済み（`ui-mvp.md`） |
+| S002 | Task Queue | 待機中/依存関係/割り当て | MVP対象外（将来） |
+| S003 | Runs | 実行履歴・ログ・検証結果 | MVP定義済み（`ui-mvp.md`） |
+| S004 | Agent Profiles | runner/model/prompt/デフォルト制約 | MVP定義済み（`ui-mvp.md`） |
+| S005 | Settings | プロジェクト設定 | MVP定義済み（`ui-mvp.md`） |
 
 ---
 
@@ -82,6 +96,7 @@ flowchart TB
 
 ## 関連ドキュメント
 
+- [ui-mvp.md](./ui-mvp.md) - MVP実装仕様（画面/操作/空状態）
 - [flows.md](./flows.md) - 主要フロー
 - [structure.md](../02-architecture/structure.md) - コンポーネント構成
 - [principles.md](../02-architecture/principles.md) - 設計原則
