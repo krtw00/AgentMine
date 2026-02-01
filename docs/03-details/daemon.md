@@ -67,6 +67,34 @@ Daemonは `127.0.0.1` にバインドする。
 
 ---
 
+## UI配信（MVP）
+
+MVPの運用モードでは、DaemonがWeb UIを配信する。
+Web UIとAPI/SSEは同一originで提供される。
+
+| 項目 | 方針 |
+|------|------|
+| 配信形態 | UIビルド成果物の静的配信である |
+| ルート | `/` でUIを返す |
+| API | `/api/*` を提供する |
+| Events | `/api/events`（SSE）を提供する |
+
+注:
+- UIはAPI/SSEを相対パス（`/api/...`）で参照する。UI側にDaemonのポート設定を持ち込まない。
+
+### 開発時の扱い（ハイブリッド）
+
+開発時はWeb UIを別ポートのdev serverで起動してよい。
+この場合、Web UIは `/api/*` と `/api/events` をDaemonへプロキシする。
+
+| 観点 | 方針 |
+|------|------|
+| 目的 | HMR等でUI開発速度を確保する |
+| CORS | ブラウザからは同一originに見えるようプロキシする |
+| 契約 | UIのAPI呼び出しパスは本番/開発で同一である |
+
+---
+
 ## AgentMine Homeの配置
 
 AgentMine Homeは `~/.agentmine` とする（→用語集）。

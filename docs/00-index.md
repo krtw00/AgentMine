@@ -100,6 +100,7 @@ flowchart LR
 | [0008-log-storage-as-files.md](./04-decisions/0008-log-storage-as-files.md) | ログはファイル保存 |
 | [0009-runner-adapter-interface.md](./04-decisions/0009-runner-adapter-interface.md) | RunnerAdapter導入 |
 | [0010-daemon-single-instance-and-localhost.md](./04-decisions/0010-daemon-single-instance-and-localhost.md) | localhost単一インスタンス |
+| [0011-ui-serving-hybrid-mode.md](./04-decisions/0011-ui-serving-hybrid-mode.md) | UI提供方式（開発分離 + 本番同一プロセス） |
 
 ### 99 - Appendix（付録）
 

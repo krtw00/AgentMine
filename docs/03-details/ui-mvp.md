@@ -1,6 +1,7 @@
 ---
 depends_on:
   - ./api.md
+  - ./daemon.md
   - ./event-stream.md
   - ./observable-facts.md
   - ./agent-profiles.md
@@ -59,6 +60,22 @@ Project選択後は常にサイドナビを表示する。
 
 注:
 - ルーティング実装（Next.js app router等）は実装に委ねる。
+
+---
+
+## UI提供方式（ハイブリッド）
+
+本番（運用）では、DaemonがUIを配信する（単一プロセス）。
+開発時はUIを別ポートのdev serverで起動し、`/api/*` と `/api/events` をDaemonへプロキシする。
+
+| 観点 | 本番 | 開発 |
+|------|------|------|
+| UIの配信 | Daemonが配信する | dev serverが配信する |
+| API/SSE | 同一originで提供する | dev serverがDaemonへプロキシする |
+| UIの参照パス | 相対パス（`/api/...`）である | 相対パス（`/api/...`）である |
+
+注:
+- UIは「Daemonのホスト/ポート」を設定として持たない。
 
 ---
 
