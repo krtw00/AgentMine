@@ -75,6 +75,7 @@ flowchart LR
 | [event-stream.md](./03-details/event-stream.md) | イベント配信（SSE） |
 | [runner-adapter.md](./03-details/runner-adapter.md) | RunnerAdapter（claude/codex差の吸収） |
 | [agent-profiles.md](./03-details/agent-profiles.md) | Agent Profiles（runner/model/prompt） |
+| [prompt-composition.md](./03-details/prompt-composition.md) | プロンプト組み立て（runner非依存） |
 | [log-storage.md](./03-details/log-storage.md) | ログ保存（参照と保持） |
 | [api.md](./03-details/api.md) | API設計（Web UI/Daemon） |
 | [ui.md](./03-details/ui.md) | UI設計（監視・介入） |

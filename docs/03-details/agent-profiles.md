@@ -105,4 +105,5 @@ MVPでは、run開始時にHumanがAgent Profileを選択する。
 - [スコープ制御](./scope-control.md) - write_scope必須とscope snapshot
 - [RunnerAdapter](./runner-adapter.md) - runner差の吸収と非対話実行
 - [ログ保存](./log-storage.md) - prompt/出力の監査
+- [プロンプト組み立て](./prompt-composition.md) - runner非依存の最終プロンプト生成
 - [役割モデル（5層）](../02-architecture/role-model.md) - profileと役割の対応
