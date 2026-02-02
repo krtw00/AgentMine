@@ -14,6 +14,7 @@ python3 -m http.server 6418
 
 - Monitor A（テーブル内アウトライン）: `http://127.0.0.1:6418/monitor.html`
 - Monitor B（ツリー + テーブル分割）: `http://127.0.0.1:6418/monitor-split.html`
+- Monitor C（Network graph: overview+timeline）: `http://127.0.0.1:6418/monitor-graph.html`
 
 関連ページ:
 

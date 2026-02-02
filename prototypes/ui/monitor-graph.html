@@ -1,0 +1,579 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AgentMine UI Prototype - Monitor (Network graph)</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <div class="app">
+      <div class="topbar">
+        <div class="brand">AgentMine</div>
+        <div class="pill"><span class="muted">Project</span> <strong>AgentMine</strong></div>
+        <div class="pill"><span class="muted">SSE</span> <strong id="sseState">connected</strong></div>
+        <div class="spacer"></div>
+        <a class="btn" href="./monitor.html">Monitor A（Outline）</a>
+        <a class="btn" href="./monitor-split.html">Monitor B（Split）</a>
+        <a class="btn" href="./settings.html">Settings</a>
+      </div>
+
+      <div class="main">
+        <div class="left">
+          <div class="section">
+            <h2>Monitor C（Network graph）</h2>
+            <div class="row">
+              <input
+                class="search"
+                id="search"
+                placeholder="検索: task / run / reason / agent_profile"
+                autocomplete="off"
+              />
+              <label class="toggle">
+                <input type="checkbox" id="groupByTask" checked />
+                Group by task tree（既定）
+              </label>
+              <button class="btn primary" id="btnNewTask">+ Task</button>
+            </div>
+            <div style="height: 10px"></div>
+            <div class="overviewWrap">
+              <div class="overviewHeader">
+                <span>Overview（同時実行数）</span>
+                <span class="mono" id="rangeLabel">-</span>
+              </div>
+              <svg class="overviewSvg" id="overview" viewBox="0 0 1000 64" preserveAspectRatio="none"></svg>
+            </div>
+          </div>
+
+          <div class="tableWrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 100px">Status</th>
+                  <th style="width: 320px">Task / Run</th>
+                  <th style="width: 260px">Reasons</th>
+                  <th style="width: 160px">Agent</th>
+                  <th style="width: 110px">Started</th>
+                  <th style="width: 90px">Duration</th>
+                  <th style="width: 90px">DoD</th>
+                  <th style="width: 90px">Violations</th>
+                  <th class="waterfall">
+                    Timeline
+                    <div class="wfTicks" id="wfTicks"></div>
+                  </th>
+                </tr>
+              </thead>
+              <tbody id="rows"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="right">
+          <div class="section">
+            <h2>Details</h2>
+            <div class="row">
+              <span class="pill"><span class="muted">Selected</span> <strong id="selLabel">none</strong></span>
+              <span class="pill"
+                ><span class="muted">head_sha</span> <strong class="mono" id="selSha">-</strong></span
+              >
+            </div>
+          </div>
+
+          <div class="tabs" id="tabs"></div>
+          <div class="panel" id="panel"></div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const baseTimeSec = 11 * 3600;
+      const t = (hh, mm) => (hh * 3600 + mm * 60) - baseTimeSec;
+
+      const data = [
+        {
+          taskId: 10,
+          taskTitle: "MVP UI",
+          runs: [],
+          children: [
+            {
+              taskId: 12,
+              taskTitle: "Monitor UI (Run-first Network)",
+              runs: [],
+              children: [
+                {
+                  taskId: 121,
+                  taskTitle: "Run table + filters",
+                  runs: [
+                    {
+                      runId: 41,
+                      status: "running",
+                      reasons: ["merge_pending"],
+                      agent: "coder",
+                      startedSec: t(12, 41),
+                      durationSec: 132,
+                      dod: "pending",
+                      violations: 0,
+                      headSha: "3f09a1b",
+                    },
+                    {
+                      runId: 40,
+                      status: "failed",
+                      reasons: ["dod_failed"],
+                      agent: "coder",
+                      startedSec: t(12, 10),
+                      durationSec: 488,
+                      dod: "failed",
+                      violations: 0,
+                      headSha: "1e2c9d4",
+                    },
+                  ],
+                },
+                {
+                  taskId: 122,
+                  taskTitle: "Details tabs + logs",
+                  runs: [
+                    {
+                      runId: 43,
+                      status: "completed",
+                      reasons: ["merge_pending"],
+                      agent: "coder",
+                      startedSec: t(12, 30),
+                      durationSec: 210,
+                      dod: "passed",
+                      violations: 0,
+                      headSha: "4aa91c0",
+                    },
+                  ],
+                },
+              ],
+            },
+            {
+              taskId: 15,
+              taskTitle: "Settings (exclude) UI",
+              runs: [
+                {
+                  runId: 42,
+                  status: "completed",
+                  reasons: ["merge_pending"],
+                  agent: "writer",
+                  startedSec: t(12, 50),
+                  durationSec: 180,
+                  dod: "passed",
+                  violations: 0,
+                  headSha: "7ab1c2d",
+                },
+              ],
+            },
+          ],
+        },
+        {
+          taskId: 11,
+          taskTitle: "Safety & Quality",
+          runs: [],
+          children: [
+            {
+              taskId: 13,
+              taskTitle: "Fix scope violation handling",
+              runs: [
+                {
+                  runId: 39,
+                  status: "completed",
+                  reasons: ["scope_violation_pending"],
+                  agent: "generalist",
+                  startedSec: t(11, 22),
+                  durationSec: 301,
+                  dod: "passed",
+                  violations: 2,
+                  headSha: "9ad0b2c",
+                },
+              ],
+            },
+            {
+              taskId: 14,
+              taskTitle: "Define DoD checks",
+              runs: [],
+            },
+          ],
+        },
+      ];
+
+      const collapsedTasks = new Set();
+      const elRows = document.getElementById("rows");
+      const elGroupByTask = document.getElementById("groupByTask");
+      const elSearch = document.getElementById("search");
+      const elOverview = document.getElementById("overview");
+      const elRangeLabel = document.getElementById("rangeLabel");
+      const elWfTicks = document.getElementById("wfTicks");
+
+      const tabs = [
+        { id: "Output", label: "Output" },
+        { id: "Meta", label: "Meta" },
+        { id: "Timing", label: "Timing" },
+        { id: "Checks", label: "Checks" },
+        { id: "Violations", label: "Violations" },
+        { id: "Git", label: "Git/Worktree" },
+      ];
+
+      const elTabs = document.getElementById("tabs");
+      const elPanel = document.getElementById("panel");
+      const elSel = document.getElementById("selLabel");
+      const elSha = document.getElementById("selSha");
+      let selected = null;
+      let activeTab = "Output";
+
+      function walkTasks(tasks, fn) {
+        for (const t of tasks) {
+          fn(t);
+          for (const c of t.children ?? []) walkTasks([c], fn);
+        }
+      }
+
+      function collectAllRuns() {
+        const runs = [];
+        walkTasks(data, (t) => runs.push(...(t.runs ?? [])));
+        return runs;
+      }
+
+      const runsAll = collectAllRuns();
+      const minStart = Math.min(...runsAll.map((r) => r.startedSec), 0);
+      const maxEnd = Math.max(...runsAll.map((r) => r.startedSec + r.durationSec), 1);
+      const windowStart = Math.floor(minStart - 60);
+      const windowEnd = Math.ceil(maxEnd + 60);
+      const windowSpan = Math.max(1, windowEnd - windowStart);
+
+      function fmtTime(sec) {
+        const abs = baseTimeSec + sec;
+        const hh = Math.floor(abs / 3600);
+        const mm = Math.floor((abs % 3600) / 60);
+        return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+      }
+
+      function pct(sec) {
+        return ((sec - windowStart) / windowSpan) * 100;
+      }
+
+      function badgeStatus(status) {
+        if (status === "running") return '<span class="badge warn">running</span>';
+        if (status === "failed") return '<span class="badge danger">failed</span>';
+        if (status === "completed") return '<span class="badge ok">completed</span>';
+        return `<span class="badge">${status}</span>`;
+      }
+
+      function badgeDoD(dod) {
+        if (dod === "passed") return '<span class="badge ok">passed</span>';
+        if (dod === "failed") return '<span class="badge danger">failed</span>';
+        return '<span class="badge warn">pending</span>';
+      }
+
+      function indentPad(depth) {
+        return `<span style="display:inline-block;width:${depth * 14}px"></span>`;
+      }
+
+      function countRuns(task) {
+        let n = (task.runs ?? []).length;
+        for (const c of task.children ?? []) n += countRuns(c);
+        return n;
+      }
+
+      function countSubtasks(task) {
+        let n = 0;
+        for (const c of task.children ?? []) n += 1 + countSubtasks(c);
+        return n;
+      }
+
+      function taskSpan(task) {
+        let s = Infinity;
+        let e = -Infinity;
+        const update = (r) => {
+          s = Math.min(s, r.startedSec);
+          e = Math.max(e, r.startedSec + r.durationSec);
+        };
+        for (const r of task.runs ?? []) update(r);
+        for (const c of task.children ?? []) {
+          const cs = taskSpan(c);
+          if (cs) {
+            s = Math.min(s, cs.start);
+            e = Math.max(e, cs.end);
+          }
+        }
+        if (s === Infinity) return null;
+        return { start: s, end: e };
+      }
+
+      function renderOverview() {
+        const samples = 120;
+        const height = 64;
+        const width = 1000;
+        const pts = [];
+        let maxC = 1;
+        const conc = [];
+        for (let i = 0; i <= samples; i++) {
+          const tt = windowStart + (windowSpan * i) / samples;
+          let c = 0;
+          for (const r of runsAll) {
+            if (r.startedSec <= tt && tt < r.startedSec + r.durationSec) c++;
+          }
+          conc.push(c);
+          maxC = Math.max(maxC, c);
+        }
+        for (let i = 0; i <= samples; i++) {
+          const x = (width * i) / samples;
+          const y = height - (conc[i] / maxC) * (height - 8) - 4;
+          pts.push(`${x.toFixed(1)},${y.toFixed(1)}`);
+        }
+
+        const path = `M 0 ${height} L ${pts.join(" L ")} L ${width} ${height} Z`;
+        elOverview.innerHTML = `
+          <path d="${path}" fill="rgba(14, 99, 156, 0.25)" stroke="rgba(14, 99, 156, 0.8)" stroke-width="1" />
+        `;
+
+        elRangeLabel.textContent = `${fmtTime(windowStart)} - ${fmtTime(windowEnd)}`;
+
+        const ticks = [];
+        for (const p of [0, 0.25, 0.5, 0.75, 1]) {
+          const sec = windowStart + windowSpan * p;
+          ticks.push(`<span>${fmtTime(sec)}</span>`);
+        }
+        elWfTicks.innerHTML = ticks.join("");
+      }
+
+      function renderTabs() {
+        elTabs.innerHTML = "";
+        for (const t of tabs) {
+          const div = document.createElement("div");
+          div.className = "tab" + (t.id === activeTab ? " active" : "");
+          div.textContent = t.label;
+          div.addEventListener("click", () => {
+            activeTab = t.id;
+            renderTabs();
+            renderPanel();
+          });
+          elTabs.appendChild(div);
+        }
+      }
+
+      function renderPanel() {
+        if (!selected) {
+          elPanel.innerHTML = `<div class="muted">行を選択すると詳細が表示される。</div>`;
+          return;
+        }
+        const { task, run } = selected;
+        if (activeTab === "Meta") {
+          elPanel.innerHTML = `
+            <div class="kv">
+              <div>task_id</div><div class="mono">${task.taskId}</div>
+              <div>run_id</div><div class="mono">${run.runId}</div>
+              <div>agent_profile</div><div>${run.agent}</div>
+              <div>prompt</div><div class="mono">[prompt saved to run meta]</div>
+              <div>scope_snapshot</div><div class="mono">write_scope + defaultExclude</div>
+            </div>
+          `;
+          return;
+        }
+        if (activeTab === "Timing") {
+          elPanel.innerHTML = `
+            <div class="kv">
+              <div>started</div><div class="mono">${fmtTime(run.startedSec)}</div>
+              <div>duration</div><div class="mono">${run.durationSec}s</div>
+              <div>scope_apply</div><div class="mono">120ms</div>
+              <div>runner_exec</div><div class="mono">${Math.max(1, run.durationSec - 2)}s</div>
+              <div>dod_checks</div><div class="mono">3.8s</div>
+            </div>
+          `;
+          return;
+        }
+        if (activeTab === "Checks") {
+          elPanel.innerHTML = `
+            <div class="kv">
+              <div>dod.status</div><div>${badgeDoD(run.dod)}</div>
+              <div>checks</div><div class="mono">lint: passed / test: pending</div>
+              <div>output_ref</div><div class="mono">checks/run-${run.runId}/lint.log</div>
+            </div>
+          `;
+          return;
+        }
+        if (activeTab === "Violations") {
+          elPanel.innerHTML = `
+            <div class="kv">
+              <div>count</div><div class="mono">${run.violations}</div>
+              <div>pending</div><div class="mono">${run.violations > 0 ? "2" : "0"}</div>
+              <div>action</div><div><button class="btn">approve</button> <button class="btn">reject</button></div>
+            </div>
+          `;
+          return;
+        }
+        if (activeTab === "Git") {
+          elPanel.innerHTML = `
+            <div class="kv">
+              <div>head_sha</div><div class="mono">${run.headSha}</div>
+              <div>worktree_dirty</div><div class="mono">${run.status === "running" ? "unknown" : "false"}</div>
+              <div>branch</div><div class="mono">agentmine/task-${task.taskId}</div>
+              <div>worktree_path</div><div class="mono">~/.agentmine/worktrees/{project_id}/task-${task.taskId}/</div>
+            </div>
+          `;
+          return;
+        }
+        elPanel.innerHTML = `
+          <div class="log">
+[stdout] running step: analyze…\n
+[stdout] changed files: docs/03-details/ui-mvp.md\n
+[meta] prompt saved\n
+[stderr] (none)\n
+          </div>
+        `;
+      }
+
+      function clearSelection() {
+        for (const tr of document.querySelectorAll('tbody tr[data-kind="run"]')) tr.classList.remove("selected");
+      }
+
+      function selectRun(task, run, tr) {
+        clearSelection();
+        tr.classList.add("selected");
+        selected = { task, run };
+        elSel.textContent = `Task #${task.taskId} / Run #${run.runId}`;
+        elSha.textContent = run.headSha;
+        renderPanel();
+      }
+
+      function render() {
+        const q = elSearch.value.trim().toLowerCase();
+        const group = elGroupByTask.checked;
+        elRows.innerHTML = "";
+
+        const matches = (text) => text.toLowerCase().includes(q);
+        const taskMatches = (t) => (!q ? true : matches(t.taskTitle) || matches(String(t.taskId)));
+        const runMatches = (t, r) =>
+          !q
+            ? true
+            : matches(String(r.runId)) ||
+              matches(r.status) ||
+              matches(r.agent) ||
+              (r.reasons ?? []).some((x) => matches(x)) ||
+              matches(r.dod) ||
+              matches(r.headSha) ||
+              taskMatches(t);
+
+        const nodeMatches = (t) => {
+          if (!q) return true;
+          if (taskMatches(t)) return true;
+          for (const r of t.runs ?? []) if (runMatches(t, r)) return true;
+          for (const c of t.children ?? []) if (nodeMatches(c)) return true;
+          return false;
+        };
+
+        function taskGroupRow(task, depth) {
+          const hasChildren = (task.children ?? []).length > 0 || (task.runs ?? []).length > 0;
+          const isCollapsed = collapsedTasks.has(task.taskId);
+          const twisty = hasChildren ? (isCollapsed ? "▸" : "▾") : "•";
+          const runCount = countRuns(task);
+          const subtaskCount = countSubtasks(task);
+          const span = taskSpan(task);
+
+          const tr = document.createElement("tr");
+          tr.className = "groupRow";
+          tr.dataset.kind = "task";
+          tr.dataset.taskId = String(task.taskId);
+
+          const bar =
+            span == null
+              ? `<div class="wf"><span style="width:0%"></span></div>`
+              : `<div class="wf"><div class="wfBar group" style="left:${Math.max(0, pct(span.start)).toFixed(
+                  2
+                )}%; width:${Math.max(0, pct(span.end) - pct(span.start)).toFixed(2)}%"></div></div>`;
+
+          tr.innerHTML = `
+            <td class="muted">-</td>
+            <td>${indentPad(depth)}<span class="twisty">${twisty}</span> Task #${task.taskId}: ${
+            task.taskTitle
+          } <span class="muted">(${runCount} runs${subtaskCount > 0 ? `, ${subtaskCount} subtasks` : ""})</span></td>
+            <td class="muted">-</td>
+            <td class="muted">-</td>
+            <td class="muted">-</td>
+            <td class="muted">-</td>
+            <td class="muted">pending</td>
+            <td class="muted">-</td>
+            <td>${bar}</td>
+          `;
+
+          if (hasChildren) {
+            tr.addEventListener("click", () => {
+              if (collapsedTasks.has(task.taskId)) collapsedTasks.delete(task.taskId);
+              else collapsedTasks.add(task.taskId);
+              render();
+            });
+          }
+
+          return tr;
+        }
+
+        function runRow(task, run, depth) {
+          const left = pct(run.startedSec);
+          const right = pct(run.startedSec + run.durationSec);
+          const width = Math.max(0.8, right - left);
+
+          const tr = document.createElement("tr");
+          tr.dataset.kind = "run";
+          tr.dataset.runId = String(run.runId);
+          tr.dataset.taskId = String(task.taskId);
+          tr.innerHTML = `
+            <td>${badgeStatus(run.status)}</td>
+            <td>${indentPad(depth)}<span class="muted">Run #${run.runId}</span></td>
+            <td>${(run.reasons ?? []).map((x) => `<span class="chip">${x}</span>`).join(" ")}</td>
+            <td><span class="chip">${run.agent}</span></td>
+            <td class="muted">${fmtTime(run.startedSec)}</td>
+            <td class="mono">${run.durationSec}s</td>
+            <td>${badgeDoD(run.dod)}</td>
+            <td class="mono">${run.violations}</td>
+            <td>
+              <div class="wf" title="${fmtTime(run.startedSec)} + ${run.durationSec}s">
+                <div class="wfBar ${run.status}" style="left:${Math.max(0, left).toFixed(
+                  2
+                )}%; width:${width.toFixed(2)}%"></div>
+              </div>
+            </td>
+          `;
+          tr.addEventListener("click", () => selectRun(task, run, tr));
+          return tr;
+        }
+
+        function renderTaskNode(task, depth) {
+          if (!nodeMatches(task)) return;
+          elRows.appendChild(taskGroupRow(task, depth));
+
+          if (collapsedTasks.has(task.taskId)) return;
+          for (const c of task.children ?? []) renderTaskNode(c, depth + 1);
+          for (const r of (task.runs ?? []).filter((x) => runMatches(task, x))) elRows.appendChild(runRow(task, r, depth + 1));
+        }
+
+        if (group) {
+          for (const t of data) renderTaskNode(t, 0);
+          return;
+        }
+
+        // flat
+        const flat = [];
+        walkTasks(data, (t) => {
+          for (const r of t.runs ?? []) flat.push({ task: t, run: r });
+        });
+        for (const item of flat.filter((x) => runMatches(x.task, x.run))) {
+          elRows.appendChild(runRow(item.task, item.run, 0));
+        }
+      }
+
+      const btnNewTask = document.getElementById("btnNewTask");
+      btnNewTask.addEventListener("click", () => {
+        // prototype placeholder
+        window.location.href = "./monitor.html";
+      });
+
+      renderOverview();
+      renderTabs();
+      renderPanel();
+      render();
+
+      elGroupByTask.addEventListener("change", render);
+      elSearch.addEventListener("input", render);
+    </script>
+  </body>
+</html>

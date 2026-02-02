@@ -281,7 +281,7 @@ tbody tr.selected {
 }
 
 .waterfall {
-  width: 220px;
+  width: 300px;
 }
 
 .bar {
@@ -296,6 +296,80 @@ tbody tr.selected {
   height: 100%;
   background: var(--accent);
   border-right: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.overviewWrap {
+  border: 1px solid var(--border);
+  background: #111;
+  border-radius: 8px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.overviewHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.overviewSvg {
+  width: 100%;
+  height: 64px;
+  display: block;
+}
+
+.wf {
+  position: relative;
+  width: 100%;
+  height: 14px;
+  border-radius: 4px;
+  background: linear-gradient(
+      to right,
+      rgba(255, 255, 255, 0.06) 1px,
+      transparent 1px
+    ),
+    rgba(255, 255, 255, 0.04);
+  background-size: 25% 100%;
+  overflow: hidden;
+}
+
+.wfBar {
+  position: absolute;
+  top: 2px;
+  height: 10px;
+  border-radius: 4px;
+  background: var(--accent);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.wfBar.running {
+  background: rgba(204, 167, 0, 0.9);
+}
+
+.wfBar.failed {
+  background: rgba(241, 76, 76, 0.85);
+}
+
+.wfBar.completed {
+  background: rgba(137, 209, 133, 0.75);
+}
+
+.wfBar.group {
+  background: rgba(255, 255, 255, 0.10);
+  border-color: rgba(255, 255, 255, 0.10);
+}
+
+.wfTicks {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 4px;
 }
 
 .tabs {
