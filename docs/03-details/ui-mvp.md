@@ -116,7 +116,8 @@ Monitorは「今起きていること」と「次に人間が介入すべきこ�
 | 詳細パネル | 選択runのfacts（logs/checks/violations/git/worktree） |
 
 注:
-- Taskはツリー表示を必須にしない。MVPでは「Group by task」をデフォルトONとする。
+- Taskは専用ツリー画面を必須にしない。MVPでは「Group by task（親子階層）」をデフォルトONとする。
+- 親子階層は `tasks.parent_id` により表現される。UIは親タスクを折りたたみ/展開できる。
 - フラットなRun一覧に切り替えるトグルを提供する（任意）。
 
 #### フィルタ（MVP）
