@@ -19,7 +19,7 @@
         <a class="btn" href="./agents.html">Agent Profiles</a>
       </div>
 
-      <div class="main">
+      <div class="main detailsHidden" id="main">
         <div class="left">
           <div class="section">
             <h2>Monitor B（Split tree + table）</h2>
@@ -34,6 +34,14 @@
             <div class="row" style="margin-top: 8px">
               <span class="pill"><span class="muted">Selection</span> <strong id="selTask">All tasks</strong></span>
               <span class="pill"><span class="muted">Hint</span> <strong>click task</strong></span>
+            </div>
+            <div style="height: 10px"></div>
+            <div class="overviewWrap">
+              <div class="overviewHeader">
+                <span>Overview（アクティビティ）</span>
+                <span class="mono" id="rangeLabel">-</span>
+              </div>
+              <svg class="overviewSvg" id="overview" viewBox="0 0 1000 64" preserveAspectRatio="none"></svg>
             </div>
           </div>
 
@@ -52,7 +60,10 @@
                     <th style="width: 90px">Duration</th>
                     <th style="width: 90px">DoD</th>
                     <th style="width: 90px">Violations</th>
-                    <th class="waterfall">Waterfall</th>
+                    <th class="waterfall">
+                      Timeline
+                      <div class="wfTicks" id="wfTicks"></div>
+                    </th>
                   </tr>
                 </thead>
                 <tbody id="rows"></tbody>
@@ -67,6 +78,8 @@
             <div class="row">
               <span class="pill"><span class="muted">Selected</span> <strong id="selLabel">none</strong></span>
               <span class="pill"><span class="muted">head_sha</span> <strong class="mono" id="selSha">-</strong></span>
+              <div class="spacer"></div>
+              <button class="btn" id="btnHideDetails">Hide</button>
             </div>
           </div>
 
@@ -266,12 +279,52 @@
       const elPanel = document.getElementById("panel");
       const elSel = document.getElementById("selLabel");
       const elSha = document.getElementById("selSha");
+      const elMain = document.getElementById("main");
+      const btnHideDetails = document.getElementById("btnHideDetails");
+      const elOverview = document.getElementById("overview");
+      const elRangeLabel = document.getElementById("rangeLabel");
+      const elWfTicks = document.getElementById("wfTicks");
+
+      function parseHHMMToDaySec(hhmm) {
+        const [hh, mm] = String(hhmm ?? "00:00")
+          .split(":")
+          .map((x) => Number(x));
+        return (hh || 0) * 3600 + (mm || 0) * 60;
+      }
 
       function walkTasks(tasks, fn) {
         for (const t of tasks) {
           fn(t);
           for (const c of t.children ?? []) walkTasks([c], fn);
         }
+      }
+
+      function collectAllRuns(tasks) {
+        const runs = [];
+        walkTasks(tasks, (t) => runs.push(...(t.runs ?? [])));
+        return runs;
+      }
+
+      const runsAll = collectAllRuns(data);
+      const minAbsStart = Math.min(...runsAll.map((r) => parseHHMMToDaySec(r.started)), 0);
+      const baseTimeSec = Math.floor(minAbsStart / 3600) * 3600;
+      for (const r of runsAll) r.startedSec = parseHHMMToDaySec(r.started) - baseTimeSec;
+
+      const minStart = Math.min(...runsAll.map((r) => r.startedSec), 0);
+      const maxEnd = Math.max(...runsAll.map((r) => r.startedSec + r.durationSec), 1);
+      const windowStart = Math.floor(minStart - 60);
+      const windowEnd = Math.ceil(maxEnd + 60);
+      const windowSpan = Math.max(1, windowEnd - windowStart);
+
+      function fmtTime(sec) {
+        const abs = baseTimeSec + sec;
+        const hh = Math.floor(abs / 3600);
+        const mm = Math.floor((abs % 3600) / 60);
+        return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+      }
+
+      function pct(sec) {
+        return ((sec - windowStart) / windowSpan) * 100;
       }
 
       function collectRunsWithTask(tasks, out, includeDesc, rootTaskId) {
@@ -330,12 +383,78 @@
         return '<span class="badge warn">pending</span>';
       }
 
-      function maxDurationSec() {
-        const runs = [];
-        walkTasks(data, (t) => runs.push(...(t.runs ?? [])));
-        return Math.max(...runs.map((r) => r.durationSec), 1);
+      function renderOverview() {
+        if (!elOverview) return;
+        const height = 64;
+        const width = 1000;
+        const buckets = 220;
+        const bucketSec = windowSpan / buckets;
+
+        const series = [];
+        let maxActive = 1;
+        for (let i = 0; i < buckets; i++) {
+          const tt = windowStart + bucketSec * (i + 0.5);
+          const c = { running: 0, failed: 0, completed: 0, other: 0, total: 0 };
+          for (const r of runsAll) {
+            if (!(r.startedSec <= tt && tt < r.startedSec + r.durationSec)) continue;
+            if (r.status === "running") c.running++;
+            else if (r.status === "failed") c.failed++;
+            else if (r.status === "completed") c.completed++;
+            else c.other++;
+          }
+          c.total = c.running + c.failed + c.completed + c.other;
+          maxActive = Math.max(maxActive, c.total);
+          series.push(c);
+        }
+
+        const grid = [];
+        for (const p of [0, 0.25, 0.5, 0.75, 1]) {
+          const x = (width * p).toFixed(1);
+          grid.push(
+            `<line x1="${x}" y1="0" x2="${x}" y2="${height}" stroke="rgba(255,255,255,0.06)" stroke-width="1" />`
+          );
+        }
+
+        const bars = [];
+        const bw = width / buckets;
+        const hScale = (height - 6) / maxActive;
+        const seg = (x, y, w, h, fill) =>
+          `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(
+            1
+          )}" rx="0" ry="0" fill="${fill}" />`;
+
+        for (let i = 0; i < buckets; i++) {
+          const c = series[i];
+          if (c.total === 0) continue;
+          const x = i * bw;
+          const w = bw + 0.6;
+          let y = height;
+          const stack = [
+            ["failed", "rgba(241, 76, 76, 0.75)"],
+            ["running", "rgba(204, 167, 0, 0.85)"],
+            ["completed", "rgba(137, 209, 133, 0.70)"],
+            ["other", "rgba(14, 99, 156, 0.70)"],
+          ];
+          for (const [k, fill] of stack) {
+            const n = c[k];
+            if (!n) continue;
+            const hh = Math.max(1, n * hScale);
+            y -= hh;
+            bars.push(seg(x, y, w, hh, fill));
+          }
+        }
+
+        elOverview.innerHTML = [...grid, ...bars].join("");
+        if (elRangeLabel) elRangeLabel.textContent = `${fmtTime(windowStart)} - ${fmtTime(windowEnd)}`;
+        if (elWfTicks) {
+          const ticks = [];
+          for (const p of [0, 0.25, 0.5, 0.75, 1]) {
+            const sec = windowStart + windowSpan * p;
+            ticks.push(`<span>${fmtTime(sec)}</span>`);
+          }
+          elWfTicks.innerHTML = ticks.join("");
+        }
       }
-      const maxDuration = maxDurationSec();
 
       function nodeMatches(t, q) {
         if (!q) return true;
@@ -409,6 +528,10 @@
       }
 
       function runRow(task, run) {
+        const left = pct(run.startedSec);
+        const right = pct(run.startedSec + run.durationSec);
+        const width = Math.max(0.8, right - left);
+
         const tr = document.createElement("tr");
         tr.dataset.kind = "run";
         tr.dataset.runId = String(run.runId);
@@ -418,12 +541,16 @@
           <td>Task #${task.taskId}: ${task.taskTitle} <span class="muted">/ Run #${run.runId}</span></td>
           <td>${run.reasons.map((x) => `<span class="chip">${x}</span>`).join(" ")}</td>
           <td><span class="chip">${run.agent}</span></td>
-          <td class="muted">${run.started}</td>
+          <td class="muted">${fmtTime(run.startedSec)}</td>
           <td class="mono">${run.durationSec}s</td>
           <td>${badgeDoD(run.dod)}</td>
           <td class="mono">${run.violations}</td>
-          <td class="waterfall">
-            <div class="bar"><span style="width:${Math.max(4, Math.round((run.durationSec / maxDuration) * 100))}%"></span></div>
+          <td>
+            <div class="wf" title="${fmtTime(run.startedSec)} + ${run.durationSec}s">
+              <div class="wfBar ${run.status}" style="left:${Math.max(0, left).toFixed(
+                2
+              )}%; width:${width.toFixed(2)}%"></div>
+            </div>
           </td>
         `;
         tr.addEventListener("click", () => selectRun(task, run, tr));
@@ -440,6 +567,7 @@
         selected = { task, run };
         elSel.textContent = `Task #${task.taskId} / Run #${run.runId}`;
         elSha.textContent = run.headSha;
+        if (elMain) elMain.classList.remove("detailsHidden");
         renderPanel();
       }
 
@@ -574,7 +702,7 @@
             <td class="muted">-</td>
             <td class="muted">pending</td>
             <td class="muted">0</td>
-            <td class="waterfall"><div class="bar"><span style="width:0%"></span></div></td>
+            <td><div class="wf"></div></td>
           `;
           elRows.appendChild(tr);
           return;
@@ -590,9 +718,24 @@
         renderPanel();
       }
 
+      renderOverview();
       renderAll();
       elSearch.addEventListener("input", () => renderAll());
       elIncludeDesc.addEventListener("change", () => renderRunTable());
+
+      if (btnHideDetails) {
+        btnHideDetails.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (elMain) elMain.classList.add("detailsHidden");
+        });
+      }
+
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          if (elMain) elMain.classList.add("detailsHidden");
+        }
+      });
 
       // Drawer
       const drawer = document.getElementById("drawer");

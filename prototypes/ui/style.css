@@ -101,6 +101,18 @@ a {
   min-height: 0;
 }
 
+.main.detailsHidden {
+  grid-template-columns: 1fr;
+}
+
+.main.detailsHidden .right {
+  display: none;
+}
+
+.main.detailsHidden .left {
+  border-right: none;
+}
+
 .split {
   display: grid;
   grid-template-columns: 280px 1fr;
