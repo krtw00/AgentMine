@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AgentMine UI Prototype - Settings</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <div class="app">
+      <div class="topbar">
+        <div class="brand">AgentMine</div>
+        <div class="pill"><span class="muted">Project</span> <strong>AgentMine</strong></div>
+        <div class="pill"><span class="muted">Mode</span> <strong>prototype</strong></div>
+        <div class="spacer"></div>
+        <a class="btn" href="./monitor.html">Monitor</a>
+      </div>
+
+      <div class="main">
+        <div class="left">
+          <div class="section">
+            <h2>Settings</h2>
+            <div class="row">
+              <span class="pill"><span class="muted">Key</span> <strong>scope.defaultExclude</strong></span>
+              <span class="pill"><span class="muted">Intent</span> <strong>hide personal/sensitive</strong></span>
+              <span class="pill"><span class="muted">Applied</span> <strong>before runner start</strong></span>
+            </div>
+            <div class="hint" style="margin-top: 8px">
+              excludeは「AIから見えない」ための制約である。worktreeから除外され、runnerは参照できない。
+              ファイル単位で指定できる。
+            </div>
+          </div>
+
+          <div class="section">
+            <h2>Exclude selection（B + C hybrid）</h2>
+            <div class="row">
+              <button class="btn" id="btnPreset">Preset: typical secrets</button>
+              <button class="btn" id="btnImport">Import .gitignore（mock）</button>
+              <label class="toggle">
+                <input type="checkbox" id="showFiles" checked />
+                show files
+              </label>
+            </div>
+          </div>
+
+          <div class="tableWrap" style="padding: 12px">
+            <div class="tree" id="excludeTree">
+              <ul>
+                <li>
+                  <label><input type="checkbox" data-glob="**/*.env" checked /> **/*.env</label>
+                </li>
+                <li>
+                  <label><input type="checkbox" data-glob="**/.env.*" checked /> **/.env.*</label>
+                </li>
+                <li>
+                  <label><input type="checkbox" data-glob="**/*.pem" /> **/*.pem</label>
+                </li>
+                <li>
+                  <label><input type="checkbox" data-glob="**/*secret*" /> **/*secret*</label>
+                </li>
+                <li>
+                  <label><input type="checkbox" data-glob=".ssh/**" /> .ssh/**</label>
+                </li>
+                <li>
+                  <label><input type="checkbox" data-glob="secrets/**" /> secrets/**</label>
+                </li>
+                <li class="fileNode">
+                  <label><input type="checkbox" data-glob="docs/private.md" /> docs/private.md</label>
+                </li>
+                <li class="fileNode">
+                  <label><input type="checkbox" data-glob="notes/personal.txt" /> notes/personal.txt</label>
+                </li>
+              </ul>
+            </div>
+
+            <div style="height: 12px"></div>
+
+            <div class="field">
+              <label class="label">Advanced（C）: glob追加（改行区切り）</label>
+              <textarea class="textarea mono" id="excludeGlob">**/*.key
+**/*credential*</textarea>
+              <div class="hint">treeで大枠、globで例外や細部を追加する。</div>
+            </div>
+
+            <div class="field">
+              <label class="label">プレビュー（最終exclude）</label>
+              <div class="chips" id="excludePreview"></div>
+              <div class="hint">
+                実装では、この値がProject Settings（scope.defaultExclude）として保存される。run開始時はscope_snapshotに固定される。
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="right">
+          <div class="section">
+            <h2>Impact</h2>
+            <div class="row">
+              <span class="pill"><span class="muted">Runner</span> <strong>cannot read excluded</strong></span>
+              <span class="pill"><span class="muted">UI</span> <strong>may hide excluded</strong></span>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div style="font-size: 12px; color: var(--muted); line-height: 1.6">
+              <div><strong style="color: var(--fg)">設計メモ（MVP）</strong></div>
+              <ul>
+                <li>excludeはwrite_scopeとは別物である（読めない/存在しない）。</li>
+                <li>個人情報は原則としてexcludeで除外し、AIに渡さない。</li>
+                <li>同一ファイル内の一部だけを隠す（部分マスキング）はMVP対象外である。</li>
+              </ul>
+              <div style="height: 10px"></div>
+              <div><strong style="color: var(--fg)">次に決めると良いこと</strong></div>
+              <ul>
+                <li>Presetの中身（最低限セット）</li>
+                <li>.gitignoreをどこまで反映するか（全部/一部/候補提示のみ）</li>
+                <li>ファイルツリーの取得方式（daemon側）</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const excludeTree = document.getElementById("excludeTree");
+      const excludeGlob = document.getElementById("excludeGlob");
+      const excludePreview = document.getElementById("excludePreview");
+      const showFiles = document.getElementById("showFiles");
+      const btnPreset = document.getElementById("btnPreset");
+      const btnImport = document.getElementById("btnImport");
+
+      function escapeHtml(s) {
+        return s.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+      }
+
+      function readLines(textarea) {
+        return textarea.value
+          .split("\n")
+          .map((x) => x.trim())
+          .filter((x) => x.length > 0);
+      }
+
+      function readTreeChecked() {
+        const checked = Array.from(excludeTree.querySelectorAll('input[type="checkbox"]:checked'));
+        return checked.map((x) => x.dataset.glob).filter(Boolean);
+      }
+
+      function updatePreview() {
+        const scopes = Array.from(new Set([...readTreeChecked(), ...readLines(excludeGlob)]));
+        excludePreview.innerHTML = scopes.map((s) => `<span class="chip">${escapeHtml(s)}</span>`).join("");
+      }
+
+      function setCheckbox(glob, checked) {
+        const el = excludeTree.querySelector(`input[data-glob="${CSS.escape(glob)}"]`);
+        if (el) el.checked = checked;
+      }
+
+      btnPreset.addEventListener("click", () => {
+        setCheckbox("**/*.env", true);
+        setCheckbox("**/.env.*", true);
+        setCheckbox("**/*.pem", true);
+        setCheckbox("**/*secret*", true);
+        setCheckbox(".ssh/**", true);
+        setCheckbox("secrets/**", true);
+        updatePreview();
+      });
+
+      btnImport.addEventListener("click", () => {
+        // mock: pretend we imported common ignores
+        const lines = readLines(excludeGlob);
+        const next = Array.from(new Set([...lines, "node_modules/**", "dist/**", ".next/**"]));
+        excludeGlob.value = next.join("\n");
+        updatePreview();
+      });
+
+      showFiles.addEventListener("change", () => {
+        const show = showFiles.checked;
+        for (const li of excludeTree.querySelectorAll(".fileNode")) {
+          li.style.display = show ? "list-item" : "none";
+        }
+      });
+
+      excludeTree.addEventListener("change", updatePreview);
+      excludeGlob.addEventListener("input", updatePreview);
+      showFiles.dispatchEvent(new Event("change"));
+      updatePreview();
+    </script>
+  </body>
+</html>
+
