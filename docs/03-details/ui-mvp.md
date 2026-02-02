@@ -106,14 +106,16 @@ Project選択後は常にサイドナビを表示する。
 
 ### Task Monitor（S001）
 
-Chrome DevToolsのNetwork風に「Run一覧テーブル + ウォーターフォール + 詳細」を同時に表示する。
+Chrome DevToolsのNetwork風に「Overview + Run一覧テーブル + ウォーターフォール」を常時表示する。
+詳細パネルはrun選択時に開き、既定は閉じる（折りたたみ可能）とする。
 Monitorは「今起きていること」と「次に人間が介入すべきこと」を最短で判断できる画面である。
 
 | 領域 | 表示 |
 |------|------|
+| Overview | 実行の時間分布（NetworkのOverview風）。status別のアクティビティを視覚化する |
 | テーブル | Run一覧（status/task/reasons/agent_profile/started/duration/dod/violations/head_sha/worktree_dirty） |
 | ウォーターフォール | runの開始/終了/実行時間（右端で視覚化） |
-| 詳細パネル | 選択runのfacts（logs/checks/violations/git/worktree） |
+| 詳細パネル | 選択runのfacts（logs/checks/violations/git/worktree）。未選択時は閉じる |
 
 注:
 - Taskは専用ツリー画面を必須にしない。MVPでは「Group by task（親子階層）」をデフォルトONとする。

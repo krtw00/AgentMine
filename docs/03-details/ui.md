@@ -79,15 +79,16 @@ flowchart TB
 
 ## Task Monitor（S001）
 
-中心画面。MVPではChrome DevToolsのNetwork風に **Run一覧テーブル** と **ウォーターフォール** を並べる（→UI仕様）。
+中心画面。MVPではChrome DevToolsのNetwork風に **Overview** + **Run一覧テーブル** + **ウォーターフォール** を並べる（→UI仕様）。
 既定表示は「Group by task」である（親子階層でtask単位にrunを束ねて表示する）。
 
 | 要素 | 内容 |
 |---|---|
+| Overview | 実行の時間分布を一目で把握する（NetworkのOverview風） |
 | テーブル | runsの一覧を表示し、status/reasonでトリアージできる |
 | タイムライン | runsの開始/終了から実行時間を可視化 |
 | ステータス | task.status（観測事実から導出）を色で表現 |
-| 詳細パネル | 選択task/runのfacts（diff/DoD/violations/log参照） |
+| 詳細パネル | 選択task/runのfacts（diff/DoD/violations/log参照）。未選択時は閉じる |
 | Actions | stop/retry/continue/approve/reject 等（MVPは最小） |
 
 注: 表示の事実ソースは `runs/checks/scope_violations` 等であり、自由記述の「完了」ボタンは置かない。
