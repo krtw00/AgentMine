@@ -40,24 +40,21 @@ docker compose logs -f            # ログ
 
 ## Docker構成
 
+外部Traefik（~/work/infra）で管理。
+
+```bash
+# 起動（Traefikが起動済みであること）
+docker compose up -d
+
+# アクセス
+# http://agentmine.localhost
 ```
-┌─────────────────────────────────────────┐
-│              Traefik (:80)              │
-│         (リバースプロキシ)               │
-├─────────────────────────────────────────┤
-│  /api/* → daemon:3001                   │
-│  /*     → web:3000                      │
-└─────────────────────────────────────────┘
-         │                    │
-    ┌────┴────┐          ┌────┴────┐
-    │ daemon  │          │   web   │
-    │  :3001  │          │  :3000  │
-    └─────────┘          └─────────┘
-         │
-    ┌────┴────┐
-    │ SQLite  │
-    │ (volume)│
-    └─────────┘
+
+```
+Traefik (~/work/infra)
+    │
+    ├── agentmine.localhost/api/* → daemon:3001
+    └── agentmine.localhost/*     → web:3000
 ```
 
 ## API

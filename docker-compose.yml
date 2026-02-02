@@ -1,56 +1,44 @@
 services:
-  traefik:
-    image: traefik:v3.2
-    command:
-      - --api.insecure=true
-      - --providers.docker=true
-      - --providers.docker.exposedbydefault=false
-      - --entrypoints.web.address=:80
-    ports:
-      - "80:80"
-      - "8080:8080"  # Traefik dashboard
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    networks:
-      - agentmine
-
   daemon:
     build:
       context: .
       dockerfile: Dockerfile.daemon
+    container_name: agentmine-daemon
+    restart: unless-stopped
     environment:
       - DB_PATH=/data/agentmine.db
     volumes:
       - db-data:/data
-      - /var/run/docker.sock:/var/run/docker.sock  # runner用
     labels:
       - traefik.enable=true
-      - traefik.http.routers.daemon.rule=PathPrefix(`/api`)
-      - traefik.http.routers.daemon.entrypoints=web
-      - traefik.http.services.daemon.loadbalancer.server.port=3001
+      - traefik.http.routers.agentmine-api.rule=Host(`agentmine.localhost`) && PathPrefix(`/api`)
+      - traefik.http.routers.agentmine-api.entrypoints=web
+      - traefik.http.services.agentmine-api.loadbalancer.server.port=3001
     networks:
-      - agentmine
+      - traefik
 
   web:
     build:
       context: .
       dockerfile: Dockerfile.web
+    container_name: agentmine-web
+    restart: unless-stopped
     environment:
-      - DAEMON_URL=http://daemon:3001
+      - DAEMON_URL=http://agentmine-daemon:3001
     labels:
       - traefik.enable=true
-      - traefik.http.routers.web.rule=PathPrefix(`/`)
-      - traefik.http.routers.web.entrypoints=web
-      - traefik.http.routers.web.priority=1
-      - traefik.http.services.web.loadbalancer.server.port=3000
+      - traefik.http.routers.agentmine-web.rule=Host(`agentmine.localhost`)
+      - traefik.http.routers.agentmine-web.entrypoints=web
+      - traefik.http.routers.agentmine-web.priority=1
+      - traefik.http.services.agentmine-web.loadbalancer.server.port=3000
     depends_on:
       - daemon
     networks:
-      - agentmine
+      - traefik
 
 networks:
-  agentmine:
-    driver: bridge
+  traefik:
+    external: true
 
 volumes:
   db-data:
