@@ -5,6 +5,7 @@ import { projectsRouter } from "./routes/projects";
 import { tasksRouter } from "./routes/tasks";
 import { agentProfilesRouter } from "./routes/agent-profiles";
 import { runsRouter } from "./routes/runs";
+import { eventsRouter } from "./routes/events";
 
 export const app = new Hono();
 
@@ -28,6 +29,7 @@ app.route("/api/projects/:projectId/agent-profiles", agentProfilesRouter);
 app.route("/api/agent-profiles", agentProfilesRouter);
 app.route("/api/tasks/:taskId/runs", runsRouter);
 app.route("/api/runs", runsRouter);
+app.route("/api/events", eventsRouter);
 
 // Runners (static for now)
 app.get("/api/runners", (c) =>
