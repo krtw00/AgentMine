@@ -16,7 +16,7 @@ ai_summary: "MVPのWeb UI仕様（情報設計、画面、主要操作、SSE反�
 # UI仕様（MVP）
 
 > Status: Draft
-> 最終更新: 2026-02-01
+> 最終更新: 2026-02-02
 
 本ドキュメントは、MVPのWeb UIを実装するための最小仕様を定義する。
 UIは「監視と介入」を担い、状態の正はDBにある。
@@ -57,6 +57,7 @@ Project選択後は常にサイドナビを表示する。
 | `/p/:projectId/runs/:runId` | Run Detail | ログ/チェック/事実の閲覧 |
 | `/p/:projectId/agents` | Agent Profiles | 実行プロファイル管理 |
 | `/p/:projectId/settings` | Settings | `scope.defaultExclude` / `dod.requiredChecks` 管理 |
+| `/p/:projectId/tasks/:taskId/live` | Task Live View | Task内の全Role監視 |
 
 注:
 - ルーティング実装（Next.js app router等）は実装に委ねる。
@@ -139,6 +140,7 @@ Monitorは「今起きていること」と「次に人間が介入すべきこ�
 | retry | 対象Taskに新runを追加する（追加入力なし） |
 | continue | 追加入力を要求し、新runを追加する |
 | approve/reject | scope violationを承認/却下する（Humanのみ） |
+| Live | Task Live View（S006）へ遷移する。自律駆動中は「Auto」バッジを表示する |
 
 注:
 - start runの追加自由入力は置かない。指示変更はtask.descriptionの更新かcontinueで行う。
@@ -204,6 +206,7 @@ Runの事実をタブで表示する。
 
 ## 関連ドキュメント
 
+- [Task Live View（S006）](./ui-task-live-view.md) - Task内全Role監視
 - [UI設計（概要）](./ui.md) - 画面一覧と方向性
 - [API設計](./api.md) - UI/Daemon間API
 - [イベント配信](./event-stream.md) - SSEイベント
