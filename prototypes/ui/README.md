@@ -20,4 +20,4 @@ python3 -m http.server 6418
 ## 目的
 
 - Monitor（Run一覧 + ウォーターフォール + 詳細）の見え方を確認する
-- Task作成時の `write_scope` 入力UI（A/B/C案）を比較する
+- Task作成時の `write_scope` 入力（B: ファイルツリー選択）を確認する

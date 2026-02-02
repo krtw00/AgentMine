@@ -97,36 +97,21 @@
           <textarea class="textarea">MonitorをRun一覧（Network風）で実装する。</textarea>
         </div>
 
-        <div class="field">
-          <label class="label">write_scope（必須）</label>
-          <div class="seg" role="tablist" aria-label="write_scope input modes">
-            <button class="active" data-mode="A" type="button">A: glob</button>
-            <button data-mode="B" type="button">B: tree</button>
-            <button data-mode="C" type="button">C: both</button>
-          </div>
-          <div class="hint">
-            ここは未確定。A/B/Cを見比べて決めるためのプロトタイプである。
-          </div>
-          <div class="hint">
-            個人情報/秘密情報をAIから隠す場合は、write_scopeではなくexcludeを設定する。
-            <a href="./settings.html" target="_blank" rel="noopener">Settings（scope.defaultExclude）</a> を参照。
-          </div>
-        </div>
+	        <div class="field">
+	          <label class="label">write_scope（必須）</label>
+	          <div class="hint">B（ファイルツリー選択）で確定である。</div>
+	          <div class="hint">
+	            個人情報/秘密情報をAIから隠す場合は、write_scopeではなくexcludeを設定する。
+	            <a href="./settings.html" target="_blank" rel="noopener">Settings（scope.defaultExclude）</a> を参照。
+	          </div>
+	        </div>
 
-        <div id="modeA" class="field">
-          <label class="label">Glob（改行区切り）</label>
-          <textarea class="textarea mono" id="globInput">apps/web/**
-packages/**
-docs/**</textarea>
-          <div class="hint">最短で実装できる。入力ミスは起きやすい。</div>
-        </div>
-
-        <div id="modeB" class="field" style="display: none">
-          <label class="label">Tree selection（例）</label>
-          <div class="tree" id="tree">
-            <ul>
-              <li>
-                <label><input type="checkbox" data-glob="apps/web/**" checked /> apps/web/</label>
+	        <div class="field">
+	          <label class="label">Tree selection（B）</label>
+	          <div class="tree" id="tree">
+	            <ul>
+	              <li>
+	                <label><input type="checkbox" data-glob="apps/web/**" checked /> apps/web/</label>
               </li>
               <li>
                 <label><input type="checkbox" data-glob="apps/daemon/**" /> apps/daemon/</label>
@@ -145,27 +130,10 @@ docs/**</textarea>
               <li>
                 <label><input type="checkbox" data-glob="docs/**" checked /> docs/</label>
               </li>
-            </ul>
-          </div>
-          <div class="hint">視覚的で安全。ファイルツリーの取得と表現が必要。</div>
-        </div>
-
-        <div id="modeC" class="field" style="display: none">
-          <label class="label">Tree + Glob（例）</label>
-          <div class="hint">Treeで大枠を決め、細部はglobで足す方式。</div>
-          <div class="tree" style="margin-top: 8px" id="tree2">
-            <ul>
-              <li>
-                <label><input type="checkbox" data-glob="apps/web/**" checked /> apps/web/</label>
-              </li>
-              <li>
-                <label><input type="checkbox" data-glob="packages/**" checked /> packages/</label>
-              </li>
-            </ul>
-          </div>
-          <div style="height: 10px"></div>
-          <textarea class="textarea mono" id="globExtra">packages/core/**</textarea>
-        </div>
+	            </ul>
+	          </div>
+	          <div class="hint">視覚的で安全。ファイルツリーの取得と表現が必要。</div>
+	        </div>
 
         <div class="field">
           <label class="label">プレビュー（最終write_scope）</label>
@@ -520,63 +488,28 @@ docs/**</textarea>
       btnCloseDrawer.addEventListener("click", closeDrawer);
       drawerBackdrop.addEventListener("click", closeDrawer);
 
-      // write_scope modes
-      const segButtons = Array.from(document.querySelectorAll(".seg button"));
-      const modeA = document.getElementById("modeA");
-      const modeB = document.getElementById("modeB");
-      const modeC = document.getElementById("modeC");
+	      // write_scope（B only）
+	      const scopePreview = document.getElementById("scopePreview");
 
-      let mode = "A";
-      for (const b of segButtons) {
-        b.addEventListener("click", () => {
-          mode = b.dataset.mode;
-          for (const x of segButtons) x.classList.toggle("active", x.dataset.mode === mode);
-          modeA.style.display = mode === "A" ? "block" : "none";
-          modeB.style.display = mode === "B" ? "block" : "none";
-          modeC.style.display = mode === "C" ? "block" : "none";
-          updateScopePreview();
-        });
-      }
-
-      const globInput = document.getElementById("globInput");
-      const globExtra = document.getElementById("globExtra");
-      const scopePreview = document.getElementById("scopePreview");
-
-      function readGlobLines(textarea) {
-        return textarea
-          .value.split("\n")
-          .map((x) => x.trim())
-          .filter((x) => x.length > 0);
-      }
-
-      function readTreeGlobs(rootId) {
-        const root = document.getElementById(rootId);
-        if (!root) return [];
-        const checked = Array.from(root.querySelectorAll('input[type="checkbox"]:checked'));
+	      function readTreeGlobs(rootId) {
+	        const root = document.getElementById(rootId);
+	        if (!root) return [];
+	        const checked = Array.from(root.querySelectorAll('input[type="checkbox"]:checked'));
         return checked.map((x) => x.dataset.glob).filter(Boolean);
       }
 
-      function updateScopePreview() {
-        let scopes = [];
-        if (mode === "A") scopes = readGlobLines(globInput);
-        if (mode === "B") scopes = readTreeGlobs("tree");
-        if (mode === "C") scopes = [...readTreeGlobs("tree2"), ...readGlobLines(globExtra)];
-        scopes = Array.from(new Set(scopes));
+	      function updateScopePreview() {
+	        const scopes = Array.from(new Set(readTreeGlobs("tree")));
 
-        scopePreview.innerHTML = scopes.map((s) => `<span class="chip">${escapeHtml(s)}</span>`).join("");
-      }
+	        scopePreview.innerHTML = scopes.map((s) => `<span class="chip">${escapeHtml(s)}</span>`).join("");
+	      }
 
       function escapeHtml(s) {
         return s.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
       }
 
-      globInput.addEventListener("input", updateScopePreview);
-      globExtra.addEventListener("input", updateScopePreview);
-      for (const id of ["tree", "tree2"]) {
-        const root = document.getElementById(id);
-        if (!root) continue;
-        root.addEventListener("change", updateScopePreview);
-      }
-    </script>
-  </body>
-</html>
+	      const treeRoot = document.getElementById("tree");
+	      if (treeRoot) treeRoot.addEventListener("change", updateScopePreview);
+	    </script>
+	  </body>
+	</html>
