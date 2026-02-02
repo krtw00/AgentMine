@@ -1,0 +1,17 @@
+ {
+    "name": "agentmine",
+    "version": "0.0.1",
+    "private": true,
+    "packageManager": "pnpm@10.28.2",
+    "scripts": {
+      "dev": "turbo run dev",
+      "build": "turbo run build",
+      "test": "turbo run test",
+      "lint": "turbo run lint",
+      "clean": "turbo run clean"
+    },
+    "devDependencies": {
+      "turbo": "^2.3.3",
+      "typescript": "^5.7.3"
+    }
+  }

@@ -1,0 +1,25 @@
+{
+  "name": "@agentmine/daemon",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "clean": "rm -rf dist",
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@agentmine/db": "workspace:*",
+    "@agentmine/shared": "workspace:*",
+    "hono": "^4.6.16",
+    "@hono/node-server": "^1.13.8"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.3"
+  }
+}
