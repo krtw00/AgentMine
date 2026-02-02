@@ -30,7 +30,7 @@
               />
               <label class="toggle">
                 <input type="checkbox" id="groupByTask" checked />
-                Group by task（既定）
+                Group by task tree（既定）
               </label>
               <button class="btn primary" id="btnNewTask">+ Task</button>
             </div>
@@ -152,54 +152,109 @@
     <script>
       const data = [
         {
-          taskId: 12,
-          taskTitle: "Monitor UI (Run-first)",
-          runs: [
-            {
-              runId: 41,
-              status: "running",
-              reasons: ["merge_pending"],
-              agent: "coder",
-              started: "12:41",
-              durationSec: 132,
-              dod: "pending",
-              violations: 0,
-              headSha: "3f09a1b",
-            },
-            {
-              runId: 40,
-              status: "failed",
-              reasons: ["dod_failed"],
-              agent: "coder",
-              started: "12:10",
-              durationSec: 488,
-              dod: "failed",
-              violations: 0,
-              headSha: "1e2c9d4",
-            },
-          ],
-        },
-        {
-          taskId: 13,
-          taskTitle: "Fix scope violation handling",
-          runs: [
-            {
-              runId: 39,
-              status: "completed",
-              reasons: ["scope_violation_pending"],
-              agent: "generalist",
-              started: "11:22",
-              durationSec: 301,
-              dod: "passed",
-              violations: 2,
-              headSha: "9ad0b2c",
-            },
-          ],
-        },
-        {
-          taskId: 14,
-          taskTitle: "Define DoD checks",
+          taskId: 10,
+          taskTitle: "MVP UI",
           runs: [],
+          children: [
+            {
+              taskId: 12,
+              taskTitle: "Monitor UI (Run-first Network)",
+              runs: [],
+              children: [
+                {
+                  taskId: 121,
+                  taskTitle: "Run table + filters",
+                  runs: [
+                    {
+                      runId: 41,
+                      status: "running",
+                      reasons: ["merge_pending"],
+                      agent: "coder",
+                      started: "12:41",
+                      durationSec: 132,
+                      dod: "pending",
+                      violations: 0,
+                      headSha: "3f09a1b",
+                    },
+                    {
+                      runId: 40,
+                      status: "failed",
+                      reasons: ["dod_failed"],
+                      agent: "coder",
+                      started: "12:10",
+                      durationSec: 488,
+                      dod: "failed",
+                      violations: 0,
+                      headSha: "1e2c9d4",
+                    },
+                  ],
+                },
+                {
+                  taskId: 122,
+                  taskTitle: "Details tabs + logs",
+                  runs: [
+                    {
+                      runId: 43,
+                      status: "completed",
+                      reasons: ["merge_pending"],
+                      agent: "coder",
+                      started: "12:30",
+                      durationSec: 210,
+                      dod: "passed",
+                      violations: 0,
+                      headSha: "4aa91c0",
+                    },
+                  ],
+                },
+              ],
+            },
+            {
+              taskId: 15,
+              taskTitle: "Settings (exclude) UI",
+              runs: [
+                {
+                  runId: 42,
+                  status: "completed",
+                  reasons: ["merge_pending"],
+                  agent: "writer",
+                  started: "12:50",
+                  durationSec: 180,
+                  dod: "passed",
+                  violations: 0,
+                  headSha: "7ab1c2d",
+                },
+              ],
+            },
+          ],
+        },
+        {
+          taskId: 11,
+          taskTitle: "Safety & Quality",
+          runs: [],
+          children: [
+            {
+              taskId: 13,
+              taskTitle: "Fix scope violation handling",
+              runs: [
+                {
+                  runId: 39,
+                  status: "completed",
+                  reasons: ["scope_violation_pending"],
+                  agent: "generalist",
+                  started: "11:22",
+                  durationSec: 301,
+                  dod: "passed",
+                  violations: 2,
+                  headSha: "9ad0b2c",
+                },
+              ],
+            },
+            {
+              taskId: 14,
+              taskTitle: "Define DoD checks",
+              runs: [],
+            },
+          ],
         },
       ];
 
@@ -207,10 +262,38 @@
       const elGroupBy = document.getElementById("groupByTask");
       const elSearch = document.getElementById("search");
 
-      const maxDuration = Math.max(
-        ...data.flatMap((t) => t.runs.map((r) => r.durationSec)),
-        1
-      );
+      const collapsedTasks = new Set();
+
+      function walkTasks(tasks, fn) {
+        for (const t of tasks) {
+          fn(t);
+          for (const c of t.children ?? []) walkTasks([c], fn);
+        }
+      }
+
+      function collectAllRuns(tasks) {
+        const runs = [];
+        walkTasks(tasks, (t) => runs.push(...(t.runs ?? [])));
+        return runs;
+      }
+
+      const maxDuration = Math.max(...collectAllRuns(data).map((r) => r.durationSec), 1);
+
+      function indentPad(depth) {
+        return `<span style="display:inline-block;width:${depth * 14}px"></span>`;
+      }
+
+      function countRuns(task) {
+        let n = (task.runs ?? []).length;
+        for (const c of task.children ?? []) n += countRuns(c);
+        return n;
+      }
+
+      function countSubtasks(task) {
+        let n = 0;
+        for (const c of task.children ?? []) n += 1 + countSubtasks(c);
+        return n;
+      }
 
       function badgeStatus(status) {
         if (status === "running") return '<span class="badge warn">running</span>';
@@ -230,77 +313,116 @@
         const group = elGroupBy.checked;
         elRows.innerHTML = "";
 
-        const flat = [];
-        for (const t of data) {
-          if (t.runs.length === 0) {
-            flat.push({
-              kind: "task",
-              task: t,
-            });
-            continue;
-          }
-          for (const r of t.runs) {
-            flat.push({
-              kind: "run",
-              task: t,
-              run: r,
-            });
-          }
-        }
-
         const matches = (text) => text.toLowerCase().includes(q);
+        const taskMatches = (t) => {
+          if (!q) return true;
+          return matches(t.taskTitle) || matches(String(t.taskId));
+        };
         const runMatches = (t, r) => {
           if (!q) return true;
           return (
-            matches(t.taskTitle) ||
-            matches(String(t.taskId)) ||
             matches(String(r.runId)) ||
             matches(r.status) ||
             matches(r.agent) ||
-            r.reasons.some((x) => matches(x)) ||
+            (r.reasons ?? []).some((x) => matches(x)) ||
             matches(r.dod) ||
-            matches(r.headSha)
+            matches(r.headSha) ||
+            taskMatches(t)
           );
         };
 
-        if (group) {
-          for (const t of data) {
-            const visibleRuns = t.runs.filter((r) => runMatches(t, r));
-            const showTaskRow = !q ? true : visibleRuns.length > 0 || matches(t.taskTitle) || matches(String(t.taskId));
-            if (!showTaskRow) continue;
+        const nodeMatches = (t) => {
+          if (!q) return true;
+          if (taskMatches(t)) return true;
+          for (const r of t.runs ?? []) if (runMatches(t, r)) return true;
+          for (const c of t.children ?? []) if (nodeMatches(c)) return true;
+          return false;
+        };
 
-            const trG = document.createElement("tr");
-            trG.className = "groupRow";
-            trG.innerHTML = `<td colspan="9">Task #${t.taskId}: ${t.taskTitle} <span class="muted">(${t.runs.length} runs)</span></td>`;
-            elRows.appendChild(trG);
+        function taskGroupRow(task, depth) {
+          const hasChildren = (task.children ?? []).length > 0 || (task.runs ?? []).length > 0;
+          const isLeaf = !hasChildren;
+          const isCollapsed = collapsedTasks.has(task.taskId);
+          const twisty = isLeaf ? "•" : isCollapsed ? "▸" : "▾";
+          const runCount = countRuns(task);
+          const subtaskCount = countSubtasks(task);
 
-            if (t.runs.length === 0) {
-              const tr = document.createElement("tr");
-              tr.innerHTML = `
-                <td class="muted">-</td>
-                <td class="muted">(no runs)</td>
-                <td class="muted">open</td>
-                <td class="muted">-</td>
-                <td class="muted">-</td>
-                <td class="muted">-</td>
-                <td class="muted">pending</td>
-                <td class="muted">0</td>
-                <td class="waterfall"><div class="bar"><span style="width:0%"></span></div></td>
-              `;
-              elRows.appendChild(tr);
-              continue;
-            }
+          const trG = document.createElement("tr");
+          trG.className = "groupRow";
+          trG.dataset.kind = "task";
+          trG.dataset.taskId = String(task.taskId);
+          trG.innerHTML = `<td colspan="9">${indentPad(depth)}<span class="twisty">${twisty}</span> Task #${
+            task.taskId
+          }: ${task.taskTitle} <span class="muted">(${runCount} runs${
+            subtaskCount > 0 ? `, ${subtaskCount} subtasks` : ""
+          })</span></td>`;
 
-            for (const r of visibleRuns) {
-              elRows.appendChild(runRow(t, r));
-            }
+          if (!isLeaf) {
+            trG.addEventListener("click", () => {
+              if (collapsedTasks.has(task.taskId)) collapsedTasks.delete(task.taskId);
+              else collapsedTasks.add(task.taskId);
+              render();
+            });
           }
+
+          return trG;
+        }
+
+        function emptyTaskRow(task, depth) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td class="muted">-</td>
+            <td>${indentPad(depth)}<span class="muted">(no runs)</span></td>
+            <td class="muted">open</td>
+            <td class="muted">-</td>
+            <td class="muted">-</td>
+            <td class="muted">-</td>
+            <td class="muted">pending</td>
+            <td class="muted">0</td>
+            <td class="waterfall"><div class="bar"><span style="width:0%"></span></div></td>
+          `;
+          return tr;
+        }
+
+        function renderTaskNode(task, depth) {
+          if (!nodeMatches(task)) return;
+
+          elRows.appendChild(taskGroupRow(task, depth));
+
+          const hasChildren = (task.children ?? []).length > 0 || (task.runs ?? []).length > 0;
+          const isLeaf = !hasChildren;
+          if (isLeaf) {
+            elRows.appendChild(emptyTaskRow(task, depth + 1));
+            return;
+          }
+
+          if (collapsedTasks.has(task.taskId)) return;
+
+          for (const c of task.children ?? []) renderTaskNode(c, depth + 1);
+          for (const r of (task.runs ?? []).filter((x) => runMatches(task, x))) {
+            elRows.appendChild(runRow(task, r, depth + 1, true));
+          }
+        }
+
+        if (group) {
+          for (const t of data) renderTaskNode(t, 0);
           return;
         }
 
+        const flat = [];
+        const collectFlat = (t) => {
+          if ((t.runs ?? []).length === 0) {
+            flat.push({ kind: "task", task: t });
+          } else {
+            for (const r of t.runs ?? []) flat.push({ kind: "run", task: t, run: r });
+          }
+          for (const c of t.children ?? []) collectFlat(c);
+        };
+        for (const t of data) collectFlat(t);
+
         for (const item of flat) {
           if (item.kind === "task") {
-            if (q && !matches(item.task.taskTitle) && !matches(String(item.task.taskId))) continue;
+            if (q && !taskMatches(item.task)) continue;
             const tr = document.createElement("tr");
             tr.innerHTML = `
               <td class="muted">-</td>
@@ -317,18 +439,22 @@
             continue;
           }
           if (!runMatches(item.task, item.run)) continue;
-          elRows.appendChild(runRow(item.task, item.run));
+          elRows.appendChild(runRow(item.task, item.run, 0, false));
         }
       }
 
-      function runRow(task, run) {
+      function runRow(task, run, depth, grouped) {
         const tr = document.createElement("tr");
         tr.dataset.kind = "run";
         tr.dataset.runId = String(run.runId);
         tr.dataset.taskId = String(task.taskId);
+
+        const nameCell = grouped
+          ? `${indentPad(depth)}<span class="muted">Run #${run.runId}</span>`
+          : `Task #${task.taskId}: ${task.taskTitle} <span class="muted">/ Run #${run.runId}</span>`;
         tr.innerHTML = `
           <td>${badgeStatus(run.status)}</td>
-          <td>Task #${task.taskId}: ${task.taskTitle} <span class="muted">/ Run #${run.runId}</span></td>
+          <td>${nameCell}</td>
           <td>${run.reasons.map((x) => `<span class="chip">${x}</span>`).join(" ")}</td>
           <td><span class="chip">${run.agent}</span></td>
           <td class="muted">${run.started}</td>

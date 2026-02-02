@@ -204,6 +204,15 @@ tbody tr.selected {
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+.twisty {
+  display: inline-block;
+  width: 14px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+  user-select: none;
+}
+
 .muted {
   color: var(--muted);
 }
@@ -446,4 +455,3 @@ tbody tr.selected {
   color: var(--fg);
   background: rgba(255, 255, 255, 0.06);
 }
-
