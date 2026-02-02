@@ -383,29 +383,18 @@
         return '<span class="badge warn">pending</span>';
       }
 
-      function renderOverview() {
+      function renderOverview(items) {
         if (!elOverview) return;
         const height = 64;
         const width = 1000;
-        const buckets = 220;
-        const bucketSec = windowSpan / buckets;
 
-        const series = [];
-        let maxActive = 1;
-        for (let i = 0; i < buckets; i++) {
-          const tt = windowStart + bucketSec * (i + 0.5);
-          const c = { running: 0, failed: 0, completed: 0, other: 0, total: 0 };
-          for (const r of runsAll) {
-            if (!(r.startedSec <= tt && tt < r.startedSec + r.durationSec)) continue;
-            if (r.status === "running") c.running++;
-            else if (r.status === "failed") c.failed++;
-            else if (r.status === "completed") c.completed++;
-            else c.other++;
-          }
-          c.total = c.running + c.failed + c.completed + c.other;
-          maxActive = Math.max(maxActive, c.total);
-          series.push(c);
+        const ticks = [];
+        for (const p of [0, 0.25, 0.5, 0.75, 1]) {
+          const sec = windowStart + windowSpan * p;
+          ticks.push(`<span>${fmtTime(sec)}</span>`);
         }
+        if (elWfTicks) elWfTicks.innerHTML = ticks.join("");
+        if (elRangeLabel) elRangeLabel.textContent = `${fmtTime(windowStart)} - ${fmtTime(windowEnd)}`;
 
         const grid = [];
         for (const p of [0, 0.25, 0.5, 0.75, 1]) {
@@ -415,44 +404,71 @@
           );
         }
 
-        const bars = [];
-        const bw = width / buckets;
-        const hScale = (height - 6) / maxActive;
-        const seg = (x, y, w, h, fill) =>
-          `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(
-            1
-          )}" rx="0" ry="0" fill="${fill}" />`;
+        const laneH = 6;
+        const gap = 2;
+        const topPad = 4;
+        const maxLanes = Math.max(1, Math.floor((height - topPad * 2 + gap) / (laneH + gap)));
+        const laneEnd = [];
 
-        for (let i = 0; i < buckets; i++) {
-          const c = series[i];
-          if (c.total === 0) continue;
-          const x = i * bw;
-          const w = bw + 0.6;
-          let y = height;
-          const stack = [
-            ["failed", "rgba(241, 76, 76, 0.75)"],
-            ["running", "rgba(204, 167, 0, 0.85)"],
-            ["completed", "rgba(137, 209, 133, 0.70)"],
-            ["other", "rgba(14, 99, 156, 0.70)"],
-          ];
-          for (const [k, fill] of stack) {
-            const n = c[k];
-            if (!n) continue;
-            const hh = Math.max(1, n * hScale);
-            y -= hh;
-            bars.push(seg(x, y, w, hh, fill));
+        const sorted = [...(items ?? [])].sort((a, b) => a.run.startedSec - b.run.startedSec);
+        const placed = [];
+        for (const it of sorted) {
+          let lane = -1;
+          for (let i = 0; i < laneEnd.length; i++) {
+            if (laneEnd[i] <= it.run.startedSec) {
+              lane = i;
+              break;
+            }
           }
+          if (lane === -1) {
+            if (laneEnd.length < maxLanes) {
+              lane = laneEnd.length;
+              laneEnd.push(0);
+            } else {
+              let best = 0;
+              for (let i = 1; i < laneEnd.length; i++) if (laneEnd[i] < laneEnd[best]) best = i;
+              lane = best;
+            }
+          }
+          laneEnd[lane] = Math.max(laneEnd[lane] ?? 0, it.run.startedSec + it.run.durationSec);
+          placed.push({ lane, it });
+        }
+
+        const fillByStatus = (s) => {
+          if (s === "running") return "rgba(204, 167, 0, 0.85)";
+          if (s === "failed") return "rgba(241, 76, 76, 0.75)";
+          if (s === "completed") return "rgba(137, 209, 133, 0.70)";
+          return "rgba(14, 99, 156, 0.70)";
+        };
+
+        const bars = [];
+        for (const { lane, it } of placed) {
+          const left = pct(it.run.startedSec);
+          const right = pct(it.run.startedSec + it.run.durationSec);
+          const x = (width * left) / 100;
+          const w = Math.max(1.2, (width * Math.max(0.2, right - left)) / 100);
+          const y = topPad + lane * (laneH + gap);
+          bars.push(
+            `<rect data-run-id="${String(it.run.runId)}" x="${x.toFixed(1)}" y="${y.toFixed(
+              1
+            )}" width="${w.toFixed(1)}" height="${laneH}" fill="${fillByStatus(
+              it.run.status
+            )}" rx="2" ry="2" opacity="0.95"><title>Run #${it.run.runId} (${it.run.status})\\n${fmtTime(
+              it.run.startedSec
+            )} + ${it.run.durationSec}s</title></rect>`
+          );
         }
 
         elOverview.innerHTML = [...grid, ...bars].join("");
-        if (elRangeLabel) elRangeLabel.textContent = `${fmtTime(windowStart)} - ${fmtTime(windowEnd)}`;
-        if (elWfTicks) {
-          const ticks = [];
-          for (const p of [0, 0.25, 0.5, 0.75, 1]) {
-            const sec = windowStart + windowSpan * p;
-            ticks.push(`<span>${fmtTime(sec)}</span>`);
-          }
-          elWfTicks.innerHTML = ticks.join("");
+
+        for (const r of elOverview.querySelectorAll("[data-run-id]")) {
+          r.addEventListener("click", () => {
+            const runId = Number(r.getAttribute("data-run-id"));
+            const hit = (items ?? []).find((x) => x.run.runId === runId);
+            if (!hit) return;
+            const tr = document.querySelector(`tbody tr[data-kind="run"][data-run-id="${runId}"]`);
+            if (tr) selectRun(hit.task, hit.run, tr);
+          });
         }
       }
 
@@ -690,6 +706,8 @@
             matches(run.headSha)
           );
         });
+
+        renderOverview(filtered);
 
         if (filtered.length === 0) {
           const tr = document.createElement("tr");
