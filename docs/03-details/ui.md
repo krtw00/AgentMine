@@ -84,7 +84,7 @@ flowchart TB
 
 | 要素 | 内容 |
 |---|---|
-| Overview | 実行の時間分布を一目で把握する（NetworkのOverview風） |
+| Overview | 実行の時間分布を一目で把握する（NetworkのOverview風）。現在の選択/フィルタ後の一覧に追従する |
 | テーブル | runsの一覧を表示し、status/reasonでトリアージできる |
 | タイムライン | runsの開始/終了から実行時間を可視化 |
 | ステータス | task.status（観測事実から導出）を色で表現 |

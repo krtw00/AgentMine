@@ -112,7 +112,7 @@ Monitorは「今起きていること」と「次に人間が介入すべきこ�
 
 | 領域 | 表示 |
 |------|------|
-| Overview | 実行の時間分布（NetworkのOverview風）。status別のアクティビティを視覚化する |
+| Overview | 実行の時間分布（NetworkのOverview風）。status別のアクティビティを視覚化する。現在の選択/フィルタ後の一覧に追従する |
 | テーブル | Run一覧（status/task/reasons/agent_profile/started/duration/dod/violations/head_sha/worktree_dirty） |
 | ウォーターフォール | runの開始/終了/実行時間（右端で視覚化） |
 | 詳細パネル | 選択runのfacts（logs/checks/violations/git/worktree）。未選択時は閉じる |
