@@ -10,7 +10,10 @@ cd prototypes/ui
 python3 -m http.server 6418
 ```
 
-ブラウザで `http://127.0.0.1:6418/monitor.html` を開く。
+ブラウザで以下を開く。
+
+- Monitor A（テーブル内アウトライン）: `http://127.0.0.1:6418/monitor.html`
+- Monitor B（ツリー + テーブル分割）: `http://127.0.0.1:6418/monitor-split.html`
 
 関連ページ:
 

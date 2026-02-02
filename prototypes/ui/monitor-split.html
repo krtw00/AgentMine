@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>AgentMine UI Prototype - Monitor (Run list)</title>
+    <title>AgentMine UI Prototype - Monitor (Split tree + table)</title>
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
@@ -13,7 +13,7 @@
         <div class="pill"><span class="muted">Project</span> <strong>AgentMine</strong></div>
         <div class="pill"><span class="muted">SSE</span> <strong id="sseState">connected</strong></div>
         <div class="spacer"></div>
-        <a class="btn" href="./monitor-split.html">Monitor B（Split）</a>
+        <a class="btn" href="./monitor.html">Monitor A（Outline）</a>
         <a class="btn" href="./settings.html">Settings</a>
         <a class="btn" href="./agents.html">Agent Profiles</a>
       </div>
@@ -21,45 +21,42 @@
       <div class="main">
         <div class="left">
           <div class="section">
-            <h2>Monitor A（Outline table）</h2>
+            <h2>Monitor B（Split tree + table）</h2>
             <div class="row">
-              <input
-                class="search"
-                id="search"
-                placeholder="検索: task / run / reason / agent_profile"
-                autocomplete="off"
-              />
+              <input class="search" id="search" placeholder="検索: task / run / reason / agent_profile" autocomplete="off" />
               <label class="toggle">
-                <input type="checkbox" id="groupByTask" checked />
-                Group by task tree（既定）
+                <input type="checkbox" id="includeDesc" checked />
+                include descendants
               </label>
               <button class="btn primary" id="btnNewTask">+ Task</button>
             </div>
             <div class="row" style="margin-top: 8px">
-              <span class="pill"><span class="muted">Filter</span> <strong>running</strong></span>
-              <span class="pill"><span class="muted">Filter</span> <strong>needs_review</strong></span>
-              <span class="pill"><span class="muted">Filter</span> <strong>dod_failed</strong></span>
-              <span class="pill"><span class="muted">Hint</span> <strong>click row</strong></span>
+              <span class="pill"><span class="muted">Selection</span> <strong id="selTask">All tasks</strong></span>
+              <span class="pill"><span class="muted">Hint</span> <strong>click task</strong></span>
             </div>
           </div>
 
-          <div class="tableWrap">
-            <table>
-              <thead>
-                <tr>
-                  <th style="width: 100px">Status</th>
-                  <th style="width: 260px">Task</th>
-                  <th style="width: 260px">Reasons</th>
-                  <th style="width: 160px">Agent</th>
-                  <th style="width: 110px">Started</th>
-                  <th style="width: 90px">Duration</th>
-                  <th style="width: 90px">DoD</th>
-                  <th style="width: 90px">Violations</th>
-                  <th class="waterfall">Waterfall</th>
-                </tr>
-              </thead>
-              <tbody id="rows"></tbody>
-            </table>
+          <div class="split">
+            <div class="treePane" id="taskTree"></div>
+
+            <div class="tableWrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width: 100px">Status</th>
+                    <th style="width: 320px">Task / Run</th>
+                    <th style="width: 260px">Reasons</th>
+                    <th style="width: 160px">Agent</th>
+                    <th style="width: 110px">Started</th>
+                    <th style="width: 90px">Duration</th>
+                    <th style="width: 90px">DoD</th>
+                    <th style="width: 90px">Violations</th>
+                    <th class="waterfall">Waterfall</th>
+                  </tr>
+                </thead>
+                <tbody id="rows"></tbody>
+              </table>
+            </div>
           </div>
         </div>
 
@@ -68,9 +65,7 @@
             <h2>Details</h2>
             <div class="row">
               <span class="pill"><span class="muted">Selected</span> <strong id="selLabel">none</strong></span>
-              <span class="pill"
-                ><span class="muted">head_sha</span> <strong class="mono" id="selSha">-</strong></span
-              >
+              <span class="pill"><span class="muted">head_sha</span> <strong class="mono" id="selSha">-</strong></span>
             </div>
           </div>
 
@@ -91,28 +86,28 @@
       <div class="drawerBody">
         <div class="field">
           <label class="label">Title（必須）</label>
-          <input class="input" value="Implement Monitor UI" />
+          <input class="input" value="New subtask" />
         </div>
         <div class="field">
           <label class="label">Description</label>
-          <textarea class="textarea">MonitorをRun一覧（Network風）で実装する。</textarea>
+          <textarea class="textarea">分割タスクの説明を書く。</textarea>
         </div>
 
-	        <div class="field">
-	          <label class="label">write_scope（必須）</label>
-	          <div class="hint">B（ファイルツリー選択）で確定である。</div>
-	          <div class="hint">
-	            個人情報/秘密情報をAIから隠す場合は、write_scopeではなくexcludeを設定する。
-	            <a href="./settings.html" target="_blank" rel="noopener">Settings（scope.defaultExclude）</a> を参照。
-	          </div>
-	        </div>
+        <div class="field">
+          <label class="label">write_scope（必須）</label>
+          <div class="hint">B（ファイルツリー選択）で確定である。</div>
+          <div class="hint">
+            個人情報/秘密情報をAIから隠す場合は、write_scopeではなくexcludeを設定する。
+            <a href="./settings.html" target="_blank" rel="noopener">Settings（scope.defaultExclude）</a> を参照。
+          </div>
+        </div>
 
-	        <div class="field">
-	          <label class="label">Tree selection（B）</label>
-	          <div class="tree" id="tree">
-	            <ul>
-	              <li>
-	                <label><input type="checkbox" data-glob="apps/web/**" checked /> apps/web/</label>
+        <div class="field">
+          <label class="label">Tree selection（B）</label>
+          <div class="tree" id="tree">
+            <ul>
+              <li>
+                <label><input type="checkbox" data-glob="apps/web/**" checked /> apps/web/</label>
               </li>
               <li>
                 <label><input type="checkbox" data-glob="apps/daemon/**" /> apps/daemon/</label>
@@ -129,19 +124,15 @@
                 </ul>
               </li>
               <li>
-                <label><input type="checkbox" data-glob="docs/**" checked /> docs/</label>
+                <label><input type="checkbox" data-glob="docs/**" /> docs/</label>
               </li>
-	            </ul>
-	          </div>
-	          <div class="hint">視覚的で安全。ファイルツリーの取得と表現が必要。</div>
-	        </div>
+            </ul>
+          </div>
+        </div>
 
         <div class="field">
           <label class="label">プレビュー（最終write_scope）</label>
           <div class="chips" id="scopePreview"></div>
-          <div class="hint">
-            実装では、この結果をTask.write_scopeとして保存する。run開始時はscope_snapshotに固定される。
-          </div>
         </div>
       </div>
       <div class="drawerFooter">
@@ -259,11 +250,21 @@
         },
       ];
 
-      const elRows = document.getElementById("rows");
-      const elGroupBy = document.getElementById("groupByTask");
-      const elSearch = document.getElementById("search");
+      const collapsed = new Set();
+      let selectedTaskId = null; // null=All
+      let selected = null;
+      let activeTab = "Output";
 
-      const collapsedTasks = new Set();
+      const elTaskTree = document.getElementById("taskTree");
+      const elRows = document.getElementById("rows");
+      const elSearch = document.getElementById("search");
+      const elIncludeDesc = document.getElementById("includeDesc");
+      const elSelTask = document.getElementById("selTask");
+
+      const elTabs = document.getElementById("tabs");
+      const elPanel = document.getElementById("panel");
+      const elSel = document.getElementById("selLabel");
+      const elSha = document.getElementById("selSha");
 
       function walkTasks(tasks, fn) {
         for (const t of tasks) {
@@ -272,16 +273,37 @@
         }
       }
 
-      function collectAllRuns(tasks) {
-        const runs = [];
-        walkTasks(tasks, (t) => runs.push(...(t.runs ?? [])));
-        return runs;
+      function collectRunsWithTask(tasks, out, includeDesc, rootTaskId) {
+        const pick = (t) => {
+          const allow =
+            rootTaskId === null ||
+            t.taskId === rootTaskId ||
+            (includeDesc && isDescendant(t.taskId, rootTaskId));
+          if (!allow) return;
+          for (const r of t.runs ?? []) out.push({ task: t, run: r });
+        };
+        walkTasks(tasks, pick);
       }
 
-      const maxDuration = Math.max(...collectAllRuns(data).map((r) => r.durationSec), 1);
+      const parentById = new Map();
+      function indexParents() {
+        function indexNode(t, parentId) {
+          parentById.set(t.taskId, parentId);
+          for (const c of t.children ?? []) indexNode(c, t.taskId);
+        }
+        for (const t of data) indexNode(t, null);
+      }
+      indexParents();
 
-      function indentPad(depth) {
-        return `<span style="display:inline-block;width:${depth * 14}px"></span>`;
+      function isDescendant(nodeId, ancestorId) {
+        if (ancestorId === null) return true;
+        if (nodeId === ancestorId) return true;
+        let cur = parentById.get(nodeId);
+        while (cur != null) {
+          if (cur === ancestorId) return true;
+          cur = parentById.get(cur);
+        }
+        return false;
       }
 
       function countRuns(task) {
@@ -290,10 +312,8 @@
         return n;
       }
 
-      function countSubtasks(task) {
-        let n = 0;
-        for (const c of task.children ?? []) n += 1 + countSubtasks(c);
-        return n;
+      function indentPad(depth) {
+        return `<span style="display:inline-block;width:${depth * 14}px"></span>`;
       }
 
       function badgeStatus(status) {
@@ -309,153 +329,92 @@
         return '<span class="badge warn">pending</span>';
       }
 
-      function render() {
-        const q = elSearch.value.trim().toLowerCase();
-        const group = elGroupBy.checked;
-        elRows.innerHTML = "";
+      function maxDurationSec() {
+        const runs = [];
+        walkTasks(data, (t) => runs.push(...(t.runs ?? [])));
+        return Math.max(...runs.map((r) => r.durationSec), 1);
+      }
+      const maxDuration = maxDurationSec();
 
-        const matches = (text) => text.toLowerCase().includes(q);
-        const taskMatches = (t) => {
-          if (!q) return true;
-          return matches(t.taskTitle) || matches(String(t.taskId));
-        };
-        const runMatches = (t, r) => {
-          if (!q) return true;
-          return (
-            matches(String(r.runId)) ||
-            matches(r.status) ||
-            matches(r.agent) ||
-            (r.reasons ?? []).some((x) => matches(x)) ||
-            matches(r.dod) ||
-            matches(r.headSha) ||
-            taskMatches(t)
-          );
-        };
-
-        const nodeMatches = (t) => {
-          if (!q) return true;
-          if (taskMatches(t)) return true;
-          for (const r of t.runs ?? []) if (runMatches(t, r)) return true;
-          for (const c of t.children ?? []) if (nodeMatches(c)) return true;
-          return false;
-        };
-
-        function taskGroupRow(task, depth) {
-          const hasChildren = (task.children ?? []).length > 0 || (task.runs ?? []).length > 0;
-          const isLeaf = !hasChildren;
-          const isCollapsed = collapsedTasks.has(task.taskId);
-          const twisty = isLeaf ? "•" : isCollapsed ? "▸" : "▾";
-          const runCount = countRuns(task);
-          const subtaskCount = countSubtasks(task);
-
-          const trG = document.createElement("tr");
-          trG.className = "groupRow";
-          trG.dataset.kind = "task";
-          trG.dataset.taskId = String(task.taskId);
-          trG.innerHTML = `<td colspan="9">${indentPad(depth)}<span class="twisty">${twisty}</span> Task #${
-            task.taskId
-          }: ${task.taskTitle} <span class="muted">(${runCount} runs${
-            subtaskCount > 0 ? `, ${subtaskCount} subtasks` : ""
-          })</span></td>`;
-
-          if (!isLeaf) {
-            trG.addEventListener("click", () => {
-              if (collapsedTasks.has(task.taskId)) collapsedTasks.delete(task.taskId);
-              else collapsedTasks.add(task.taskId);
-              render();
-            });
-          }
-
-          return trG;
+      function nodeMatches(t, q) {
+        if (!q) return true;
+        const s = q.toLowerCase();
+        if (String(t.taskId).includes(s)) return true;
+        if (t.taskTitle.toLowerCase().includes(s)) return true;
+        for (const r of t.runs ?? []) {
+          if (String(r.runId).includes(s)) return true;
+          if (r.status.toLowerCase().includes(s)) return true;
+          if (r.agent.toLowerCase().includes(s)) return true;
+          if ((r.reasons ?? []).some((x) => x.toLowerCase().includes(s))) return true;
         }
-
-        function emptyTaskRow(task, depth) {
-          const tr = document.createElement("tr");
-          tr.innerHTML = `
-            <td class="muted">-</td>
-            <td>${indentPad(depth)}<span class="muted">(no runs)</span></td>
-            <td class="muted">open</td>
-            <td class="muted">-</td>
-            <td class="muted">-</td>
-            <td class="muted">-</td>
-            <td class="muted">pending</td>
-            <td class="muted">0</td>
-            <td class="waterfall"><div class="bar"><span style="width:0%"></span></div></td>
-          `;
-          return tr;
-        }
-
-        function renderTaskNode(task, depth) {
-          if (!nodeMatches(task)) return;
-
-          elRows.appendChild(taskGroupRow(task, depth));
-
-          const hasChildren = (task.children ?? []).length > 0 || (task.runs ?? []).length > 0;
-          const isLeaf = !hasChildren;
-          if (isLeaf) {
-            elRows.appendChild(emptyTaskRow(task, depth + 1));
-            return;
-          }
-
-          if (collapsedTasks.has(task.taskId)) return;
-
-          for (const c of task.children ?? []) renderTaskNode(c, depth + 1);
-          for (const r of (task.runs ?? []).filter((x) => runMatches(task, x))) {
-            elRows.appendChild(runRow(task, r, depth + 1, true));
-          }
-        }
-
-        if (group) {
-          for (const t of data) renderTaskNode(t, 0);
-          return;
-        }
-
-        const flat = [];
-        const collectFlat = (t) => {
-          if ((t.runs ?? []).length === 0) {
-            flat.push({ kind: "task", task: t });
-          } else {
-            for (const r of t.runs ?? []) flat.push({ kind: "run", task: t, run: r });
-          }
-          for (const c of t.children ?? []) collectFlat(c);
-        };
-        for (const t of data) collectFlat(t);
-
-        for (const item of flat) {
-          if (item.kind === "task") {
-            if (q && !taskMatches(item.task)) continue;
-            const tr = document.createElement("tr");
-            tr.innerHTML = `
-              <td class="muted">-</td>
-              <td>Task #${item.task.taskId}: ${item.task.taskTitle}</td>
-              <td class="muted">open</td>
-              <td class="muted">-</td>
-              <td class="muted">-</td>
-              <td class="muted">-</td>
-              <td class="muted">pending</td>
-              <td class="muted">0</td>
-              <td class="waterfall"><div class="bar"><span style="width:0%"></span></div></td>
-            `;
-            elRows.appendChild(tr);
-            continue;
-          }
-          if (!runMatches(item.task, item.run)) continue;
-          elRows.appendChild(runRow(item.task, item.run, 0, false));
-        }
+        for (const c of t.children ?? []) if (nodeMatches(c, q)) return true;
+        return false;
       }
 
-      function runRow(task, run, depth, grouped) {
+      function renderTaskTree() {
+        const q = elSearch.value.trim();
+        elTaskTree.innerHTML = "";
+
+        const all = document.createElement("div");
+        all.className = "treeNode" + (selectedTaskId === null ? " selected" : "");
+        all.innerHTML = `<span class="twisty">◎</span> All tasks <span class="treeMeta mono">${countAllRuns()} runs</span>`;
+        all.addEventListener("click", () => {
+          selectedTaskId = null;
+          elSelTask.textContent = "All tasks";
+          renderAll();
+        });
+        elTaskTree.appendChild(all);
+
+        function renderNode(t, depth) {
+          if (!nodeMatches(t, q)) return;
+          const hasChildren = (t.children ?? []).length > 0;
+          const isCollapsed = collapsed.has(t.taskId);
+          const twisty = hasChildren ? (isCollapsed ? "▸" : "▾") : "•";
+
+          const row = document.createElement("div");
+          row.className = "treeNode" + (selectedTaskId === t.taskId ? " selected" : "");
+          row.innerHTML = `${indentPad(depth)}<span class="twisty">${twisty}</span> Task #${t.taskId}: ${
+            t.taskTitle
+          } <span class="treeMeta">${countRuns(t)} runs</span>`;
+
+          row.addEventListener("click", (ev) => {
+            const target = ev.target;
+            const clickedTwisty = target && target.classList && target.classList.contains("twisty");
+            if (clickedTwisty && hasChildren) {
+              if (collapsed.has(t.taskId)) collapsed.delete(t.taskId);
+              else collapsed.add(t.taskId);
+              renderTaskTree();
+              return;
+            }
+            selectedTaskId = t.taskId;
+            elSelTask.textContent = `Task #${t.taskId}`;
+            renderAll();
+          });
+
+          elTaskTree.appendChild(row);
+
+          if (hasChildren && !isCollapsed) {
+            for (const c of t.children ?? []) renderNode(c, depth + 1);
+          }
+        }
+
+        for (const t of data) renderNode(t, 0);
+      }
+
+      function countAllRuns() {
+        let n = 0;
+        walkTasks(data, (t) => (n += (t.runs ?? []).length));
+        return n;
+      }
+
+      function runRow(task, run) {
         const tr = document.createElement("tr");
         tr.dataset.kind = "run";
         tr.dataset.runId = String(run.runId);
         tr.dataset.taskId = String(task.taskId);
-
-        const nameCell = grouped
-          ? `${indentPad(depth)}<span class="muted">Run #${run.runId}</span>`
-          : `Task #${task.taskId}: ${task.taskTitle} <span class="muted">/ Run #${run.runId}</span>`;
         tr.innerHTML = `
           <td>${badgeStatus(run.status)}</td>
-          <td>${nameCell}</td>
+          <td>Task #${task.taskId}: ${task.taskTitle} <span class="muted">/ Run #${run.runId}</span></td>
           <td>${run.reasons.map((x) => `<span class="chip">${x}</span>`).join(" ")}</td>
           <td><span class="chip">${run.agent}</span></td>
           <td class="muted">${run.started}</td>
@@ -466,9 +425,21 @@
             <div class="bar"><span style="width:${Math.max(4, Math.round((run.durationSec / maxDuration) * 100))}%"></span></div>
           </td>
         `;
-
         tr.addEventListener("click", () => selectRun(task, run, tr));
         return tr;
+      }
+
+      function clearSelection() {
+        for (const tr of document.querySelectorAll('tbody tr[data-kind="run"]')) tr.classList.remove("selected");
+      }
+
+      function selectRun(task, run, tr) {
+        clearSelection();
+        tr.classList.add("selected");
+        selected = { task, run };
+        elSel.textContent = `Task #${task.taskId} / Run #${run.runId}`;
+        elSha.textContent = run.headSha;
+        renderPanel();
       }
 
       const tabs = [
@@ -479,13 +450,6 @@
         { id: "Violations", label: "Violations" },
         { id: "Git", label: "Git/Worktree" },
       ];
-
-      const elTabs = document.getElementById("tabs");
-      const elPanel = document.getElementById("panel");
-      const elSel = document.getElementById("selLabel");
-      const elSha = document.getElementById("selSha");
-      let selected = null;
-      let activeTab = "Output";
 
       function renderTabs() {
         elTabs.innerHTML = "";
@@ -562,8 +526,6 @@
           `;
           return;
         }
-
-        // Output (default)
         elPanel.innerHTML = `
           <div class="log">
 [stdout] running step: analyze…\n
@@ -574,26 +536,62 @@
         `;
       }
 
-      function clearSelection() {
-        for (const tr of document.querySelectorAll('tbody tr[data-kind="run"]')) {
-          tr.classList.remove("selected");
+      function renderRunTable() {
+        const q = elSearch.value.trim().toLowerCase();
+        const includeDesc = elIncludeDesc.checked;
+        elRows.innerHTML = "";
+
+        const selectedLabel = selectedTaskId === null ? "All tasks" : `Task #${selectedTaskId}`;
+        elSelTask.textContent = selectedLabel;
+
+        const list = [];
+        collectRunsWithTask(data, list, includeDesc, selectedTaskId);
+
+        const matches = (text) => text.toLowerCase().includes(q);
+        const filtered = list.filter(({ task, run }) => {
+          if (!q) return true;
+          return (
+            matches(task.taskTitle) ||
+            matches(String(task.taskId)) ||
+            matches(String(run.runId)) ||
+            matches(run.status) ||
+            matches(run.agent) ||
+            (run.reasons ?? []).some((x) => matches(x)) ||
+            matches(run.dod) ||
+            matches(run.headSha)
+          );
+        });
+
+        if (filtered.length === 0) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td class="muted">-</td>
+            <td class="muted">(no runs in selection)</td>
+            <td class="muted">-</td>
+            <td class="muted">-</td>
+            <td class="muted">-</td>
+            <td class="muted">-</td>
+            <td class="muted">pending</td>
+            <td class="muted">0</td>
+            <td class="waterfall"><div class="bar"><span style="width:0%"></span></div></td>
+          `;
+          elRows.appendChild(tr);
+          return;
         }
+
+        for (const item of filtered) elRows.appendChild(runRow(item.task, item.run));
       }
 
-      function selectRun(task, run, tr) {
-        clearSelection();
-        tr.classList.add("selected");
-        selected = { task, run };
-        elSel.textContent = `Task #${task.taskId} / Run #${run.runId}`;
-        elSha.textContent = run.headSha;
+      function renderAll() {
+        renderTaskTree();
+        renderRunTable();
+        renderTabs();
         renderPanel();
       }
 
-      renderTabs();
-      renderPanel();
-      render();
-      elGroupBy.addEventListener("change", render);
-      elSearch.addEventListener("input", render);
+      renderAll();
+      elSearch.addEventListener("input", () => renderAll());
+      elIncludeDesc.addEventListener("change", () => renderRunTable());
 
       // Drawer
       const drawer = document.getElementById("drawer");
@@ -615,28 +613,23 @@
       btnCloseDrawer.addEventListener("click", closeDrawer);
       drawerBackdrop.addEventListener("click", closeDrawer);
 
-	      // write_scope（B only）
-	      const scopePreview = document.getElementById("scopePreview");
-
-	      function readTreeGlobs(rootId) {
-	        const root = document.getElementById(rootId);
-	        if (!root) return [];
-	        const checked = Array.from(root.querySelectorAll('input[type="checkbox"]:checked'));
-        return checked.map((x) => x.dataset.glob).filter(Boolean);
-      }
-
-	      function updateScopePreview() {
-	        const scopes = Array.from(new Set(readTreeGlobs("tree")));
-
-	        scopePreview.innerHTML = scopes.map((s) => `<span class="chip">${escapeHtml(s)}</span>`).join("");
-	      }
-
+      const scopePreview = document.getElementById("scopePreview");
       function escapeHtml(s) {
         return s.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
       }
+      function readTreeGlobs(rootId) {
+        const root = document.getElementById(rootId);
+        if (!root) return [];
+        const checked = Array.from(root.querySelectorAll('input[type="checkbox"]:checked'));
+        return checked.map((x) => x.dataset.glob).filter(Boolean);
+      }
+      function updateScopePreview() {
+        const scopes = Array.from(new Set(readTreeGlobs("tree")));
+        scopePreview.innerHTML = scopes.map((s) => `<span class="chip">${escapeHtml(s)}</span>`).join("");
+      }
+      const treeRoot = document.getElementById("tree");
+      if (treeRoot) treeRoot.addEventListener("change", updateScopePreview);
+    </script>
+  </body>
+</html>
 
-	      const treeRoot = document.getElementById("tree");
-	      if (treeRoot) treeRoot.addEventListener("change", updateScopePreview);
-	    </script>
-	  </body>
-	</html>
