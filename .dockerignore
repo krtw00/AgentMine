@@ -1,0 +1,11 @@
+node_modules
+.git
+.gitignore
+*.md
+docs
+.next
+dist
+*.db
+*.sqlite
+.env*
+.turbo
