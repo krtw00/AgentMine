@@ -141,6 +141,7 @@ Monitorは「今起きていること」と「次に人間が介入すべきこ�
 - start runの追加自由入力は置かない。指示変更はtask.descriptionの更新かcontinueで行う。
 - write_scopeはファイルツリー（ディレクトリ/ファイル）から選択して入力できる。入力値の実体はglob配列である。
 - 個人情報等をAIから隠す場合はwrite_scopeではなくexcludeを使用する。excludeはSettings（`scope.defaultExclude`）で管理する。
+- Task作成/編集の近傍に、exclude設定（Settings）への導線を置く。
 
 ### Runs（S003）
 
