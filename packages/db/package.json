@@ -23,10 +23,9 @@
   "dependencies": {
     "@agentmine/shared": "workspace:*",
     "drizzle-orm": "^0.38.3",
-    "better-sqlite3": "^11.7.0"
+    "@libsql/client": "^0.14.0"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.12",
     "drizzle-kit": "^0.30.2",
     "tsup": "^8.3.5",
     "typescript": "^5.7.3"

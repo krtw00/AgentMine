@@ -1,6 +1,10 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
+import { projectsRouter } from "./routes/projects";
+import { tasksRouter } from "./routes/tasks";
+import { agentProfilesRouter } from "./routes/agent-profiles";
+import { runsRouter } from "./routes/runs";
 
 export const app = new Hono();
 
@@ -16,8 +20,16 @@ app.use(
 // Health check
 app.get("/health", (c) => c.json({ status: "ok" }));
 
-// API routes placeholder
-app.get("/api/projects", (c) => c.json({ data: [] }));
+// API routes
+app.route("/api/projects", projectsRouter);
+app.route("/api/projects/:projectId/tasks", tasksRouter);
+app.route("/api/tasks", tasksRouter);
+app.route("/api/projects/:projectId/agent-profiles", agentProfilesRouter);
+app.route("/api/agent-profiles", agentProfilesRouter);
+app.route("/api/tasks/:taskId/runs", runsRouter);
+app.route("/api/runs", runsRouter);
+
+// Runners (static for now)
 app.get("/api/runners", (c) =>
   c.json({
     data: [
