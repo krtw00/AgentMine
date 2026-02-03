@@ -5,18 +5,23 @@ import { useParams } from "next/navigation";
 import { tasksApi, runsApi, type Run } from "@/lib/api";
 import Link from "next/link";
 
-const STATUS_COLORS: Record<string, string> = {
-  running: "bg-blue-100 text-blue-800",
-  completed: "bg-green-100 text-green-800",
-  failed: "bg-red-100 text-red-800",
-  cancelled: "bg-gray-300 text-gray-600",
+const STATUS_STYLES: Record<string, string> = {
+  running: "bg-blue-600/20 text-blue-400 border border-blue-600/40",
+  completed: "bg-emerald-600/20 text-emerald-400 border border-emerald-600/40",
+  failed: "bg-red-600/20 text-red-400 border border-red-600/40",
+  cancelled: "bg-zinc-600/20 text-zinc-500 border border-zinc-600/30",
 };
+
+const StatusBadge = ({ status }: { status: string }) => (
+  <span className={`px-2 py-0.5 text-xs rounded font-medium ${STATUS_STYLES[status] || "bg-zinc-600/30 text-zinc-400 border border-zinc-600"}`}>
+    {status}
+  </span>
+);
 
 export default function RunsPage() {
   const params = useParams();
   const projectId = Number(params.projectId);
 
-  // Tasks取得してからRunsを取得
   const { data: tasks } = useQuery({
     queryKey: ["tasks", projectId],
     queryFn: async () => {
@@ -26,7 +31,6 @@ export default function RunsPage() {
     },
   });
 
-  // 全TaskのRunsを取得
   const { data: allRuns, isLoading } = useQuery({
     queryKey: ["allRuns", projectId, tasks?.map((t) => t.id)],
     queryFn: async () => {
@@ -35,9 +39,10 @@ export default function RunsPage() {
       const results = await Promise.all(runsPromises);
       const runs: (Run & { taskTitle: string })[] = [];
       results.forEach((res, i) => {
-        if ("data" in res) {
+        const task = tasks[i];
+        if ("data" in res && task) {
           res.data.forEach((run) => {
-            runs.push({ ...run, taskTitle: tasks[i].title });
+            runs.push({ ...run, taskTitle: task.title });
           });
         }
       });
@@ -50,80 +55,87 @@ export default function RunsPage() {
   });
 
   if (isLoading) {
-    return <p className="text-gray-500">読み込み中...</p>;
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="flex items-center gap-3 text-zinc-400">
+          <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+          </svg>
+          読み込み中...
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-6">Runs</h1>
+    <div className="h-full flex flex-col">
+      {/* Header */}
+      <div className="px-4 py-2 flex items-center justify-between border-b border-zinc-700 bg-zinc-800">
+        <h1 className="text-sm font-semibold text-zinc-100">実行履歴</h1>
+        <div className="text-xs text-zinc-500">
+          {allRuns?.length || 0} 件
+        </div>
+      </div>
 
-      {allRuns && allRuns.length > 0 ? (
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
-            <thead>
-              <tr className="bg-gray-100">
-                <th className="text-left p-3 border">ID</th>
-                <th className="text-left p-3 border">Task</th>
-                <th className="text-left p-3 border">Status</th>
-                <th className="text-left p-3 border">Started</th>
-                <th className="text-left p-3 border">Finished</th>
-                <th className="text-left p-3 border">DoD</th>
-                <th className="text-left p-3 border">Violations</th>
+      {/* Table */}
+      <div className="flex-1 overflow-auto">
+        {allRuns && allRuns.length > 0 ? (
+          <table className="w-full text-sm">
+            <thead className="bg-zinc-800 sticky top-0">
+              <tr>
+                <th className="text-left px-4 py-2 font-medium text-zinc-400 border-b border-zinc-700">ID</th>
+                <th className="text-left px-4 py-2 font-medium text-zinc-400 border-b border-zinc-700">タスク</th>
+                <th className="text-left px-4 py-2 font-medium text-zinc-400 border-b border-zinc-700">ステータス</th>
+                <th className="text-left px-4 py-2 font-medium text-zinc-400 border-b border-zinc-700">開始</th>
+                <th className="text-left px-4 py-2 font-medium text-zinc-400 border-b border-zinc-700">終了</th>
+                <th className="text-left px-4 py-2 font-medium text-zinc-400 border-b border-zinc-700">完了定義</th>
+                <th className="text-left px-4 py-2 font-medium text-zinc-400 border-b border-zinc-700">違反</th>
               </tr>
             </thead>
             <tbody>
               {allRuns.map((run) => (
-                <tr key={run.id} className="hover:bg-gray-50">
-                  <td className="p-3 border">
+                <tr key={run.id} className="border-b border-zinc-800 hover:bg-zinc-800/50">
+                  <td className="px-4 py-3">
                     <Link
                       href={`/p/${projectId}/runs/${run.id}`}
-                      className="text-blue-600 hover:underline"
+                      className="text-blue-400 hover:underline"
                     >
                       #{run.id}
                     </Link>
                   </td>
-                  <td className="p-3 border">{run.taskTitle}</td>
-                  <td className="p-3 border">
-                    <span
-                      className={`px-2 py-0.5 text-xs rounded ${
-                        STATUS_COLORS[run.status] || "bg-gray-200"
-                      }`}
-                    >
-                      {run.status}
-                    </span>
-                  </td>
-                  <td className="p-3 border text-sm">
-                    {new Date(run.startedAt).toLocaleString("ja-JP")}
-                  </td>
-                  <td className="p-3 border text-sm">
-                    {run.finishedAt
-                      ? new Date(run.finishedAt).toLocaleString("ja-JP")
-                      : "-"}
-                  </td>
-                  <td className="p-3 border">
-                    <span
-                      className={`px-2 py-0.5 text-xs rounded ${
-                        run.dodStatus === "passed"
-                          ? "bg-green-100 text-green-800"
-                          : run.dodStatus === "failed"
-                          ? "bg-red-100 text-red-800"
-                          : "bg-gray-100 text-gray-600"
-                      }`}
-                    >
+                  <td className="px-4 py-3 text-zinc-200">{run.taskTitle}</td>
+                  <td className="px-4 py-3"><StatusBadge status={run.status} /></td>
+                  <td className="px-4 py-3 text-zinc-400">{new Date(run.startedAt).toLocaleString("ja-JP")}</td>
+                  <td className="px-4 py-3 text-zinc-400">{run.finishedAt ? new Date(run.finishedAt).toLocaleString("ja-JP") : "-"}</td>
+                  <td className="px-4 py-3">
+                    <span className={`px-2 py-0.5 text-xs rounded font-medium ${
+                      run.dodStatus === "passed"
+                        ? "bg-emerald-600/20 text-emerald-400 border border-emerald-600/40"
+                        : run.dodStatus === "failed"
+                        ? "bg-red-600/20 text-red-400 border border-red-600/40"
+                        : "bg-zinc-600/30 text-zinc-400 border border-zinc-600"
+                    }`}>
                       {run.dodStatus || "pending"}
                     </span>
                   </td>
-                  <td className="p-3 border text-center">
-                    {run.scopeViolationCount || 0}
-                  </td>
+                  <td className="px-4 py-3 text-center text-zinc-400">{run.scopeViolationCount || 0}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
-      ) : (
-        <p className="text-gray-500">Runがありません。</p>
-      )}
+        ) : (
+          <div className="flex flex-col items-center justify-center h-full text-zinc-500">
+            <div className="w-16 h-16 mb-4 bg-zinc-800 rounded-lg flex items-center justify-center">
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <p>実行履歴がありません</p>
+            <p className="text-sm mt-1 text-zinc-600">タスクを実行すると履歴が表示されます</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

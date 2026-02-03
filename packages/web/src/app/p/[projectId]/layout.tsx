@@ -37,59 +37,67 @@ export default function ProjectLayout({
   });
 
   const navItems = [
-    { href: `/p/${projectId}/monitor`, label: "Monitor" },
-    { href: `/p/${projectId}/runs`, label: "Runs" },
-    { href: `/p/${projectId}/agents`, label: "Agent Profiles" },
-    { href: `/p/${projectId}/settings`, label: "Settings" },
+    { href: `/p/${projectId}/live`, label: "ライブ", icon: "play" },
+    { href: `/p/${projectId}/monitor`, label: "モニター", icon: "chart" },
+    { href: `/p/${projectId}/runs`, label: "実行履歴", icon: "bolt" },
+    { href: `/p/${projectId}/agents`, label: "エージェント", icon: "cpu" },
+    { href: `/p/${projectId}/settings`, label: "設定", icon: "cog" },
   ];
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-zinc-900">
       {/* Header */}
-      <header className="bg-gray-900 text-white px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link href="/" className="font-bold text-lg hover:text-gray-300">
-            AgentMine
+      <header className="px-4 py-2 flex items-center justify-between border-b border-zinc-700 bg-zinc-800">
+        <div className="flex items-center gap-3">
+          <Link href="/" className="flex items-center gap-2 hover:opacity-80">
+            <div className="w-6 h-6 bg-blue-600 rounded flex items-center justify-center">
+              <span className="text-white font-bold text-xs">A</span>
+            </div>
+            <span className="font-semibold text-sm text-blue-400">AgentMine</span>
           </Link>
           {project && (
-            <span className="text-gray-400">/ {project.name}</span>
+            <>
+              <span className="text-zinc-600">/</span>
+              <span className="text-sm font-medium text-zinc-200">{project.name}</span>
+            </>
           )}
         </div>
         <div className="flex items-center gap-2">
-          <span
-            className={`w-2 h-2 rounded-full ${
-              sseConnected ? "bg-green-500" : "bg-red-500"
-            }`}
-          />
-          <span className="text-sm text-gray-400">
-            {sseConnected ? "Connected" : "Disconnected"}
-          </span>
+          <span className={`w-2 h-2 rounded-full ${sseConnected ? "bg-emerald-500 animate-pulse" : "bg-red-500"}`} />
+          <span className="text-xs text-zinc-400">{sseConnected ? "接続中" : "切断"}</span>
         </div>
       </header>
 
       <div className="flex flex-1">
         {/* Sidebar */}
-        <nav className="w-48 bg-gray-100 border-r p-4">
-          <ul className="space-y-1">
-            {navItems.map((item) => (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  className={`block px-3 py-2 rounded ${
-                    pathname === item.href
-                      ? "bg-blue-600 text-white"
-                      : "hover:bg-gray-200"
-                  }`}
-                >
-                  {item.label}
-                </Link>
-              </li>
-            ))}
+        <nav className="w-52 border-r border-zinc-700 bg-zinc-800 flex flex-col">
+          <ul className="p-2 space-y-0.5 flex-1">
+            {navItems.map((item) => {
+              const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+              return (
+                <li key={item.href}>
+                  <Link
+                    href={item.href}
+                    className={`flex items-center gap-3 px-3 py-2 rounded text-sm transition-colors ${
+                      isActive
+                        ? "bg-zinc-700 text-zinc-100 border-l-2 border-blue-500"
+                        : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700/50 border-l-2 border-transparent"
+                    }`}
+                  >
+                    {item.label}
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
+          <div className="p-3 border-t border-zinc-700 text-xs text-zinc-500">
+            <div className="truncate">{project?.repoPath}</div>
+            <div className="mt-1 opacity-70">ブランチ: {project?.baseBranch}</div>
+          </div>
         </nav>
 
         {/* Main content */}
-        <main className="flex-1 p-6 overflow-auto">{children}</main>
+        <main className="flex-1 overflow-auto">{children}</main>
       </div>
     </div>
   );

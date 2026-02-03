@@ -73,6 +73,7 @@ projectsRouter.patch("/:id", async (c) => {
   };
 
   if (body.name !== undefined) updateData.name = body.name;
+  if (body.repoPath !== undefined) updateData.repoPath = body.repoPath;
   if (body.baseBranch !== undefined) updateData.baseBranch = body.baseBranch;
 
   const result = await db
