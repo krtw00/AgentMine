@@ -66,6 +66,11 @@ export const agentProfilesApi = {
       method: "POST",
       body: JSON.stringify(data),
     }),
+  update: (id: number, data: Partial<CreateAgentProfileInput>) =>
+    fetchApi<AgentProfile>(`/agent-profiles/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
   delete: (id: number) =>
     fetchApi<void>(`/agent-profiles/${id}`, { method: "DELETE" }),
 };
@@ -73,6 +78,10 @@ export const agentProfilesApi = {
 // Runs
 export const runsApi = {
   list: (taskId: number) => fetchApi<Run[]>(`/tasks/${taskId}/runs`),
+  listAll: (params?: Record<string, string>) => {
+    const qs = params ? `?${new URLSearchParams(params).toString()}` : "";
+    return fetchApi<Run[]>(`/runs${qs}`);
+  },
   get: (id: number) => fetchApi<RunDetail>(`/runs/${id}`),
   create: (taskId: number, agentProfileId: number) =>
     fetchApi<Run>(`/tasks/${taskId}/runs`, {
@@ -80,6 +89,7 @@ export const runsApi = {
       body: JSON.stringify({ agentProfileId }),
     }),
   stop: (id: number) => fetchApi<Run>(`/runs/${id}/stop`, { method: "POST" }),
+  getLogs: (id: number) => fetchApi<RunLogLine[]>(`/runs/${id}/logs`),
   retry: (id: number) => fetchApi<Run>(`/runs/${id}/retry`, { method: "POST" }),
   continue: (id: number, additionalInput: string) =>
     fetchApi<Run>(`/runs/${id}/continue`, {
@@ -91,6 +101,15 @@ export const runsApi = {
 // Runners
 export const runnersApi = {
   list: () => fetchApi<Runner[]>("/runners"),
+};
+
+// Orchestrate
+export const orchestrateApi = {
+  start: (projectId: number, data: { command: string; agentProfileId: number }) =>
+    fetchApi<{ parentTaskId: number; coordinatorRunId: number }>(
+      `/projects/${projectId}/orchestrate`,
+      { method: "POST", body: JSON.stringify(data) }
+    ),
 };
 
 // Types
@@ -181,6 +200,14 @@ export interface Run {
   worktreeDirty: boolean | null;
   dodStatus?: string;
   scopeViolationCount?: number;
+  role?: string | null;
+}
+
+export interface RunLogLine {
+  type: "stdout" | "stderr" | "exit";
+  data?: string;
+  exitCode?: number;
+  timestamp: string;
 }
 
 export interface RunDetail extends Run {

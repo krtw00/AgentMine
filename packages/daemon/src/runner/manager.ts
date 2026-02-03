@@ -4,6 +4,10 @@ import type { RunnerAdapter, RunHandle, RunOutput, RunOutputHandler } from "./ty
 import { db } from "../db";
 import { runs, eq } from "@agentmine/db";
 import { eventEmitter } from "../events/emitter";
+import { appendFileSync, mkdirSync, existsSync } from "fs";
+import { join } from "path";
+
+const LOG_DIR = "/tmp/agentmine/logs";
 
 class RunnerManager {
   private adapters: Map<string, RunnerAdapter> = new Map();
@@ -13,22 +17,40 @@ class RunnerManager {
     const claude = new ClaudeAdapter();
     const codex = new CodexAdapter();
 
-    claude.setOutputHandler((output) => this.handleOutput(output));
-    codex.setOutputHandler((output) => this.handleOutput(output));
+    claude.setOutputHandler((runId, output) => this.handleOutput(runId, output));
+    codex.setOutputHandler((runId, output) => this.handleOutput(runId, output));
 
     this.adapters.set("claude", claude);
     this.adapters.set("codex", codex);
   }
 
-  private currentRunId: number | null = null;
+  private appendLog(runId: number, output: RunOutput) {
+    try {
+      if (!existsSync(LOG_DIR)) {
+        mkdirSync(LOG_DIR, { recursive: true });
+      }
+      const logPath = join(LOG_DIR, `${runId}.jsonl`);
+      appendFileSync(logPath, JSON.stringify(output) + "\n", "utf-8");
+    } catch (err) {
+      console.error(`[run:${runId}] Failed to write log:`, err);
+    }
+  }
 
-  private handleOutput(output: RunOutput) {
-    if (this.currentRunId === null) return;
+  private handleOutput(runId: number, output: RunOutput) {
+    // ファイルログ保存
+    this.appendLog(runId, output);
 
-    const runId = this.currentRunId;
+    // コンソールログ
+    if (output.type === "stdout") {
+      console.log(`[run:${runId}:stdout] ${output.data?.slice(0, 200)}`);
+    } else if (output.type === "stderr") {
+      console.error(`[run:${runId}:stderr] ${output.data?.slice(0, 200)}`);
+    } else if (output.type === "exit") {
+      console.log(`[run:${runId}:exit] code=${output.exitCode}`);
+    }
 
-    // イベント発行
-    eventEmitter.emit("run.output", {
+    // イベント発行（emitRunEventでSSEワイルドカードリスナーにも届く）
+    eventEmitter.emitRunEvent("run.output", {
       runId,
       ...output,
     });
@@ -53,9 +75,8 @@ class RunnerManager {
       .where(eq(runs.id, runId));
 
     this.handles.delete(runId);
-    this.currentRunId = null;
 
-    eventEmitter.emit("run.finished", { runId, status, exitCode });
+    eventEmitter.emitRunEvent("run.finished", { runId, status, exitCode });
   }
 
   getAdapter(name: string): RunnerAdapter | undefined {
@@ -71,23 +92,30 @@ class RunnerManager {
     runner: string,
     worktreePath: string,
     prompt: string,
-    model?: string
+    model?: string,
+    config?: Record<string, unknown>
   ): Promise<RunHandle | null> {
     const adapter = this.adapters.get(runner);
     if (!adapter) return null;
-
-    this.currentRunId = runId;
 
     const handle = await adapter.start({
       runId,
       worktreePath,
       prompt,
       model,
+      config,
     });
 
     this.handles.set(runId, handle);
 
-    eventEmitter.emit("run.started", { runId });
+    // logRefをDBに記録
+    const logRef = join(LOG_DIR, `${runId}.jsonl`);
+    db.update(runs)
+      .set({ logRef })
+      .where(eq(runs.id, runId))
+      .catch((err) => console.error(`[run:${runId}] Failed to set logRef:`, err));
+
+    eventEmitter.emitRunEvent("run.started", { runId });
 
     return handle;
   }
@@ -96,7 +124,9 @@ class RunnerManager {
     const handle = this.handles.get(runId);
     if (!handle) return;
 
-    const adapter = this.adapters.get("claude") || this.adapters.get("codex");
+    // handleから元のrunnerを特定
+    const runnerName = this.findRunnerForHandle(runId);
+    const adapter = runnerName ? this.adapters.get(runnerName) : undefined;
     if (adapter) {
       await adapter.stop(handle);
     }
@@ -111,13 +141,26 @@ class RunnerManager {
       .where(eq(runs.id, runId));
 
     this.handles.delete(runId);
-    this.currentRunId = null;
 
-    eventEmitter.emit("run.cancelled", { runId });
+    eventEmitter.emitRunEvent("run.cancelled", { runId });
+  }
+
+  private findRunnerForHandle(runId: number): string | undefined {
+    for (const [name, adapter] of this.adapters) {
+      // アダプターのprocessesマップにrunIdがあるか確認
+      if ((adapter as any).processes?.has(runId)) {
+        return name;
+      }
+    }
+    return undefined;
   }
 
   isRunning(runId: number): boolean {
     return this.handles.has(runId);
+  }
+
+  getRunningCount(): number {
+    return this.handles.size;
   }
 }
 

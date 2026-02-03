@@ -152,12 +152,25 @@ agentProfilesRouter.patch("/:id", async (c) => {
   const id = Number(c.req.param("id"));
   const body = await c.req.json();
 
+  // 既存レコード確認
+  const existing = await db
+    .select()
+    .from(agentProfiles)
+    .where(eq(agentProfiles.id, id));
+  if (existing.length === 0) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "Agent profile not found" } },
+      404
+    );
+  }
+
   const updateData: Record<string, unknown> = {
     updatedAt: new Date().toISOString(),
   };
 
   if (body.name !== undefined) updateData.name = body.name;
   if (body.description !== undefined) updateData.description = body.description;
+  if (body.runner !== undefined) updateData.runner = body.runner;
   if (body.model !== undefined) updateData.model = body.model;
   if (body.promptTemplate !== undefined)
     updateData.promptTemplate = body.promptTemplate;
@@ -172,13 +185,6 @@ agentProfilesRouter.patch("/:id", async (c) => {
     .set(updateData)
     .where(eq(agentProfiles.id, id))
     .returning();
-
-  if (result.length === 0) {
-    return c.json(
-      { error: { code: "NOT_FOUND", message: "Agent profile not found" } },
-      404
-    );
-  }
 
   return c.json({ data: result[0] });
 });
@@ -217,5 +223,5 @@ agentProfilesRouter.delete("/:id", async (c) => {
     );
   }
 
-  return c.json(null, 204);
+  return c.body(null, 204);
 });

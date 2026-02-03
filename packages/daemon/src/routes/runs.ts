@@ -1,26 +1,142 @@
 import { Hono } from "hono";
+import { execSync } from "child_process";
+import { mkdirSync, existsSync, readFileSync } from "fs";
 import { db } from "../db";
 import {
   runs,
   tasks,
   agentProfiles,
+  projects,
   checks,
   scopeViolations,
   eq,
   and,
 } from "@agentmine/db";
+import { runnerManager } from "../runner/manager";
+
+// --- 共通ヘルパー: Run作成（worktree作成 → DB insert → ランナー起動） ---
+
+interface StartRunParams {
+  taskId: number;
+  agentProfileId: number;
+  role: string;
+  scopeSnapshot: string[];
+  task: { title: string; description: string | null; writeScope: string[] | null };
+  profile: {
+    runner: string;
+    model: string | null;
+    promptTemplate: string | null;
+    config: Record<string, unknown> | null;
+  };
+  repoPath: string;
+}
+
+async function startRun(params: StartRunParams): Promise<
+  | { ok: true; run: typeof runs.$inferSelect }
+  | { ok: false; error: { code: string; message: string }; status: number }
+> {
+  const now = new Date().toISOString();
+  const branchName = `agentmine/task-${params.taskId}-${Date.now()}`;
+  const worktreePath = `/tmp/agentmine/worktrees/${branchName.replace(/\//g, "-")}`;
+
+  // worktreeディレクトリ作成
+  const worktreeParent = "/tmp/agentmine/worktrees";
+  if (!existsSync(worktreeParent)) {
+    mkdirSync(worktreeParent, { recursive: true });
+  }
+
+  // git worktree作成
+  try {
+    execSync(`git worktree add -b "${branchName}" "${worktreePath}" HEAD`, {
+      cwd: params.repoPath,
+      stdio: "pipe",
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return {
+      ok: false,
+      error: { code: "WORKTREE_ERROR", message: `Failed to create worktree: ${message}` },
+      status: 500,
+    };
+  }
+
+  // HEADのSHAを取得
+  let headSha: string | null = null;
+  try {
+    headSha = execSync("git rev-parse HEAD", { cwd: worktreePath, encoding: "utf-8" }).trim();
+  } catch {
+    // ignore
+  }
+
+  // DB insert
+  const result = await db
+    .insert(runs)
+    .values({
+      taskId: params.taskId,
+      agentProfileId: params.agentProfileId,
+      status: "running",
+      startedAt: now,
+      branchName,
+      worktreePath,
+      headSha,
+      scopeSnapshot: params.scopeSnapshot,
+      role: params.role,
+    })
+    .returning();
+
+  // プロンプト生成
+  const basePrompt = `タスク: ${params.task.title}
+
+説明: ${params.task.description || "なし"}
+
+書き込み可能スコープ: ${(params.task.writeScope || []).join(", ")}
+
+このタスクを完了してください。`;
+
+  const prompt = params.profile.promptTemplate
+    ? `${params.profile.promptTemplate}\n\n---\n\n${basePrompt}`
+    : basePrompt;
+
+  // RunnerAdapter呼び出し（非同期で実行）
+  runnerManager
+    .start(
+      result[0].id,
+      params.profile.runner,
+      worktreePath,
+      prompt,
+      params.profile.model || undefined,
+      params.profile.config || undefined
+    )
+    .catch((err) => {
+      console.error(`Failed to start runner for run ${result[0].id}:`, err);
+    });
+
+  return { ok: true, run: result[0] };
+}
 
 export const runsRouter = new Hono();
 
 // GET /api/tasks/:taskId/runs - タスクのrun一覧
+// GET /api/runs - 全run一覧
 runsRouter.get("/", async (c) => {
-  const taskId = Number(c.req.param("taskId"));
+  const taskIdParam = c.req.param("taskId");
   const statusFilter = c.req.query("status");
+  const roleFilter = c.req.query("role");
 
-  let result = await db.select().from(runs).where(eq(runs.taskId, taskId));
+  let result;
+  if (taskIdParam) {
+    const taskId = Number(taskIdParam);
+    result = await db.select().from(runs).where(eq(runs.taskId, taskId));
+  } else {
+    result = await db.select().from(runs);
+  }
 
   if (statusFilter) {
     result = result.filter((r) => r.status === statusFilter);
+  }
+
+  if (roleFilter) {
+    result = result.filter((r) => r.role === roleFilter);
   }
 
   // dod_status, scope_violation_count を導出
@@ -54,7 +170,7 @@ runsRouter.get("/", async (c) => {
 runsRouter.post("/", async (c) => {
   const taskId = Number(c.req.param("taskId"));
   const body = await c.req.json();
-  const { agentProfileId } = body;
+  const { agentProfileId, role } = body;
 
   // バリデーション
   if (!agentProfileId) {
@@ -124,27 +240,59 @@ runsRouter.post("/", async (c) => {
     );
   }
 
-  const now = new Date().toISOString();
-  const branchName = `agentmine/task-${taskId}-${Date.now()}`;
-  const worktreePath = `/tmp/agentmine/worktrees/${branchName}`;
+  // プロジェクト情報取得
+  const project = await db.select().from(projects).where(eq(projects.id, task[0].projectId));
+  if (project.length === 0) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "Project not found" } },
+      404
+    );
+  }
 
-  const result = await db
-    .insert(runs)
-    .values({
-      taskId,
-      agentProfileId,
-      status: "running",
-      startedAt: now,
-      branchName,
-      worktreePath,
-      scopeSnapshot: task[0].writeScope,
-    })
-    .returning();
+  const result = await startRun({
+    taskId,
+    agentProfileId,
+    role: role ?? "worker",
+    scopeSnapshot: task[0].writeScope,
+    task: task[0],
+    profile: profile[0],
+    repoPath: project[0].repoPath,
+  });
 
-  // TODO: 実際のRunnerAdapter呼び出し
-  // runnerManager.start(result[0], task[0], profile[0]);
+  if (!result.ok) {
+    return c.json({ error: { code: result.error.code, message: result.error.message } }, result.status as 500);
+  }
 
-  return c.json({ data: result[0] }, 201);
+  return c.json({ data: result.run }, 201);
+});
+
+// GET /api/runs/:id/logs - Runログ取得
+runsRouter.get("/:id/logs", async (c) => {
+  const id = Number(c.req.param("id"));
+
+  const result = await db.select().from(runs).where(eq(runs.id, id));
+  if (result.length === 0) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "Run not found" } },
+      404
+    );
+  }
+
+  const logRef = result[0].logRef;
+  if (!logRef || !existsSync(logRef)) {
+    return c.json({ data: [] });
+  }
+
+  try {
+    const content = readFileSync(logRef, "utf-8");
+    const lines = content
+      .split("\n")
+      .filter((l) => l.trim())
+      .map((l) => JSON.parse(l));
+    return c.json({ data: lines });
+  } catch {
+    return c.json({ data: [] });
+  }
 });
 
 // GET /api/runs/:id - Run詳細
@@ -208,15 +356,16 @@ runsRouter.post("/:id/stop", async (c) => {
 
   const now = new Date().toISOString();
 
-  // TODO: 実際のプロセス停止
-  // runnerManager.stop(id);
+  if (runnerManager.isRunning(id)) {
+    await runnerManager.stop(id);
+  } else {
+    await db
+      .update(runs)
+      .set({ status: "cancelled", cancelledAt: now })
+      .where(eq(runs.id, id));
+  }
 
-  const updated = await db
-    .update(runs)
-    .set({ status: "cancelled", cancelledAt: now })
-    .where(eq(runs.id, id))
-    .returning();
-
+  const updated = await db.select().from(runs).where(eq(runs.id, id));
   return c.json({ data: updated[0] });
 });
 
@@ -254,24 +403,37 @@ runsRouter.post("/:id/retry", async (c) => {
     );
   }
 
-  const now = new Date().toISOString();
-  const branchName = `agentmine/task-${originalRun.taskId}-${Date.now()}`;
-  const worktreePath = `/tmp/agentmine/worktrees/${branchName}`;
+  // 関連データ取得
+  const task = await db.select().from(tasks).where(eq(tasks.id, originalRun.taskId));
+  if (task.length === 0) {
+    return c.json({ error: { code: "NOT_FOUND", message: "Task not found" } }, 404);
+  }
 
-  const newRun = await db
-    .insert(runs)
-    .values({
-      taskId: originalRun.taskId,
-      agentProfileId: originalRun.agentProfileId,
-      status: "running",
-      startedAt: now,
-      branchName,
-      worktreePath,
-      scopeSnapshot: originalRun.scopeSnapshot,
-    })
-    .returning();
+  const profile = await db.select().from(agentProfiles).where(eq(agentProfiles.id, originalRun.agentProfileId));
+  if (profile.length === 0) {
+    return c.json({ error: { code: "NOT_FOUND", message: "Agent profile not found" } }, 404);
+  }
 
-  return c.json({ data: newRun[0] }, 201);
+  const project = await db.select().from(projects).where(eq(projects.id, task[0].projectId));
+  if (project.length === 0) {
+    return c.json({ error: { code: "NOT_FOUND", message: "Project not found" } }, 404);
+  }
+
+  const retryResult = await startRun({
+    taskId: originalRun.taskId,
+    agentProfileId: originalRun.agentProfileId,
+    role: originalRun.role ?? "worker",
+    scopeSnapshot: originalRun.scopeSnapshot ?? task[0].writeScope,
+    task: task[0],
+    profile: profile[0],
+    repoPath: project[0].repoPath,
+  });
+
+  if (!retryResult.ok) {
+    return c.json({ error: { code: retryResult.error.code, message: retryResult.error.message } }, retryResult.status as 500);
+  }
+
+  return c.json({ data: retryResult.run }, 201);
 });
 
 // POST /api/runs/:id/continue - 追加入力で継続（新run作成）
@@ -321,23 +483,35 @@ runsRouter.post("/:id/continue", async (c) => {
     );
   }
 
-  const now = new Date().toISOString();
-  const branchName = `agentmine/task-${originalRun.taskId}-${Date.now()}`;
-  const worktreePath = `/tmp/agentmine/worktrees/${branchName}`;
+  // 関連データ取得
+  const task = await db.select().from(tasks).where(eq(tasks.id, originalRun.taskId));
+  if (task.length === 0) {
+    return c.json({ error: { code: "NOT_FOUND", message: "Task not found" } }, 404);
+  }
 
-  const newRun = await db
-    .insert(runs)
-    .values({
-      taskId: originalRun.taskId,
-      agentProfileId: originalRun.agentProfileId,
-      status: "running",
-      startedAt: now,
-      branchName,
-      worktreePath,
-      scopeSnapshot: originalRun.scopeSnapshot,
-      // TODO: additionalInputをログに記録
-    })
-    .returning();
+  const profile = await db.select().from(agentProfiles).where(eq(agentProfiles.id, originalRun.agentProfileId));
+  if (profile.length === 0) {
+    return c.json({ error: { code: "NOT_FOUND", message: "Agent profile not found" } }, 404);
+  }
 
-  return c.json({ data: newRun[0] }, 201);
+  const project = await db.select().from(projects).where(eq(projects.id, task[0].projectId));
+  if (project.length === 0) {
+    return c.json({ error: { code: "NOT_FOUND", message: "Project not found" } }, 404);
+  }
+
+  const continueResult = await startRun({
+    taskId: originalRun.taskId,
+    agentProfileId: originalRun.agentProfileId,
+    role: originalRun.role ?? "worker",
+    scopeSnapshot: originalRun.scopeSnapshot ?? task[0].writeScope,
+    task: task[0],
+    profile: profile[0],
+    repoPath: project[0].repoPath,
+  });
+
+  if (!continueResult.ok) {
+    return c.json({ error: { code: continueResult.error.code, message: continueResult.error.message } }, continueResult.status as 500);
+  }
+
+  return c.json({ data: continueResult.run }, 201);
 });

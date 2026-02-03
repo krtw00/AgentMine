@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { db } from "../db";
 import { tasks, taskDependencies, runs, eq, and } from "@agentmine/db";
+import { runnerManager } from "../runner/manager";
 
 export const tasksRouter = new Hono();
 
@@ -280,11 +281,22 @@ tasksRouter.post("/:id/cancel", async (c) => {
 
   const now = new Date().toISOString();
 
-  // running中のrunがあれば停止（TODO: 実際のプロセス停止）
-  await db
-    .update(runs)
-    .set({ status: "cancelled", cancelledAt: now })
+  // running中のrunがあればプロセスを停止
+  const runningRuns = await db
+    .select()
+    .from(runs)
     .where(and(eq(runs.taskId, id), eq(runs.status, "running")));
+
+  for (const run of runningRuns) {
+    if (runnerManager.isRunning(run.id)) {
+      await runnerManager.stop(run.id);
+    } else {
+      await db
+        .update(runs)
+        .set({ status: "cancelled", cancelledAt: now })
+        .where(eq(runs.id, run.id));
+    }
+  }
 
   const result = await db
     .update(tasks)
