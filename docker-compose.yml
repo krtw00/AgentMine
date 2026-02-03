@@ -7,8 +7,17 @@ services:
     restart: unless-stopped
     environment:
       - DB_PATH=/data/agentmine.db
+      - MIGRATIONS_PATH=/app/drizzle
+      - HOME=/home/node
     volumes:
       - db-data:/data
+      # Claude CLI本体・認証・設定
+      - ${HOME}/.local/share/claude:/home/node/.local/share/claude:ro
+      - ${HOME}/.claude:/home/node/.claude
+      # プロジェクトリポジトリ（worktree作成元）
+      - ${PWD}:/workspace/AgentMine
+      # worktree作業ディレクトリ
+      - /tmp/agentmine:/tmp/agentmine
     labels:
       - traefik.enable=true
       - traefik.http.routers.agentmine-api.rule=Host(`agentmine.localhost`) && PathPrefix(`/api`)
