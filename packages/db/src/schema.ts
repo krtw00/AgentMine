@@ -83,6 +83,7 @@ export const runs = sqliteTable("runs", {
   scopeSnapshot: text("scope_snapshot", { mode: "json" }).$type<string[]>(),
   dodSnapshot: text("dod_snapshot", { mode: "json" }),
   logRef: text("log_ref"),
+  role: text("role"),  // 'coordinator' | 'worker' | 'reviewer' | null
 });
 
 // Checks
