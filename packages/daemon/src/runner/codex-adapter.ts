@@ -24,13 +24,16 @@ export class CodexAdapter implements RunnerAdapter {
   }
 
   async start(options: RunStartOptions): Promise<RunHandle> {
-    const { runId, worktreePath, prompt, env } = options;
+    const { runId, worktreePath, prompt, env, config } = options;
+
+    const approvalPolicy = (config?.approvalPolicy as string) || "never";
+    const sandbox = (config?.sandbox as string) || "danger-full-access";
 
     const args = [
       "--approval-policy",
-      "never",
+      approvalPolicy,
       "--sandbox",
-      "danger-full-access",
+      sandbox,
       "--cwd",
       worktreePath,
       prompt,
@@ -45,7 +48,7 @@ export class CodexAdapter implements RunnerAdapter {
     this.processes.set(runId, proc);
 
     proc.stdout?.on("data", (data: Buffer) => {
-      this.outputHandler?.({
+      this.outputHandler?.(runId, {
         type: "stdout",
         data: data.toString(),
         timestamp: new Date().toISOString(),
@@ -53,7 +56,7 @@ export class CodexAdapter implements RunnerAdapter {
     });
 
     proc.stderr?.on("data", (data: Buffer) => {
-      this.outputHandler?.({
+      this.outputHandler?.(runId, {
         type: "stderr",
         data: data.toString(),
         timestamp: new Date().toISOString(),
@@ -62,7 +65,7 @@ export class CodexAdapter implements RunnerAdapter {
 
     proc.on("exit", (code) => {
       this.processes.delete(runId);
-      this.outputHandler?.({
+      this.outputHandler?.(runId, {
         type: "exit",
         exitCode: code ?? 1,
         timestamp: new Date().toISOString(),

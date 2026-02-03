@@ -1,1 +1,19 @@
 @import "tailwindcss";
+
+/* Dark theme base */
+:root {
+  --background: 30 30 30;
+  --foreground: 204 204 204;
+}
+
+body {
+  background-color: #1e1e1e;
+  color: #cccccc;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+/* MDEditor full-height support */
+[data-color-mode="dark"].flex-1 .w-md-editor,
+[data-color-mode="dark"].flex-1 .w-md-editor-content {
+  height: 100% !important;
+}

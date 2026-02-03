@@ -20,6 +20,7 @@ export interface RunStartOptions {
   prompt: string;
   model?: string;
   env?: Record<string, string>;
+  config?: Record<string, unknown>;
 }
 
 export interface RunHandle {
@@ -35,4 +36,4 @@ export interface RunOutput {
   timestamp: string;
 }
 
-export type RunOutputHandler = (output: RunOutput) => void;
+export type RunOutputHandler = (runId: number, output: RunOutput) => void;

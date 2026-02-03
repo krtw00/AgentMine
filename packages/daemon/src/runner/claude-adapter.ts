@@ -24,17 +24,33 @@ export class ClaudeAdapter implements RunnerAdapter {
   }
 
   async start(options: RunStartOptions): Promise<RunHandle> {
-    const { runId, worktreePath, prompt, model, env } = options;
+    const { runId, worktreePath, prompt, model, env, config } = options;
 
     const args = [
       "--print",
       "--dangerously-skip-permissions",
+      "--verbose",
       "--output-format",
       "stream-json",
     ];
 
     if (model) {
       args.push("--model", model);
+    }
+
+    // config からツール設定を適用
+    if (config?.tools && Array.isArray(config.tools) && config.tools.length > 0) {
+      for (const tool of config.tools as string[]) {
+        args.push("--tools", tool);
+      }
+    }
+    if (config?.disallowedTools && Array.isArray(config.disallowedTools) && config.disallowedTools.length > 0) {
+      for (const tool of config.disallowedTools as string[]) {
+        args.push("--disallowedTools", tool);
+      }
+    }
+    if (config?.appendSystemPrompt && typeof config.appendSystemPrompt === "string") {
+      args.push("--append-system-prompt", config.appendSystemPrompt);
     }
 
     args.push(prompt);
@@ -48,7 +64,7 @@ export class ClaudeAdapter implements RunnerAdapter {
     this.processes.set(runId, proc);
 
     proc.stdout?.on("data", (data: Buffer) => {
-      this.outputHandler?.({
+      this.outputHandler?.(runId, {
         type: "stdout",
         data: data.toString(),
         timestamp: new Date().toISOString(),
@@ -56,7 +72,7 @@ export class ClaudeAdapter implements RunnerAdapter {
     });
 
     proc.stderr?.on("data", (data: Buffer) => {
-      this.outputHandler?.({
+      this.outputHandler?.(runId, {
         type: "stderr",
         data: data.toString(),
         timestamp: new Date().toISOString(),
@@ -65,7 +81,7 @@ export class ClaudeAdapter implements RunnerAdapter {
 
     proc.on("exit", (code) => {
       this.processes.delete(runId);
-      this.outputHandler?.({
+      this.outputHandler?.(runId, {
         type: "exit",
         exitCode: code ?? 1,
         timestamp: new Date().toISOString(),
