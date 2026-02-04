@@ -5,26 +5,14 @@ services:
       dockerfile: Dockerfile.daemon
     container_name: agentmine-daemon
     restart: unless-stopped
+    ports:
+      - "3001:3001"
     environment:
       - DB_PATH=/data/agentmine.db
       - MIGRATIONS_PATH=/app/drizzle
       - HOME=/home/node
     volumes:
       - db-data:/data
-      # Claude CLI本体・認証・設定
-      - ${HOME}/.local/share/claude:/home/node/.local/share/claude:ro
-      - ${HOME}/.claude:/home/node/.claude
-      # プロジェクトリポジトリ（worktree作成元）
-      - ${PWD}:/workspace/AgentMine
-      # worktree作業ディレクトリ
-      - /tmp/agentmine:/tmp/agentmine
-    labels:
-      - traefik.enable=true
-      - traefik.http.routers.agentmine-api.rule=Host(`agentmine.localhost`) && PathPrefix(`/api`)
-      - traefik.http.routers.agentmine-api.entrypoints=web
-      - traefik.http.services.agentmine-api.loadbalancer.server.port=3001
-    networks:
-      - traefik
 
   web:
     build:
@@ -32,22 +20,12 @@ services:
       dockerfile: Dockerfile.web
     container_name: agentmine-web
     restart: unless-stopped
+    ports:
+      - "3000:3000"
     environment:
       - DAEMON_URL=http://agentmine-daemon:3001
-    labels:
-      - traefik.enable=true
-      - traefik.http.routers.agentmine-web.rule=Host(`agentmine.localhost`)
-      - traefik.http.routers.agentmine-web.entrypoints=web
-      - traefik.http.routers.agentmine-web.priority=1
-      - traefik.http.services.agentmine-web.loadbalancer.server.port=3000
     depends_on:
       - daemon
-    networks:
-      - traefik
-
-networks:
-  traefik:
-    external: true
 
 volumes:
   db-data:

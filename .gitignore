@@ -28,6 +28,9 @@ logs/
 .vscode/
 .idea/
 
+# Docker
+docker-compose.override.yml
+
 # OS
 .DS_Store
 Thumbs.db

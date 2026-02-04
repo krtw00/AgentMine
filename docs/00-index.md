@@ -41,6 +41,7 @@ flowchart LR
 | [00-writing-guide.md](./00-writing-guide.md) | 記載規範（文章の書き方） |
 | [00-format-guide.md](./00-format-guide.md) | フォーマット規範（構造・メタ情報・図・命名） |
 | [00-git-guide.md](./00-git-guide.md) | Git規範（コミット・ブランチ・変更履歴） |
+| [development-setup.md](./development-setup.md) | 開発環境セットアップ手順 |
 
 ### 01 - Overview（全体像）
 

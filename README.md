@@ -113,6 +113,12 @@ AIが自律的にTaskを処理し、Humanは監視と介入のみ行う。
 | Task Live View | `docs/03-details/ui-task-live-view.md` |
 | 用語 | `docs/99-appendix/glossary.md` |
 
+## コントリビューション / Contributing
+
+コントリビューションを歓迎します。詳細は [CONTRIBUTING.md](CONTRIBUTING.md) を参照してください。
+
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+
 ## ステータス
 
 このリポジトリは設計ドキュメントの整備が完了した。
