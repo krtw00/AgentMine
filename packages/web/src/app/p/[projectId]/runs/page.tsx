@@ -4,19 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
 import { tasksApi, runsApi, type Run } from "@/lib/api";
 import Link from "next/link";
-
-const STATUS_STYLES: Record<string, string> = {
-  running: "bg-blue-600/20 text-blue-400 border border-blue-600/40",
-  completed: "bg-emerald-600/20 text-emerald-400 border border-emerald-600/40",
-  failed: "bg-red-600/20 text-red-400 border border-red-600/40",
-  cancelled: "bg-zinc-600/20 text-zinc-500 border border-zinc-600/30",
-};
-
-const StatusBadge = ({ status }: { status: string }) => (
-  <span className={`px-2 py-0.5 text-xs rounded font-medium ${STATUS_STYLES[status] || "bg-zinc-600/30 text-zinc-400 border border-zinc-600"}`}>
-    {status}
-  </span>
-);
+import { StatusBadge } from "@/components/StatusBadge";
 
 export default function RunsPage() {
   const params = useParams();
@@ -105,7 +93,7 @@ export default function RunsPage() {
                     </Link>
                   </td>
                   <td className="px-4 py-3 text-zinc-200">{run.taskTitle}</td>
-                  <td className="px-4 py-3"><StatusBadge status={run.status} /></td>
+                  <td className="px-4 py-3"><StatusBadge status={run.status} variant="tag" /></td>
                   <td className="px-4 py-3 text-zinc-400">{new Date(run.startedAt).toLocaleString("ja-JP")}</td>
                   <td className="px-4 py-3 text-zinc-400">{run.finishedAt ? new Date(run.finishedAt).toLocaleString("ja-JP") : "-"}</td>
                   <td className="px-4 py-3">
