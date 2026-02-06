@@ -9,8 +9,10 @@ import {
   projects,
   checks,
   scopeViolations,
+  projectMemories,
   eq,
   and,
+  desc,
 } from "@agentmine/db";
 import { runnerManager } from "../runner/manager";
 
@@ -29,6 +31,7 @@ interface StartRunParams {
     config: Record<string, unknown> | null;
   };
   repoPath: string;
+  projectId: number;
 }
 
 async function startRun(params: StartRunParams): Promise<
@@ -84,17 +87,46 @@ async function startRun(params: StartRunParams): Promise<
     })
     .returning();
 
+  // プロジェクトの記憶を取得
+  const memories = await db
+    .select()
+    .from(projectMemories)
+    .where(
+      and(
+        eq(projectMemories.projectId, params.projectId),
+        eq(projectMemories.active, true)
+      )
+    )
+    .orderBy(desc(projectMemories.relevanceScore))
+    .limit(10);
+
+  // Memoriesセクションを生成
+  const memoriesSection =
+    memories.length > 0
+      ? `## Memories（プロジェクトの記憶）
+${memories.map((m) => `- [${m.type}] ${m.content}`).join("\n")}
+
+`
+      : "";
+
   // プロンプト生成
-  const basePrompt = `タスク: ${params.task.title}
+  const basePrompt = `## Task
+タスク: ${params.task.title}
 
 説明: ${params.task.description || "なし"}
 
+## Constraints
 書き込み可能スコープ: ${(params.task.writeScope || []).join(", ")}
 
-このタスクを完了してください。`;
+${memoriesSection}このタスクを完了してください。`;
 
   const prompt = params.profile.promptTemplate
-    ? `${params.profile.promptTemplate}\n\n---\n\n${basePrompt}`
+    ? `## Role
+${params.profile.promptTemplate}
+
+---
+
+${basePrompt}`
     : basePrompt;
 
   // RunnerAdapter呼び出し（非同期で実行）
@@ -257,6 +289,7 @@ runsRouter.post("/", async (c) => {
     task: task[0],
     profile: profile[0],
     repoPath: project[0].repoPath,
+    projectId: task[0].projectId,
   });
 
   if (!result.ok) {
@@ -427,6 +460,7 @@ runsRouter.post("/:id/retry", async (c) => {
     task: task[0],
     profile: profile[0],
     repoPath: project[0].repoPath,
+    projectId: task[0].projectId,
   });
 
   if (!retryResult.ok) {
@@ -507,6 +541,7 @@ runsRouter.post("/:id/continue", async (c) => {
     task: task[0],
     profile: profile[0],
     repoPath: project[0].repoPath,
+    projectId: task[0].projectId,
   });
 
   if (!continueResult.ok) {
