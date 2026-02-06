@@ -16,30 +16,30 @@ memoriesRouter.get("/", async (c) => {
   const tagsFilter = c.req.query("tags");
   const limit = Number(c.req.query("limit")) || 50;
 
-  let query = db
-    .select()
-    .from(projectMemories)
-    .where(eq(projectMemories.projectId, projectId))
-    .orderBy(desc(projectMemories.relevanceScore))
-    .limit(limit);
-
-  // 結果を取得してからフィルタリング（Drizzleの動的条件は複雑なため）
-  const results = await query;
-
-  let filtered = results;
+  // SQLレベルでフィルタリング条件を構築
+  const conditions = [eq(projectMemories.projectId, projectId)];
 
   // type フィルタ
   if (typeFilter && VALID_TYPES.includes(typeFilter as typeof VALID_TYPES[number])) {
-    filtered = filtered.filter((m) => m.type === typeFilter);
+    conditions.push(eq(projectMemories.type, typeFilter));
   }
 
   // active フィルタ（デフォルトはtrue）
   const showActive = activeFilter !== "false";
   if (showActive) {
-    filtered = filtered.filter((m) => m.active);
+    conditions.push(eq(projectMemories.active, true));
   }
 
-  // tags フィルタ
+  // SQLクエリ実行（フィルタ後にLIMIT適用）
+  const results = await db
+    .select()
+    .from(projectMemories)
+    .where(and(...conditions))
+    .orderBy(desc(projectMemories.relevanceScore))
+    .limit(limit);
+
+  // tags フィルタ（JSONフィールドのためメモリ内でフィルタ、十分な結果を取得済み）
+  let filtered = results;
   if (tagsFilter) {
     const searchTags = tagsFilter.split(",").map((t) => t.trim().toLowerCase());
     filtered = filtered.filter((m) => {
@@ -124,12 +124,19 @@ memoriesRouter.post("/", async (c) => {
 
 // GET /api/projects/:projectId/memories/:memoryId - 単体取得
 memoriesRouter.get("/:memoryId", async (c) => {
+  const projectId = Number(c.req.param("projectId"));
   const memoryId = Number(c.req.param("memoryId"));
 
+  // projectIdとmemoryIdの両方でチェック（セキュリティ対策）
   const result = await db
     .select()
     .from(projectMemories)
-    .where(eq(projectMemories.id, memoryId));
+    .where(
+      and(
+        eq(projectMemories.id, memoryId),
+        eq(projectMemories.projectId, projectId)
+      )
+    );
 
   if (result.length === 0) {
     return c.json(
@@ -143,14 +150,20 @@ memoriesRouter.get("/:memoryId", async (c) => {
 
 // PATCH /api/projects/:projectId/memories/:memoryId - 更新
 memoriesRouter.patch("/:memoryId", async (c) => {
+  const projectId = Number(c.req.param("projectId"));
   const memoryId = Number(c.req.param("memoryId"));
   const body = await c.req.json();
 
-  // 既存レコード確認
+  // projectIdとmemoryIdの両方でチェック（セキュリティ対策）
   const existing = await db
     .select()
     .from(projectMemories)
-    .where(eq(projectMemories.id, memoryId));
+    .where(
+      and(
+        eq(projectMemories.id, memoryId),
+        eq(projectMemories.projectId, projectId)
+      )
+    );
 
   if (existing.length === 0) {
     return c.json(
@@ -216,10 +229,16 @@ memoriesRouter.patch("/:memoryId", async (c) => {
     updateData.active = body.active;
   }
 
+  // projectIdも条件に含める（セキュリティ対策）
   const result = await db
     .update(projectMemories)
     .set(updateData)
-    .where(eq(projectMemories.id, memoryId))
+    .where(
+      and(
+        eq(projectMemories.id, memoryId),
+        eq(projectMemories.projectId, projectId)
+      )
+    )
     .returning();
 
   return c.json({ data: result[0] });
@@ -227,11 +246,18 @@ memoriesRouter.patch("/:memoryId", async (c) => {
 
 // DELETE /api/projects/:projectId/memories/:memoryId - 削除
 memoriesRouter.delete("/:memoryId", async (c) => {
+  const projectId = Number(c.req.param("projectId"));
   const memoryId = Number(c.req.param("memoryId"));
 
+  // projectIdとmemoryIdの両方でチェック（セキュリティ対策）
   const result = await db
     .delete(projectMemories)
-    .where(eq(projectMemories.id, memoryId))
+    .where(
+      and(
+        eq(projectMemories.id, memoryId),
+        eq(projectMemories.projectId, projectId)
+      )
+    )
     .returning();
 
   if (result.length === 0) {

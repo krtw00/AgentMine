@@ -109,16 +109,16 @@ ${memories.map((m) => `- [${m.type}] ${m.content}`).join("\n")}
 `
       : "";
 
-  // プロンプト生成
+  // プロンプト生成（ドキュメント順: Task → Memories → Constraints）
   const basePrompt = `## Task
 タスク: ${params.task.title}
 
 説明: ${params.task.description || "なし"}
 
-## Constraints
+${memoriesSection}## Constraints
 書き込み可能スコープ: ${(params.task.writeScope || []).join(", ")}
 
-${memoriesSection}このタスクを完了してください。`;
+このタスクを完了してください。`;
 
   const prompt = params.profile.promptTemplate
     ? `## Role
