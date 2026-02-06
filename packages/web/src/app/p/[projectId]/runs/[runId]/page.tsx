@@ -4,23 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
 import { runsApi, type RunLogLine } from "@/lib/api";
 import { useState, useRef, useEffect } from "react";
-
-const STATUS_STYLES: Record<string, string> = {
-  running: "bg-blue-600/20 text-blue-400 border border-blue-600/40",
-  completed: "bg-emerald-600/20 text-emerald-400 border border-emerald-600/40",
-  failed: "bg-red-600/20 text-red-400 border border-red-600/40",
-  cancelled: "bg-zinc-600/20 text-zinc-500 border border-zinc-600/30",
-  passed: "bg-emerald-600/20 text-emerald-400 border border-emerald-600/40",
-  pending: "bg-zinc-600/30 text-zinc-400 border border-zinc-600",
-  approved: "bg-emerald-600/20 text-emerald-400 border border-emerald-600/40",
-  rejected: "bg-red-600/20 text-red-400 border border-red-600/40",
-};
-
-const StatusBadge = ({ status }: { status: string }) => (
-  <span className={`px-2 py-0.5 text-xs rounded font-medium ${STATUS_STYLES[status] || STATUS_STYLES.pending}`}>
-    {status}
-  </span>
-);
+import { StatusBadge } from "@/components/StatusBadge";
 
 export default function RunDetailPage() {
   const params = useParams();
@@ -103,7 +87,7 @@ export default function RunDetailPage() {
       <div className="px-4 py-2 flex items-center justify-between border-b border-zinc-700 bg-zinc-800">
         <div className="flex items-center gap-4">
           <h1 className="text-sm font-semibold text-zinc-100">実行 #{run.id}</h1>
-          <StatusBadge status={run.status} />
+          <StatusBadge status={run.status} variant="tag" />
           <span className="text-xs text-zinc-500">{run.taskTitle}</span>
         </div>
         <div className="flex gap-2">
@@ -144,7 +128,7 @@ export default function RunDetailPage() {
         </div>
         <div>
           <div className="text-zinc-500 mb-1">完了定義</div>
-          <StatusBadge status={run.dodStatus || "pending"} />
+          <StatusBadge status={run.dodStatus || "pending"} variant="tag" />
         </div>
         <div>
           <div className="text-zinc-500 mb-1">開始</div>
@@ -226,7 +210,7 @@ export default function RunDetailPage() {
                         ({check.checkKey})
                       </span>
                     </div>
-                    <StatusBadge status={check.status} />
+                    <StatusBadge status={check.status} variant="tag" />
                   </div>
                 ))}
               </div>
@@ -253,7 +237,7 @@ export default function RunDetailPage() {
                         ({v.reason})
                       </span>
                     </div>
-                    <StatusBadge status={v.approvedStatus} />
+                    <StatusBadge status={v.approvedStatus} variant="tag" />
                   </div>
                 ))}
               </div>

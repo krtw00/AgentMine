@@ -5,10 +5,12 @@ import { useParams } from "next/navigation";
 import { tasksApi, agentProfilesApi, runsApi, type Task, type Run } from "@/lib/api";
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { useAppStore, type OutputLine } from "@/lib/store";
+import { StatusBadge } from "@/components/StatusBadge";
+import { TerminalOutput, parseStreamJsonLine } from "@/components/TerminalOutput";
 
 type ExtendedRun = Run & { taskTitle: string; taskId: number; agentProfileName?: string };
 
-const STATUS_COLORS: Record<string, string> = {
+const TIMELINE_STATUS_COLORS: Record<string, string> = {
   running: "rgba(204, 167, 0, 0.9)",
   completed: "rgba(137, 209, 133, 0.75)",
   failed: "rgba(241, 76, 76, 0.85)",
@@ -155,138 +157,6 @@ function LiveTerminalPane({ run, lines }: { run: ExtendedRun; lines: OutputLine[
             );
           })
         )}
-      </div>
-    </div>
-  );
-}
-
-// stream-json行をパースして表示用に変換
-function parseStreamJsonLine(raw: string): { label: string; text: string; color: string } | null {
-  try {
-    const obj = JSON.parse(raw);
-    // アシスタントテキスト
-    if (obj.type === "assistant" && obj.message?.content) {
-      const texts = obj.message.content
-        .filter((c: { type: string }) => c.type === "text")
-        .map((c: { text: string }) => c.text);
-      if (texts.length > 0) return { label: "assistant", text: texts.join(""), color: "#c9d1d9" };
-    }
-    // テキストデルタ
-    if (obj.type === "content_block_delta" && obj.delta?.text) {
-      return { label: "text", text: obj.delta.text, color: "#c9d1d9" };
-    }
-    // ツール使用
-    if (obj.type === "content_block_start" && obj.content_block?.type === "tool_use") {
-      return { label: "tool", text: `${obj.content_block.name}(...)`, color: "#d2a8ff" };
-    }
-    // ツール結果
-    if (obj.type === "tool_result" || (obj.type === "result" && obj.subtype === "success")) {
-      const preview = typeof obj.result === "string" ? obj.result.slice(0, 200) : JSON.stringify(obj).slice(0, 200);
-      return { label: "result", text: preview, color: "#7ee787" };
-    }
-    // initイベント
-    if (obj.type === "system" || obj.type === "init") {
-      return { label: "system", text: JSON.stringify(obj).slice(0, 150), color: "#58a6ff" };
-    }
-    // その他のイベント（type表示）
-    if (obj.type) {
-      return { label: obj.type, text: JSON.stringify(obj).slice(0, 200), color: "#8b949e" };
-    }
-  } catch {
-    // JSONでなければそのまま
-  }
-  return null;
-}
-
-function TerminalOutput({ lines, isRunning, terminalRef }: { lines: OutputLine[]; isRunning: boolean; terminalRef: React.RefObject<HTMLDivElement | null> }) {
-  const formatTs = (ts: string) => {
-    const d = new Date(ts);
-    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}:${String(d.getSeconds()).padStart(2, "0")}`;
-  };
-
-  if (lines.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full gap-2" style={{ color: "#484f58", minHeight: 120 }}>
-        <div className="text-xs">
-          {isRunning ? (
-            <span className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
-              出力を待機中...
-            </span>
-          ) : (
-            "出力なし"
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-col h-full" style={{ minHeight: 0 }}>
-      {isRunning && (
-        <div className="flex items-center gap-2 px-2.5 py-1.5 text-[11px] border-b" style={{ color: "#cca700", borderColor: "rgba(255,255,255,0.06)" }}>
-          <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-pulse" />
-          実行中...
-        </div>
-      )}
-      <div
-        ref={terminalRef}
-        className="flex-1 overflow-auto p-2 font-mono text-[11px] leading-[1.6]"
-        style={{ background: "#0d1117" }}
-      >
-        {lines.map((line, i) => {
-          if (line.type === "system") {
-            return (
-              <div key={i} className="py-0.5" style={{ color: "#58a6ff" }}>
-                <span style={{ color: "#484f58" }}>[{formatTs(line.timestamp)}]</span>{" "}
-                <span style={{ color: "#388bfd" }}>---</span> {line.data}
-              </div>
-            );
-          }
-          if (line.type === "stderr") {
-            return (
-              <div key={i} className="py-0.5" style={{ color: "#f85149" }}>
-                <span style={{ color: "#484f58" }}>[{formatTs(line.timestamp)}]</span>{" "}
-                <span style={{ color: "#da3633" }}>ERR</span> {line.data}
-              </div>
-            );
-          }
-          if (line.type === "exit") {
-            const color = line.exitCode === 0 ? "#7ee787" : "#f85149";
-            return (
-              <div key={i} className="py-0.5" style={{ color }}>
-                <span style={{ color: "#484f58" }}>[{formatTs(line.timestamp)}]</span>{" "}
-                <span style={{ color }}>EXIT</span> code={line.exitCode}
-              </div>
-            );
-          }
-          // stdout: stream-jsonパース試行
-          const raw = line.data ?? "";
-          const jsonLines = raw.split("\n").filter((l) => l.trim());
-          const elements: React.ReactNode[] = [];
-          for (const jsonLine of jsonLines) {
-            const parsed = parseStreamJsonLine(jsonLine);
-            if (parsed) {
-              elements.push(
-                <div key={`${i}-${elements.length}`} className="py-0.5 flex gap-1.5">
-                  <span style={{ color: "#484f58" }}>[{formatTs(line.timestamp)}]</span>
-                  <span className="px-1 rounded text-[10px]" style={{ background: "rgba(255,255,255,0.06)", color: parsed.color }}>
-                    {parsed.label}
-                  </span>
-                  <span style={{ color: parsed.color, wordBreak: "break-all" }}>{parsed.text}</span>
-                </div>
-              );
-            } else if (jsonLine.trim()) {
-              elements.push(
-                <div key={`${i}-${elements.length}`} className="py-0.5" style={{ color: "#c9d1d9" }}>
-                  <span style={{ color: "#484f58" }}>[{formatTs(line.timestamp)}]</span>{" "}
-                  {jsonLine}
-                </div>
-              );
-            }
-          }
-          return elements.length > 0 ? <div key={i}>{elements}</div> : null;
-        })}
       </div>
     </div>
   );
@@ -517,7 +387,7 @@ export default function MonitorPage() {
       const x = (width * left) / 100;
       const w = Math.max(2, (width * (right - left)) / 100);
       const y = topPad + lane * (laneH + gap);
-      const fill = STATUS_COLORS[run.status] || STATUS_COLORS.pending;
+      const fill = TIMELINE_STATUS_COLORS[run.status] || TIMELINE_STATUS_COLORS.pending;
       return `<rect data-run-id="${run.id}" x="${x.toFixed(1)}" y="${y}" width="${w.toFixed(1)}" height="${laneH}" fill="${fill}" rx="2" style="cursor:pointer"><title>実行 #${run.id} (${run.status})</title></rect>`;
     });
 
@@ -537,18 +407,6 @@ export default function MonitorPage() {
       </div>
     );
   }
-
-  const Badge = ({ status, type = "status" }: { status: string; type?: "status" | "dod" }) => {
-    const colorClass = status === "running" || status === "pending" ? "text-[#cca700]"
-      : status === "completed" || status === "passed" ? "text-[#89d185]"
-      : status === "failed" ? "text-[#f14c4c]"
-      : "text-[#a0a0a0]";
-    return (
-      <span className={`inline-flex items-center px-2 py-0.5 text-[11px] rounded-full border border-white/10 ${colorClass}`}>
-        {status}
-      </span>
-    );
-  };
 
   const tabs = [
     { id: "output" as const, label: "出力" },
@@ -717,7 +575,7 @@ export default function MonitorPage() {
                         onClick={() => selectRun(run)}
                       >
                         <td className="px-2.5 py-1.5 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
-                          <Badge status={run.status} />
+                          <StatusBadge status={run.status} />
                         </td>
                         <td className="px-2.5 py-1.5 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
                           <span className="text-[#d4d4d4]">タスク #{run.taskId}: {run.taskTitle}</span>
@@ -735,7 +593,7 @@ export default function MonitorPage() {
                           {formatDuration(run.startedAt, run.finishedAt)}
                         </td>
                         <td className="px-2.5 py-1.5 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
-                          <Badge status={run.dodStatus || "pending"} type="dod" />
+                          <StatusBadge status={run.dodStatus || "pending"} />
                         </td>
                         <td className="px-2.5 py-1.5 border-b font-mono text-center" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
                           {run.scopeViolationCount || 0}
@@ -745,7 +603,7 @@ export default function MonitorPage() {
                             <div
                               className="absolute top-0.5 h-2.5 rounded"
                               style={{
-                                background: STATUS_COLORS[run.status] || STATUS_COLORS.pending,
+                                background: TIMELINE_STATUS_COLORS[run.status] || TIMELINE_STATUS_COLORS.pending,
                                 border: "1px solid rgba(255,255,255,0.18)",
                                 left: `${left}%`,
                                 width: `${width}%`,
@@ -813,7 +671,7 @@ export default function MonitorPage() {
                   <div className="text-[#a0a0a0]">タスクID</div><div className="font-mono">{selectedRun.taskId}</div>
                   <div className="text-[#a0a0a0]">実行ID</div><div className="font-mono">{selectedRun.id}</div>
                   <div className="text-[#a0a0a0]">プロファイル</div><div>{selectedRun.agentProfileName}</div>
-                  <div className="text-[#a0a0a0]">ステータス</div><div><Badge status={selectedRun.status} /></div>
+                  <div className="text-[#a0a0a0]">ステータス</div><div><StatusBadge status={selectedRun.status} /></div>
                 </div>
               )}
               {activeTab === "timing" && (
@@ -826,7 +684,7 @@ export default function MonitorPage() {
               )}
               {activeTab === "checks" && (
                 <div className="grid gap-2 text-xs" style={{ gridTemplateColumns: "140px 1fr" }}>
-                  <div className="text-[#a0a0a0]">完了定義</div><div><Badge status={selectedRun.dodStatus || "pending"} type="dod" /></div>
+                  <div className="text-[#a0a0a0]">完了定義</div><div><StatusBadge status={selectedRun.dodStatus || "pending"} /></div>
                   <div className="text-[#a0a0a0]">チェック項目</div><div className="font-mono">lint: pending / test: pending</div>
                 </div>
               )}
