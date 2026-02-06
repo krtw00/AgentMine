@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, real } from "drizzle-orm/sqlite-core";
 
 // Projects
 export const projects = sqliteTable("projects", {
@@ -120,4 +120,23 @@ export const settings = sqliteTable("settings", {
     .references(() => projects.id),
   key: text("key").notNull(),
   value: text("value", { mode: "json" }).notNull(),
+});
+
+// Project Memories
+// type: 'pattern' | 'warning' | 'learning' | 'context'
+// source: 'human' | 'run' | 'learning'
+export const projectMemories = sqliteTable("project_memories", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  projectId: integer("project_id")
+    .notNull()
+    .references(() => projects.id),
+  type: text("type").notNull(), // pattern, warning, learning, context
+  content: text("content").notNull(),
+  source: text("source").notNull().default("human"), // human, run, learning
+  sourceRunId: integer("source_run_id").references(() => runs.id),
+  tags: text("tags", { mode: "json" }).$type<string[]>(),
+  relevanceScore: real("relevance_score").default(1.0),
+  active: integer("active", { mode: "boolean" }).notNull().default(true),
+  createdAt: text("created_at").notNull().default("CURRENT_TIMESTAMP"),
+  updatedAt: text("updated_at").notNull().default("CURRENT_TIMESTAMP"),
 });

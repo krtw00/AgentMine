@@ -1,0 +1,91 @@
+---
+depends_on:
+  - ../02-architecture/principles.md
+  - ../03-details/memory-layer.md
+tags: [decisions, adr, memory, learning]
+ai_summary: "記憶層（Memory Layer）導入の決定記録。Mem0/Agent Lightning統合の背景と設計判断"
+---
+
+# ADR-0012: 記憶層（Memory Layer）の導入
+
+> Status: Accepted
+> 最終更新: 2026-02-05
+
+## コンテキスト
+
+AgentMineは「観測可能な事実」に基づいて状態を判定するが、以下の課題がある:
+
+1. **同じ失敗の繰り返し**: Workerは毎回「白紙」から開始するため、過去の失敗パターンを学習しない
+2. **プロジェクト知識の断絶**: 「このプロジェクトではpnpmを使う」等の暗黙知が伝達されない
+3. **強化学習との連携**: Agent Lightning等の学習結果を活用する基盤がない
+
+外部ツール（Mem0、Supermemory等）はコンテキストの永続化と再利用を可能にしており、これをAgentMineに統合することで上記課題を解決できる。
+
+## 決定事項
+
+プロジェクト単位の「記憶層（Memory Layer）」を導入する。
+
+1. `project_memories` テーブルをDBに追加
+2. 記憶のCRUD APIを提供
+3. prompt-compositionに `Memories` セクションを追加
+4. 将来的にAgent Lightningと連携し、自動で記憶を生成
+
+## 検討した選択肢
+
+### 選択肢1: DBに記憶テーブルを追加（採用）
+
+| 項目 | 内容 |
+|------|------|
+| 概要 | project_memoriesテーブルを追加し、prompt-compositionで参照 |
+| メリット | DBマスター原則と整合、既存アーキテクチャへの影響小 |
+| デメリット | 記憶の検索・マッチングロジックを自前実装 |
+
+### 選択肢2: Mem0をそのまま統合
+
+| 項目 | 内容 |
+|------|------|
+| 概要 | Mem0のAPIを直接呼び出し、記憶の保存・検索を委譲 |
+| メリット | 高度な記憶圧縮・検索機能をそのまま利用可能 |
+| デメリット | 外部依存が増える、DBマスター原則との整合が難しい |
+
+### 選択肢3: settingsテーブルを拡張
+
+| 項目 | 内容 |
+|------|------|
+| 概要 | 既存のsettingsテーブルに記憶を保存 |
+| メリット | スキーマ変更が最小限 |
+| デメリット | 記憶固有の属性（type/source/relevance）を表現しにくい |
+
+## 決定理由
+
+**選択肢1（DBに記憶テーブルを追加）**を採用した理由:
+
+- **DBマスター原則との整合**: すべての状態をDBに集約する原則を維持
+- **段階的拡張が可能**: まず手動登録から始め、後からAgent Lightning連携を追加
+- **既存アーキテクチャへの影響最小**: prompt-compositionに1セクション追加するだけ
+- **外部依存なし**: Mem0のコンセプトを参考にしつつ、独自実装で依存を避ける
+
+## 結果
+
+### ポジティブな影響
+
+- Workerが過去の学びを参照でき、同じ失敗を繰り返しにくくなる
+- プロジェクト固有の知識が蓄積・共有される
+- Agent Lightning等の学習結果を取り込む基盤ができる
+
+### ネガティブな影響
+
+- 記憶の選択ロジック（どの記憶をプロンプトに含めるか）の実装が必要
+- 記憶が増えすぎた場合のトークン制限への対応が必要
+- 記憶の品質管理（古い/誤った記憶の整理）が運用課題になる可能性
+
+## 関連ADR
+
+- [ADR-0003](./0003-local-daemon-and-web-ui.md) - Web UI + Local Daemon
+- [ADR-0009](./0009-runner-adapter-interface.md) - RunnerAdapter I/F
+
+## 関連ドキュメント
+
+- [記憶層](../03-details/memory-layer.md) - 詳細設計
+- [プロンプト組み立て](../03-details/prompt-composition.md) - Memoriesセクションの統合
+- [設計原則](../02-architecture/principles.md) - DBマスター原則

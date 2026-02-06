@@ -116,7 +116,72 @@ feat(auth): OAuth2.0を追加した。  # 過去形、末尾ピリオド
 - 英語のケバブケースを使用する
 - 短く具体的に命名する（目安: 3-5単語）
 - Issue番号を含める場合は末尾に付与する: `fix/cart-zero-quantity-42`
-- メインブランチ（`main` / `master`）への直接コミットは原則禁止
+- メインブランチ（`main` / `developerer`）への直接コミットは原則禁止
+
+---
+
+## ブランチ戦略
+
+Git-flowをベースとしたブランチ戦略を採用する。
+
+### ブランチ構成
+
+```
+main (本番リリース)
+  ↑ マージ（リリース時のみ）
+developer (開発統合)
+  ↑ PR + レビュー
+feature/* / fix/* / ... (作業ブランチ)
+```
+
+| ブランチ | 用途 | 直接push |
+|---------|------|:--------:|
+| `main` | 本番リリース用。常にデプロイ可能な状態を維持 | 禁止 |
+| `developer` | 開発統合用。次のリリースに向けた変更を統合 | 禁止 |
+| `feature/*` | 新機能開発用。developerから分岐 | 可 |
+| `fix/*` | バグ修正用。developerから分岐 | 可 |
+| `hotfix/*` | 緊急修正用。mainから分岐しmainとdeveloperにマージ | 可 |
+| `release/*` | リリース準備用。developerから分岐 | 可 |
+
+### 開発フロー
+
+1. **作業開始**: `developer` から作業ブランチを作成
+   ```bash
+   git checkout developer
+   git pull origin developer
+   git checkout -b feature/memory-layer
+   ```
+
+2. **作業中**: 作業ブランチでコミット
+   ```bash
+   git add .
+   git commit -m "feat: 記憶層のAPI実装"
+   ```
+
+3. **作業完了**: PRを作成して `developer` にマージ
+   ```bash
+   git push -u origin feature/memory-layer
+   gh pr create --base developer
+   ```
+
+4. **リリース**: `developer` から `main` にマージ（リリース担当者のみ）
+
+### PRルール
+
+| ルール | 内容 |
+|--------|------|
+| ベースブランチ | 通常は `developer`、hotfixは `main` |
+| レビュー | 1人以上のApproveが必要 |
+| マージ方法 | Squash and merge を推奨 |
+| ブランチ削除 | マージ後に作業ブランチを削除 |
+
+### 例外
+
+以下の場合は `developer` への直接pushを許容する（個人開発時など）:
+
+- 明らかなtypo修正
+- CI/CD設定の軽微な修正
+- 緊急対応が必要な場合（事後にPRで記録を残す）
 
 ---
 

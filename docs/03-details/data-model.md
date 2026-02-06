@@ -119,6 +119,7 @@ erDiagram
 | checks | DoD等の検証結果（run配下） | id |
 | scope_violations | スコープ違反（run配下） | id |
 | settings | プロジェクト設定 | id |
+| project_memories | プロジェクト記憶（→[記憶層](./memory-layer.md)） | id |
 
 ---
 
