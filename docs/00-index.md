@@ -7,7 +7,7 @@ ai_summary: "全ドキュメントへのナビゲーションハブ"
 # ドキュメントインデックス
 
 > Status: Active
-> 最終更新: 2026-02-01
+> 最終更新: 2026-02-06
 
 本ドキュメントは、設計ドキュメント全体のナビゲーションを提供する。
 
@@ -86,7 +86,9 @@ flowchart LR
 | [ui-mvp.md](./03-details/ui-mvp.md) | UI仕様（MVP） |
 | [flows.md](./03-details/flows.md) | 主要フロー・シーケンス |
 | [authorization.md](./03-details/authorization.md) | 認証・認可（MVP） |
-| [memory-layer.md](./03-details/memory-layer.md) | 記憶層（プロジェクト記憶の永続化） |
+| [memory-layer.md](./03-details/memory-layer.md) | 記憶層（プロジェクト記憶の永続化 + Memory Governance） |
+| [proof-carrying-run.md](./03-details/proof-carrying-run.md) | Proof-Carrying Run（証跡パック自動生成） |
+| [conflict-aware-scheduler.md](./03-details/conflict-aware-scheduler.md) | Conflict-Aware Scheduler（衝突回避スケジューラ） |
 
 ### 04 - Decisions（決定記録）
 
@@ -104,6 +106,7 @@ flowchart LR
 | [0010-daemon-single-instance-and-localhost.md](./04-decisions/0010-daemon-single-instance-and-localhost.md) | localhost単一インスタンス |
 | [0011-ui-serving-hybrid-mode.md](./04-decisions/0011-ui-serving-hybrid-mode.md) | UI提供方式（開発分離 + 本番同一プロセス） |
 | [0012-memory-layer.md](./04-decisions/0012-memory-layer.md) | 記憶層（Memory Layer）の導入 |
+| [0013-repositioning.md](./04-decisions/0013-repositioning.md) | リポジショニング（AI非依存・安全性・チーム向け） |
 
 ### 99 - Appendix（付録）
 
