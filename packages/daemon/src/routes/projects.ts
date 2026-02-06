@@ -118,5 +118,5 @@ projectsRouter.delete("/:id", async (c) => {
     );
   }
 
-  return c.json(null, 204);
+  return c.body(null, 204);
 });

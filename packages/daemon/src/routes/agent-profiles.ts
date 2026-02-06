@@ -136,7 +136,7 @@ agentProfilesRouter.get("/:id", async (c) => {
     );
   }
 
-  const profile = result[0];
+  const profile = result[0]!;
   const runnerConfig = RUNNERS[profile.runner as keyof typeof RUNNERS];
 
   return c.json({

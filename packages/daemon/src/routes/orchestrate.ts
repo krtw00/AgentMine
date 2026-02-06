@@ -69,7 +69,7 @@ orchestrateRouter.post("/", async (c) => {
     })
     .returning();
 
-  const parentTaskId = parentTask[0].id;
+  const parentTaskId = parentTask[0]!.id;
 
   // git worktree作成
   const branchName = `agentmine/coordinator-${parentTaskId}-${Date.now()}`;
@@ -82,7 +82,7 @@ orchestrateRouter.post("/", async (c) => {
 
   try {
     execSync(`git worktree add -b "${branchName}" "${worktreePath}" HEAD`, {
-      cwd: project[0].repoPath,
+      cwd: project[0]!.repoPath,
       stdio: "pipe",
     });
   } catch (err: unknown) {
@@ -125,7 +125,7 @@ orchestrateRouter.post("/", async (c) => {
     })
     .returning();
 
-  const coordinatorRunId = coordinatorRun[0].id;
+  const coordinatorRunId = coordinatorRun[0]!.id;
 
   // Coordinator プロンプト生成（Orchestrator + Planner 役割）
   const prompt = `あなたはOrchestrator兼Plannerです。
@@ -133,7 +133,7 @@ Human（ユーザー）からの指令を分析し、独立したサブタスク
 
 ## プロジェクト
 - ID: ${projectId}
-- リポジトリ: ${project[0].repoPath}
+- リポジトリ: ${project[0]!.repoPath}
 
 ## 利用可能API（curlで呼び出し）
 - タスク作成: curl -s -X POST http://localhost:3001/api/projects/${projectId}/tasks \\
@@ -160,11 +160,11 @@ ${command}`;
   runnerManager
     .start(
       coordinatorRunId,
-      profile[0].runner,
+      profile[0]!.runner,
       worktreePath,
       prompt,
-      profile[0].model || undefined,
-      profile[0].config || undefined
+      profile[0]!.model || undefined,
+      profile[0]!.config || undefined
     )
     .catch((err) => {
       console.error(
