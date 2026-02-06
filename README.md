@@ -10,57 +10,55 @@
 ![pnpm](https://img.shields.io/badge/pnpm-9.x-F69220?logo=pnpm&logoColor=white)
 ![Turborepo](https://img.shields.io/badge/Turborepo-2.x-EF4444?logo=turborepo&logoColor=white)
 
-AgentMineは、ソフトウェア開発のための「プロジェクト管理 + AI実行基盤」である。
-MVPはローカル一人運用を前提とし、Web UIで監視・介入し、裏側はLocal Daemonが実行を担う。
+**AI非依存**の開発タスクオーケストレーション基盤。複数のAI Runner（Claude, Codex, Gemini等）を統合管理し、スコープ制御・完了定義・監査証跡で**安全性と観測可能性**を提供する。
 
-状態の正はDBマスターである。
-AIの自己申告ではなく、観測可能な事実から状態を導出する。
+## ポジショニング
 
-## 何を作るか（MVP）
+AgentMineは「AIプログラマーを管理するプロジェクトマネージャー」として機能する。
 
-- GitリポジトリをProjectとして登録する
-- タスクを親子・依存つきで管理する
-- タスクに対してRunを開始し、実行の事実（ログ、終了コード、チェック結果等）を記録する
-- Agent Profileでrunner/model/prompt等の実行設定を管理する
-- DoD（Definition of Done）の必須チェックを定義し、Runに対して検証結果（Check）を残す
-- worktreeで作業領域を分離し、スコープ制御で変更可能範囲を制約する
-- Web UIで、SSE（Server-Sent Events）により実行状況をリアルタイムに監視し、stop/retry/continue/approve等で介入する
-- Task Live Viewで、自律駆動AIの全Role（Orchestrator/Planner/Supervisor/Worker/Reviewer）を一覧監視する
+| 観点 | Claude Code等のAI開発ツール | AgentMine |
+|------|---------------------------|-----------|
+| AI対応 | 特定AI専用 | AI非依存（RunnerAdapter） |
+| 安全制御 | ツール単位の権限 | ファイル単位のスコープ+違反検出+承認 |
+| 実行隔離 | 同一ディレクトリ | worktreeで物理隔離 |
+| 完了判定 | AI自己報告 | Observable Facts + DoD |
+| 監査 | なし | Proof-Carrying Run（証跡パック自動生成） |
+| 利用形態 | 個人ターミナル | Web UIで可視化・共有 |
+
+## 主要機能
+
+| 機能 | 説明 |
+|------|------|
+| AI非依存オーケストレーション | RunnerAdapterで複数AI Runnerを統合管理する |
+| スコープ制御 | タスクごとにwrite/excludeを適用し、事前制約+事後検出で担保する |
+| Conflict-Aware Scheduler | 並列起動前にwrite_scopeの重なりを検出し、衝突を回避する |
+| Proof-Carrying Run | Run完了時に証跡パック（prompt hash、scope、変更ファイル、DoD結果）を自動生成する |
+| Memory Governance | 記憶の信頼度・有効期限・承認で長期運用の品質を維持する |
+| 観測可能な事実 | exit code、差分、検証結果等で状態を自動判定する（AIの自己申告に依存しない） |
+| worktree隔離 | タスクごとにブランチ+worktreeを作り、並列実行の衝突を物理的に防ぐ |
+| 監視と介入（Web UI） | ブラウザで実行ログを監視し、stop/retry/continue/approve等で介入する |
 
 ## アーキテクチャ概要
 
 ```mermaid
 flowchart LR
-  Human[Human] --> UI[Web UI]
-  UI <--> |HTTP API| Daemon[Local Daemon]
-  Daemon --> |SSE| UI
+  H[Human / Team] --> UI[Web UI<br/>監視・介入・共有]
+  UI <--> D[Local Daemon<br/>HTTP API + Events]
 
-  Daemon --> DB[(SQLite DB)]
-  Daemon --> Logs[(Log Files)]
-  Daemon --> Git[(Git Repo)]
+  D --> DB[(DB Master<br/>SSoT)]
+  D --> G[Git Repos]
+  D --> WT[Worktrees<br/>物理隔離]
 
-  Daemon --> RA[RunnerAdapter]
-  RA --> Claude[claude CLI]
-  RA --> Codex[codex CLI]
+  D --> RA[RunnerAdapter<br/>AI非依存]
+  RA --> R1[Claude CLI]
+  RA --> R2[Codex CLI]
+  RA --> R3[Gemini CLI]
 ```
 
 注:
-- MVPの認証は行わない。localhost前提である。
+- Phase 1-2はlocalhost一人運用。Phase 3でチーム対応を予定。
 - ログの正はDBではなくファイルである。DBは参照（log_ref/output_ref）を保持する。
-
-## 自律駆動モデル
-
-AIが自律的にTaskを処理し、Humanは監視と介入のみ行う。
-
-| Role | 責務 |
-|------|------|
-| Orchestrator | Taskの全体管理、Role起動 |
-| Planner | 計画立案、サブタスク分解 |
-| Supervisor | Worker進捗管理、品質監視 |
-| Worker | 実作業（コード生成等） |
-| Reviewer | 成果物レビュー、DoD確認 |
-
-各Roleは前段Roleが起動する（起動連鎖）。Humanは異常時のみ介入する。
+- DBをSSoT（Single Source of Truth）とし、状態はObservable Factsから導出する。
 
 ## 技術スタック
 
@@ -80,25 +78,34 @@ AIが自律的にTaskを処理し、Humanは監視と介入のみ行う。
 | `packages/shared` | 共通型定義（API schema等） |
 | `packages/db` | Drizzle schema + migrations |
 
-## 想定ワークフロー（MVP）
+## 想定ワークフロー
 
 1. Projectを登録する（repo_pathとbase_branchを指定する）
 2. Settingsで `scope.defaultExclude` と `dod.requiredChecks` を設定する
-3. Agent Profileを作成する（runner/model/prompt_template等）
+3. Agent Profileを作成する（runner/model/prompt_template等。Runnerを選択可能）
 4. タスクを作成する（title/description/write_scope必須）
-5. Runを開始する（worktreeを作り、RunnerAdapterでrunnerを起動する）
-6. Task Live Viewで全Roleの進行を監視する
+5. Runを開始する → **Conflict-Aware Scheduler**がwrite_scope衝突を事前チェック
+6. worktreeで物理隔離された環境で、選択されたRunnerがタスクを実行する
 7. scope violationが発生した場合、Web UIでapprove/rejectする
-8. DoD必須チェックを実行し、Check結果を確認する
+8. Run完了時にDoDチェック実行 → **Proof Bundle（証跡パック）**を自動生成
 9. base branchへマージされたことを根拠にdoneを確定する
 
-## 設計の特徴（MVP）
+## 設計の特徴
 
-- DBをSSoT（Single Source of Truth）とする
-- continue/retryは「同一runへの追加入力」ではなく、新しいrunを追加する
-- doneは「観測可能な事実」から導出する（例: マージ + DoD passed + worktree_dirty=false）
-- runner差はRunnerAdapterのcapabilitiesで吸収する（UI出し分け + 実行前バリデーション）
-- AIは自律駆動し、Humanは監視・介入に専念する
+- **AI非依存**: RunnerAdapterで差異を吸収。特定AI Runnerにロックインしない
+- **安全性**: write_scope + 違反検出 + 承認ワークフロー + worktree物理隔離
+- **監査性**: Proof-Carrying Runで変更の証跡を自動集約。レビュー・監査コストを削減
+- **衝突回避**: Conflict-Aware Schedulerが並列実行前にwrite_scope重複を検出
+- **記憶の品質管理**: Memory Governanceで信頼度・有効期限・承認を管理
+- **観測可能性**: 状態はObservable Facts（exit code, diff, check結果等）から導出。AIの自己申告に依存しない
+
+## フェーズ計画
+
+| Phase | テーマ | 主な内容 |
+|-------|--------|---------|
+| 1 | MVP完成 + 差別化確立 | スコープ制御完成、Proof-Carrying Run、Conflict-Aware Scheduler、Memory Governance、RunnerAdapter追加 |
+| 2 | 運用知能化 | Cost/SLA Router、Compliance Templates、監査ログエクスポート |
+| 3 | チーム対応 | 認証・認可、リモートアクセス、チームダッシュボード |
 
 ## ドキュメント
 
@@ -106,12 +113,16 @@ AIが自律的にTaskを処理し、Humanは監視と介入のみ行う。
 |---------|------|
 | 設計の入口 | `docs/00-index.md` |
 | 全体像 | `docs/01-overview/summary.md` |
+| スコープ・フェーズ | `docs/01-overview/scope.md` |
 | 構成 | `docs/02-architecture/structure.md` |
 | 役割モデル | `docs/02-architecture/role-model.md` |
-| 技術スタック | `docs/02-architecture/tech-stack.md` |
+| Proof-Carrying Run | `docs/03-details/proof-carrying-run.md` |
+| Conflict-Aware Scheduler | `docs/03-details/conflict-aware-scheduler.md` |
+| Memory Layer + Governance | `docs/03-details/memory-layer.md` |
 | UI仕様（MVP） | `docs/03-details/ui-mvp.md` |
-| Task Live View | `docs/03-details/ui-task-live-view.md` |
+| リポジショニング決定 | `docs/04-decisions/0013-repositioning.md` |
 | 用語 | `docs/99-appendix/glossary.md` |
+| English docs | `docs_en/` |
 
 ## コントリビューション / Contributing
 
@@ -121,5 +132,4 @@ Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ## ステータス
 
-このリポジトリは設計ドキュメントの整備が完了した。
-実装フェーズに移行する。
+Phase 1（MVP完成 + 差別化確立）の実装を進行中。
