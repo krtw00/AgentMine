@@ -8,6 +8,7 @@ import { memoriesRouter } from "./routes/memories";
 import { runsRouter } from "./routes/runs";
 import { eventsRouter } from "./routes/events";
 import { orchestrateRouter } from "./routes/orchestrate";
+import { filesRouter } from "./routes/files";
 
 export const app = new Hono();
 
@@ -34,6 +35,7 @@ app.route("/api/tasks/:taskId/runs", runsRouter);
 app.route("/api/runs", runsRouter);
 app.route("/api/events", eventsRouter);
 app.route("/api/projects/:projectId/orchestrate", orchestrateRouter);
+app.route("/api/projects/:projectId/files", filesRouter);
 
 // Runners (static for now)
 app.get("/api/runners", (c) =>
