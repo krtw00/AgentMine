@@ -9,8 +9,10 @@ import {
   projects,
   checks,
   scopeViolations,
+  projectMemories,
   eq,
   and,
+  desc,
 } from "@agentmine/db";
 import { runnerManager } from "../runner/manager";
 
@@ -29,6 +31,7 @@ interface StartRunParams {
     config: Record<string, unknown> | null;
   };
   repoPath: string;
+  projectId: number;
 }
 
 async function startRun(params: StartRunParams): Promise<
@@ -84,23 +87,54 @@ async function startRun(params: StartRunParams): Promise<
     })
     .returning();
 
-  // プロンプト生成
-  const basePrompt = `タスク: ${params.task.title}
+  // プロジェクトの記憶を取得
+  const memories = await db
+    .select()
+    .from(projectMemories)
+    .where(
+      and(
+        eq(projectMemories.projectId, params.projectId),
+        eq(projectMemories.active, true)
+      )
+    )
+    .orderBy(desc(projectMemories.relevanceScore))
+    .limit(10);
+
+  // Memoriesセクションを生成
+  const memoriesSection =
+    memories.length > 0
+      ? `## Memories（プロジェクトの記憶）
+${memories.map((m) => `- [${m.type}] ${m.content}`).join("\n")}
+
+`
+      : "";
+
+  // プロンプト生成（ドキュメント順: Task → Memories → Constraints）
+  const basePrompt = `## Task
+タスク: ${params.task.title}
 
 説明: ${params.task.description || "なし"}
 
+${memoriesSection}## Constraints
 書き込み可能スコープ: ${(params.task.writeScope || []).join(", ")}
 
 このタスクを完了してください。`;
 
   const prompt = params.profile.promptTemplate
-    ? `${params.profile.promptTemplate}\n\n---\n\n${basePrompt}`
+    ? `## Role
+${params.profile.promptTemplate}
+
+---
+
+${basePrompt}`
     : basePrompt;
+
+  const newRun = result[0]!;
 
   // RunnerAdapter呼び出し（非同期で実行）
   runnerManager
     .start(
-      result[0].id,
+      newRun.id,
       params.profile.runner,
       worktreePath,
       prompt,
@@ -108,10 +142,10 @@ async function startRun(params: StartRunParams): Promise<
       params.profile.config || undefined
     )
     .catch((err) => {
-      console.error(`Failed to start runner for run ${result[0].id}:`, err);
+      console.error(`Failed to start runner for run ${newRun.id}:`, err);
     });
 
-  return { ok: true, run: result[0] };
+  return { ok: true, run: newRun };
 }
 
 export const runsRouter = new Hono();
@@ -194,8 +228,10 @@ runsRouter.post("/", async (c) => {
     );
   }
 
+  const taskData = task[0]!;
+
   // write_scope確認
-  if (!task[0].writeScope || task[0].writeScope.length === 0) {
+  if (!taskData.writeScope || taskData.writeScope.length === 0) {
     return c.json(
       {
         error: {
@@ -208,7 +244,7 @@ runsRouter.post("/", async (c) => {
   }
 
   // タスクがdone/cancelledでないか
-  if (task[0].cancelledAt) {
+  if (taskData.cancelledAt) {
     return c.json(
       { error: { code: "CONFLICT", message: "Task is cancelled" } },
       409
@@ -240,8 +276,10 @@ runsRouter.post("/", async (c) => {
     );
   }
 
+  const profileData = profile[0]!;
+
   // プロジェクト情報取得
-  const project = await db.select().from(projects).where(eq(projects.id, task[0].projectId));
+  const project = await db.select().from(projects).where(eq(projects.id, taskData.projectId));
   if (project.length === 0) {
     return c.json(
       { error: { code: "NOT_FOUND", message: "Project not found" } },
@@ -249,14 +287,17 @@ runsRouter.post("/", async (c) => {
     );
   }
 
+  const projectData = project[0]!;
+
   const result = await startRun({
     taskId,
     agentProfileId,
     role: role ?? "worker",
-    scopeSnapshot: task[0].writeScope,
-    task: task[0],
-    profile: profile[0],
-    repoPath: project[0].repoPath,
+    scopeSnapshot: taskData.writeScope,
+    task: taskData,
+    profile: profileData,
+    repoPath: projectData.repoPath,
+    projectId: taskData.projectId,
   });
 
   if (!result.ok) {
@@ -278,7 +319,7 @@ runsRouter.get("/:id/logs", async (c) => {
     );
   }
 
-  const logRef = result[0].logRef;
+  const logRef = result[0]!.logRef;
   if (!logRef || !existsSync(logRef)) {
     return c.json({ data: [] });
   }
@@ -307,11 +348,11 @@ runsRouter.get("/:id", async (c) => {
     );
   }
 
-  const run = result[0];
+  const run = result[0]!;
 
   // 関連データ取得
-  const task = await db.select().from(tasks).where(eq(tasks.id, run.taskId));
-  const profile = await db
+  const taskResult = await db.select().from(tasks).where(eq(tasks.id, run.taskId));
+  const profileResult = await db
     .select()
     .from(agentProfiles)
     .where(eq(agentProfiles.id, run.agentProfileId));
@@ -327,8 +368,8 @@ runsRouter.get("/:id", async (c) => {
   return c.json({
     data: {
       ...run,
-      taskTitle: task[0]?.title,
-      agentProfileName: profile[0]?.name,
+      taskTitle: taskResult[0]?.title,
+      agentProfileName: profileResult[0]?.name,
       checks: runChecks,
       scopeViolations: violations,
     },
@@ -347,7 +388,7 @@ runsRouter.post("/:id/stop", async (c) => {
     );
   }
 
-  if (result[0].status !== "running") {
+  if (result[0]!.status !== "running") {
     return c.json(
       { error: { code: "CONFLICT", message: "Run is not running" } },
       409
@@ -366,7 +407,7 @@ runsRouter.post("/:id/stop", async (c) => {
   }
 
   const updated = await db.select().from(runs).where(eq(runs.id, id));
-  return c.json({ data: updated[0] });
+  return c.json({ data: updated[0]! });
 });
 
 // POST /api/runs/:id/retry - リトライ（新run作成）
@@ -381,7 +422,7 @@ runsRouter.post("/:id/retry", async (c) => {
     );
   }
 
-  const originalRun = result[0];
+  const originalRun = result[0]!;
 
   if (originalRun.status === "running") {
     return c.json(
@@ -404,29 +445,33 @@ runsRouter.post("/:id/retry", async (c) => {
   }
 
   // 関連データ取得
-  const task = await db.select().from(tasks).where(eq(tasks.id, originalRun.taskId));
-  if (task.length === 0) {
+  const retryTask = await db.select().from(tasks).where(eq(tasks.id, originalRun.taskId));
+  if (retryTask.length === 0) {
     return c.json({ error: { code: "NOT_FOUND", message: "Task not found" } }, 404);
   }
+  const retryTaskData = retryTask[0]!;
 
-  const profile = await db.select().from(agentProfiles).where(eq(agentProfiles.id, originalRun.agentProfileId));
-  if (profile.length === 0) {
+  const retryProfile = await db.select().from(agentProfiles).where(eq(agentProfiles.id, originalRun.agentProfileId));
+  if (retryProfile.length === 0) {
     return c.json({ error: { code: "NOT_FOUND", message: "Agent profile not found" } }, 404);
   }
+  const retryProfileData = retryProfile[0]!;
 
-  const project = await db.select().from(projects).where(eq(projects.id, task[0].projectId));
-  if (project.length === 0) {
+  const retryProject = await db.select().from(projects).where(eq(projects.id, retryTaskData.projectId));
+  if (retryProject.length === 0) {
     return c.json({ error: { code: "NOT_FOUND", message: "Project not found" } }, 404);
   }
+  const retryProjectData = retryProject[0]!;
 
   const retryResult = await startRun({
     taskId: originalRun.taskId,
     agentProfileId: originalRun.agentProfileId,
     role: originalRun.role ?? "worker",
-    scopeSnapshot: originalRun.scopeSnapshot ?? task[0].writeScope,
-    task: task[0],
-    profile: profile[0],
-    repoPath: project[0].repoPath,
+    scopeSnapshot: originalRun.scopeSnapshot ?? retryTaskData.writeScope,
+    task: retryTaskData,
+    profile: retryProfileData,
+    repoPath: retryProjectData.repoPath,
+    projectId: retryTaskData.projectId,
   });
 
   if (!retryResult.ok) {
@@ -462,9 +507,9 @@ runsRouter.post("/:id/continue", async (c) => {
     );
   }
 
-  const originalRun = result[0];
+  const originalRunCont = result[0]!;
 
-  if (originalRun.status === "running") {
+  if (originalRunCont.status === "running") {
     return c.json(
       { error: { code: "CONFLICT", message: "Original run is still running" } },
       409
@@ -474,7 +519,7 @@ runsRouter.post("/:id/continue", async (c) => {
   const runningRuns = await db
     .select()
     .from(runs)
-    .where(and(eq(runs.taskId, originalRun.taskId), eq(runs.status, "running")));
+    .where(and(eq(runs.taskId, originalRunCont.taskId), eq(runs.status, "running")));
 
   if (runningRuns.length > 0) {
     return c.json(
@@ -484,29 +529,33 @@ runsRouter.post("/:id/continue", async (c) => {
   }
 
   // 関連データ取得
-  const task = await db.select().from(tasks).where(eq(tasks.id, originalRun.taskId));
-  if (task.length === 0) {
+  const contTask = await db.select().from(tasks).where(eq(tasks.id, originalRunCont.taskId));
+  if (contTask.length === 0) {
     return c.json({ error: { code: "NOT_FOUND", message: "Task not found" } }, 404);
   }
+  const contTaskData = contTask[0]!;
 
-  const profile = await db.select().from(agentProfiles).where(eq(agentProfiles.id, originalRun.agentProfileId));
-  if (profile.length === 0) {
+  const contProfile = await db.select().from(agentProfiles).where(eq(agentProfiles.id, originalRunCont.agentProfileId));
+  if (contProfile.length === 0) {
     return c.json({ error: { code: "NOT_FOUND", message: "Agent profile not found" } }, 404);
   }
+  const contProfileData = contProfile[0]!;
 
-  const project = await db.select().from(projects).where(eq(projects.id, task[0].projectId));
-  if (project.length === 0) {
+  const contProject = await db.select().from(projects).where(eq(projects.id, contTaskData.projectId));
+  if (contProject.length === 0) {
     return c.json({ error: { code: "NOT_FOUND", message: "Project not found" } }, 404);
   }
+  const contProjectData = contProject[0]!;
 
   const continueResult = await startRun({
-    taskId: originalRun.taskId,
-    agentProfileId: originalRun.agentProfileId,
-    role: originalRun.role ?? "worker",
-    scopeSnapshot: originalRun.scopeSnapshot ?? task[0].writeScope,
-    task: task[0],
-    profile: profile[0],
-    repoPath: project[0].repoPath,
+    taskId: originalRunCont.taskId,
+    agentProfileId: originalRunCont.agentProfileId,
+    role: originalRunCont.role ?? "worker",
+    scopeSnapshot: originalRunCont.scopeSnapshot ?? contTaskData.writeScope,
+    task: contTaskData,
+    profile: contProfileData,
+    repoPath: contProjectData.repoPath,
+    projectId: contTaskData.projectId,
   });
 
   if (!continueResult.ok) {

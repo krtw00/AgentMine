@@ -159,7 +159,7 @@ tasksRouter.post("/", async (c) => {
     })
     .returning();
 
-  const newTask = result[0];
+  const newTask = result[0]!;
 
   // 依存関係を登録
   if (dependsOn && Array.isArray(dependsOn)) {
@@ -186,7 +186,7 @@ tasksRouter.get("/:id", async (c) => {
     return c.json({ error: { code: "NOT_FOUND", message: "Task not found" } }, 404);
   }
 
-  const task = result[0];
+  const task = result[0]!;
 
   // runs取得
   const taskRuns = await db.select().from(runs).where(eq(runs.taskId, id));
@@ -272,7 +272,7 @@ tasksRouter.post("/:id/cancel", async (c) => {
     return c.json({ error: { code: "NOT_FOUND", message: "Task not found" } }, 404);
   }
 
-  if (existing[0].cancelledAt) {
+  if (existing[0]!.cancelledAt) {
     return c.json(
       { error: { code: "CONFLICT", message: "Task already cancelled" } },
       409

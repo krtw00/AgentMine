@@ -86,6 +86,7 @@ flowchart LR
 | [ui-mvp.md](./03-details/ui-mvp.md) | UI仕様（MVP） |
 | [flows.md](./03-details/flows.md) | 主要フロー・シーケンス |
 | [authorization.md](./03-details/authorization.md) | 認証・認可（MVP） |
+| [memory-layer.md](./03-details/memory-layer.md) | 記憶層（プロジェクト記憶の永続化） |
 
 ### 04 - Decisions（決定記録）
 
@@ -102,6 +103,7 @@ flowchart LR
 | [0009-runner-adapter-interface.md](./04-decisions/0009-runner-adapter-interface.md) | RunnerAdapter導入 |
 | [0010-daemon-single-instance-and-localhost.md](./04-decisions/0010-daemon-single-instance-and-localhost.md) | localhost単一インスタンス |
 | [0011-ui-serving-hybrid-mode.md](./04-decisions/0011-ui-serving-hybrid-mode.md) | UI提供方式（開発分離 + 本番同一プロセス） |
+| [0012-memory-layer.md](./04-decisions/0012-memory-layer.md) | 記憶層（Memory Layer）の導入 |
 
 ### 99 - Appendix（付録）
 

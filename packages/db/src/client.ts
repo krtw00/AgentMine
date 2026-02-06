@@ -3,6 +3,8 @@ import { createClient } from "@libsql/client";
 import { migrate } from "drizzle-orm/libsql/migrator";
 import * as schema from "./schema";
 
+export { schema };
+
 export function createDb(dbPath: string) {
   const client = createClient({
     url: `file:${dbPath}`,
