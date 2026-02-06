@@ -76,10 +76,7 @@ filesRouter.get("/", async (c) => {
   const depth = Number.isNaN(depthParam) || depthParam < 1 ? 2 : depthParam;
 
   // Get project to find repo_path
-  const project = await db
-    .select()
-    .from(projects)
-    .where(eq(projects.id, projectId));
+  const project = await db.select().from(projects).where(eq(projects.id, projectId));
 
   if (project.length === 0) {
     return c.json(

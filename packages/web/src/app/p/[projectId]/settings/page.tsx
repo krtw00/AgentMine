@@ -4,7 +4,7 @@ import { useParams } from "next/navigation";
 
 export default function SettingsPage() {
   const params = useParams();
-  const projectId = Number(params.projectId);
+  const _projectId = Number(params.projectId); // TODO: Settings API連携時に使用
 
   return (
     <div className="h-full flex flex-col">
@@ -17,7 +17,9 @@ export default function SettingsPage() {
       <div className="flex-1 overflow-auto p-4 space-y-6">
         {/* Default Exclude */}
         <section className="bg-zinc-800 border border-zinc-700 rounded-lg p-4">
-          <h2 className="text-sm font-semibold text-zinc-100 mb-2">除外パターン (scope.defaultExclude)</h2>
+          <h2 className="text-sm font-semibold text-zinc-100 mb-2">
+            除外パターン (scope.defaultExclude)
+          </h2>
           <p className="text-xs text-zinc-500 mb-4">
             プロジェクト共通でAIから隠すファイル/ディレクトリを指定します。
           </p>
@@ -28,7 +30,9 @@ export default function SettingsPage() {
 
         {/* DoD Required Checks */}
         <section className="bg-zinc-800 border border-zinc-700 rounded-lg p-4">
-          <h2 className="text-sm font-semibold text-zinc-100 mb-2">完了定義チェック (dod.requiredChecks)</h2>
+          <h2 className="text-sm font-semibold text-zinc-100 mb-2">
+            完了定義チェック (dod.requiredChecks)
+          </h2>
           <p className="text-xs text-zinc-500 mb-4">
             Runの完了条件となる必須チェックを定義します。
           </p>

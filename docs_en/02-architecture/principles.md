@@ -76,23 +76,23 @@ The decisions themselves are made by humans and upper-layer AI.
 
 ## Expected Benefits
 
-| Principle | Expected Benefit |
-|-----------|-----------------|
-| No Decision-Making | Responsibilities become clear, improving extensibility |
-| DB as Master | State becomes consistent and auditable |
-| Observable Facts | Reproducibility increases and decisions become stable |
-| Safety Through Constraints | Damage from AI runaway behavior is localized |
+| Principle                  | Expected Benefit                                       |
+| -------------------------- | ------------------------------------------------------ |
+| No Decision-Making         | Responsibilities become clear, improving extensibility |
+| DB as Master               | State becomes consistent and auditable                 |
+| Observable Facts           | Reproducibility increases and decisions become stable  |
+| Safety Through Constraints | Damage from AI runaway behavior is localized           |
 
 ---
 
 ## Non-Principles (What We Don't Do)
 
-| Item | Reason |
-|------|--------|
-| Judging specification correctness | Business decisions are a human responsibility |
-| Fully automated development by a single AI | Would break role separation |
-| Prioritizing UI optimization | Platform foundation completion comes first |
-| Replacing Git | Coexist with existing workflows |
+| Item                                       | Reason                                        |
+| ------------------------------------------ | --------------------------------------------- |
+| Judging specification correctness          | Business decisions are a human responsibility |
+| Fully automated development by a single AI | Would break role separation                   |
+| Prioritizing UI optimization               | Platform foundation completion comes first    |
+| Replacing Git                              | Coexist with existing workflows               |
 
 ---
 

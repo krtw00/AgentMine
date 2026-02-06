@@ -34,7 +34,9 @@ interface StartRunParams {
   projectId: number;
 }
 
-async function startRun(params: StartRunParams): Promise<
+async function startRun(
+  params: StartRunParams
+): Promise<
   | { ok: true; run: typeof runs.$inferSelect }
   | { ok: false; error: { code: string; message: string }; status: number }
 > {
@@ -91,12 +93,7 @@ async function startRun(params: StartRunParams): Promise<
   const memories = await db
     .select()
     .from(projectMemories)
-    .where(
-      and(
-        eq(projectMemories.projectId, params.projectId),
-        eq(projectMemories.active, true)
-      )
-    )
+    .where(and(eq(projectMemories.projectId, params.projectId), eq(projectMemories.active, true)))
     .orderBy(desc(projectMemories.relevanceScore))
     .limit(10);
 
@@ -176,10 +173,7 @@ runsRouter.get("/", async (c) => {
   // dod_status, scope_violation_count を導出
   const runsWithDerived = await Promise.all(
     result.map(async (run) => {
-      const runChecks = await db
-        .select()
-        .from(checks)
-        .where(eq(checks.runId, run.id));
+      const runChecks = await db.select().from(checks).where(eq(checks.runId, run.id));
       const violations = await db
         .select()
         .from(scopeViolations)
@@ -222,10 +216,7 @@ runsRouter.post("/", async (c) => {
   // タスク存在確認
   const task = await db.select().from(tasks).where(eq(tasks.id, taskId));
   if (task.length === 0) {
-    return c.json(
-      { error: { code: "NOT_FOUND", message: "Task not found" } },
-      404
-    );
+    return c.json({ error: { code: "NOT_FOUND", message: "Task not found" } }, 404);
   }
 
   const taskData = task[0]!;
@@ -245,10 +236,7 @@ runsRouter.post("/", async (c) => {
 
   // タスクがdone/cancelledでないか
   if (taskData.cancelledAt) {
-    return c.json(
-      { error: { code: "CONFLICT", message: "Task is cancelled" } },
-      409
-    );
+    return c.json({ error: { code: "CONFLICT", message: "Task is cancelled" } }, 409);
   }
 
   // 同一taskでrunning中のrunがないか
@@ -258,22 +246,13 @@ runsRouter.post("/", async (c) => {
     .where(and(eq(runs.taskId, taskId), eq(runs.status, "running")));
 
   if (runningRuns.length > 0) {
-    return c.json(
-      { error: { code: "CONFLICT", message: "Task already has a running run" } },
-      409
-    );
+    return c.json({ error: { code: "CONFLICT", message: "Task already has a running run" } }, 409);
   }
 
   // AgentProfile存在確認
-  const profile = await db
-    .select()
-    .from(agentProfiles)
-    .where(eq(agentProfiles.id, agentProfileId));
+  const profile = await db.select().from(agentProfiles).where(eq(agentProfiles.id, agentProfileId));
   if (profile.length === 0) {
-    return c.json(
-      { error: { code: "NOT_FOUND", message: "Agent profile not found" } },
-      404
-    );
+    return c.json({ error: { code: "NOT_FOUND", message: "Agent profile not found" } }, 404);
   }
 
   const profileData = profile[0]!;
@@ -281,10 +260,7 @@ runsRouter.post("/", async (c) => {
   // プロジェクト情報取得
   const project = await db.select().from(projects).where(eq(projects.id, taskData.projectId));
   if (project.length === 0) {
-    return c.json(
-      { error: { code: "NOT_FOUND", message: "Project not found" } },
-      404
-    );
+    return c.json({ error: { code: "NOT_FOUND", message: "Project not found" } }, 404);
   }
 
   const projectData = project[0]!;
@@ -301,7 +277,10 @@ runsRouter.post("/", async (c) => {
   });
 
   if (!result.ok) {
-    return c.json({ error: { code: result.error.code, message: result.error.message } }, result.status as 500);
+    return c.json(
+      { error: { code: result.error.code, message: result.error.message } },
+      result.status as 500
+    );
   }
 
   return c.json({ data: result.run }, 201);
@@ -313,10 +292,7 @@ runsRouter.get("/:id/logs", async (c) => {
 
   const result = await db.select().from(runs).where(eq(runs.id, id));
   if (result.length === 0) {
-    return c.json(
-      { error: { code: "NOT_FOUND", message: "Run not found" } },
-      404
-    );
+    return c.json({ error: { code: "NOT_FOUND", message: "Run not found" } }, 404);
   }
 
   const logRef = result[0]!.logRef;
@@ -342,10 +318,7 @@ runsRouter.get("/:id", async (c) => {
 
   const result = await db.select().from(runs).where(eq(runs.id, id));
   if (result.length === 0) {
-    return c.json(
-      { error: { code: "NOT_FOUND", message: "Run not found" } },
-      404
-    );
+    return c.json({ error: { code: "NOT_FOUND", message: "Run not found" } }, 404);
   }
 
   const run = result[0]!;
@@ -356,14 +329,8 @@ runsRouter.get("/:id", async (c) => {
     .select()
     .from(agentProfiles)
     .where(eq(agentProfiles.id, run.agentProfileId));
-  const runChecks = await db
-    .select()
-    .from(checks)
-    .where(eq(checks.runId, id));
-  const violations = await db
-    .select()
-    .from(scopeViolations)
-    .where(eq(scopeViolations.runId, id));
+  const runChecks = await db.select().from(checks).where(eq(checks.runId, id));
+  const violations = await db.select().from(scopeViolations).where(eq(scopeViolations.runId, id));
 
   return c.json({
     data: {
@@ -382,17 +349,11 @@ runsRouter.post("/:id/stop", async (c) => {
 
   const result = await db.select().from(runs).where(eq(runs.id, id));
   if (result.length === 0) {
-    return c.json(
-      { error: { code: "NOT_FOUND", message: "Run not found" } },
-      404
-    );
+    return c.json({ error: { code: "NOT_FOUND", message: "Run not found" } }, 404);
   }
 
   if (result[0]!.status !== "running") {
-    return c.json(
-      { error: { code: "CONFLICT", message: "Run is not running" } },
-      409
-    );
+    return c.json({ error: { code: "CONFLICT", message: "Run is not running" } }, 409);
   }
 
   const now = new Date().toISOString();
@@ -400,10 +361,7 @@ runsRouter.post("/:id/stop", async (c) => {
   if (runnerManager.isRunning(id)) {
     await runnerManager.stop(id);
   } else {
-    await db
-      .update(runs)
-      .set({ status: "cancelled", cancelledAt: now })
-      .where(eq(runs.id, id));
+    await db.update(runs).set({ status: "cancelled", cancelledAt: now }).where(eq(runs.id, id));
   }
 
   const updated = await db.select().from(runs).where(eq(runs.id, id));
@@ -416,19 +374,13 @@ runsRouter.post("/:id/retry", async (c) => {
 
   const result = await db.select().from(runs).where(eq(runs.id, id));
   if (result.length === 0) {
-    return c.json(
-      { error: { code: "NOT_FOUND", message: "Run not found" } },
-      404
-    );
+    return c.json({ error: { code: "NOT_FOUND", message: "Run not found" } }, 404);
   }
 
   const originalRun = result[0]!;
 
   if (originalRun.status === "running") {
-    return c.json(
-      { error: { code: "CONFLICT", message: "Original run is still running" } },
-      409
-    );
+    return c.json({ error: { code: "CONFLICT", message: "Original run is still running" } }, 409);
   }
 
   // 同一taskでrunning中のrunがないか
@@ -438,10 +390,7 @@ runsRouter.post("/:id/retry", async (c) => {
     .where(and(eq(runs.taskId, originalRun.taskId), eq(runs.status, "running")));
 
   if (runningRuns.length > 0) {
-    return c.json(
-      { error: { code: "CONFLICT", message: "Task already has a running run" } },
-      409
-    );
+    return c.json({ error: { code: "CONFLICT", message: "Task already has a running run" } }, 409);
   }
 
   // 関連データ取得
@@ -451,13 +400,19 @@ runsRouter.post("/:id/retry", async (c) => {
   }
   const retryTaskData = retryTask[0]!;
 
-  const retryProfile = await db.select().from(agentProfiles).where(eq(agentProfiles.id, originalRun.agentProfileId));
+  const retryProfile = await db
+    .select()
+    .from(agentProfiles)
+    .where(eq(agentProfiles.id, originalRun.agentProfileId));
   if (retryProfile.length === 0) {
     return c.json({ error: { code: "NOT_FOUND", message: "Agent profile not found" } }, 404);
   }
   const retryProfileData = retryProfile[0]!;
 
-  const retryProject = await db.select().from(projects).where(eq(projects.id, retryTaskData.projectId));
+  const retryProject = await db
+    .select()
+    .from(projects)
+    .where(eq(projects.id, retryTaskData.projectId));
   if (retryProject.length === 0) {
     return c.json({ error: { code: "NOT_FOUND", message: "Project not found" } }, 404);
   }
@@ -475,7 +430,10 @@ runsRouter.post("/:id/retry", async (c) => {
   });
 
   if (!retryResult.ok) {
-    return c.json({ error: { code: retryResult.error.code, message: retryResult.error.message } }, retryResult.status as 500);
+    return c.json(
+      { error: { code: retryResult.error.code, message: retryResult.error.message } },
+      retryResult.status as 500
+    );
   }
 
   return c.json({ data: retryResult.run }, 201);
@@ -501,19 +459,13 @@ runsRouter.post("/:id/continue", async (c) => {
 
   const result = await db.select().from(runs).where(eq(runs.id, id));
   if (result.length === 0) {
-    return c.json(
-      { error: { code: "NOT_FOUND", message: "Run not found" } },
-      404
-    );
+    return c.json({ error: { code: "NOT_FOUND", message: "Run not found" } }, 404);
   }
 
   const originalRunCont = result[0]!;
 
   if (originalRunCont.status === "running") {
-    return c.json(
-      { error: { code: "CONFLICT", message: "Original run is still running" } },
-      409
-    );
+    return c.json({ error: { code: "CONFLICT", message: "Original run is still running" } }, 409);
   }
 
   const runningRuns = await db
@@ -522,10 +474,7 @@ runsRouter.post("/:id/continue", async (c) => {
     .where(and(eq(runs.taskId, originalRunCont.taskId), eq(runs.status, "running")));
 
   if (runningRuns.length > 0) {
-    return c.json(
-      { error: { code: "CONFLICT", message: "Task already has a running run" } },
-      409
-    );
+    return c.json({ error: { code: "CONFLICT", message: "Task already has a running run" } }, 409);
   }
 
   // 関連データ取得
@@ -535,13 +484,19 @@ runsRouter.post("/:id/continue", async (c) => {
   }
   const contTaskData = contTask[0]!;
 
-  const contProfile = await db.select().from(agentProfiles).where(eq(agentProfiles.id, originalRunCont.agentProfileId));
+  const contProfile = await db
+    .select()
+    .from(agentProfiles)
+    .where(eq(agentProfiles.id, originalRunCont.agentProfileId));
   if (contProfile.length === 0) {
     return c.json({ error: { code: "NOT_FOUND", message: "Agent profile not found" } }, 404);
   }
   const contProfileData = contProfile[0]!;
 
-  const contProject = await db.select().from(projects).where(eq(projects.id, contTaskData.projectId));
+  const contProject = await db
+    .select()
+    .from(projects)
+    .where(eq(projects.id, contTaskData.projectId));
   if (contProject.length === 0) {
     return c.json({ error: { code: "NOT_FOUND", message: "Project not found" } }, 404);
   }
@@ -559,7 +514,10 @@ runsRouter.post("/:id/continue", async (c) => {
   });
 
   if (!continueResult.ok) {
-    return c.json({ error: { code: continueResult.error.code, message: continueResult.error.message } }, continueResult.status as 500);
+    return c.json(
+      { error: { code: continueResult.error.code, message: continueResult.error.message } },
+      continueResult.status as 500
+    );
   }
 
   return c.json({ data: continueResult.run }, 201);

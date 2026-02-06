@@ -76,11 +76,7 @@ projectsRouter.patch("/:id", async (c) => {
   if (body.repoPath !== undefined) updateData.repoPath = body.repoPath;
   if (body.baseBranch !== undefined) updateData.baseBranch = body.baseBranch;
 
-  const result = await db
-    .update(projects)
-    .set(updateData)
-    .where(eq(projects.id, id))
-    .returning();
+  const result = await db.update(projects).set(updateData).where(eq(projects.id, id)).returning();
 
   if (result.length === 0) {
     return c.json(
@@ -101,10 +97,7 @@ projectsRouter.patch("/:id", async (c) => {
 projectsRouter.delete("/:id", async (c) => {
   const id = Number(c.req.param("id"));
 
-  const result = await db
-    .delete(projects)
-    .where(eq(projects.id, id))
-    .returning();
+  const result = await db.delete(projects).where(eq(projects.id, id)).returning();
 
   if (result.length === 0) {
     return c.json(

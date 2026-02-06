@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
-import { runsApi, type RunLogLine } from "@/lib/api";
+import { runsApi } from "@/lib/api";
 import { useState, useRef, useEffect } from "react";
 import { StatusBadge } from "@/components/StatusBadge";
 
@@ -58,8 +58,19 @@ export default function RunDetailPage() {
       <div className="flex items-center justify-center h-full">
         <div className="flex items-center gap-3 text-zinc-400">
           <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            />
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+            />
           </svg>
           読み込み中...
         </div>
@@ -136,7 +147,9 @@ export default function RunDetailPage() {
         </div>
         <div>
           <div className="text-zinc-500 mb-1">終了</div>
-          <div className="text-zinc-300">{run.finishedAt ? new Date(run.finishedAt).toLocaleString("ja-JP") : "-"}</div>
+          <div className="text-zinc-300">
+            {run.finishedAt ? new Date(run.finishedAt).toLocaleString("ja-JP") : "-"}
+          </div>
         </div>
       </div>
 
@@ -233,9 +246,7 @@ export default function RunDetailPage() {
                   >
                     <div>
                       <span className="font-mono text-sm text-zinc-200">{v.path}</span>
-                      <span className="text-xs text-zinc-500 ml-2">
-                        ({v.reason})
-                      </span>
+                      <span className="text-xs text-zinc-500 ml-2">({v.reason})</span>
                     </div>
                     <StatusBadge status={v.approvedStatus} variant="tag" />
                   </div>

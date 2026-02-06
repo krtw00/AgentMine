@@ -27,11 +27,11 @@ Defines the mechanism that detects write_scope overlaps before parallel executio
 
 ## Assumptions
 
-| Item | Details |
-|------|---------|
-| write_scope required | Tasks must always have write_scope (glob array) configured (ADR-0006) |
+| Item                          | Details                                                                                                           |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| write_scope required          | Tasks must always have write_scope (glob array) configured (ADR-0006)                                             |
 | Same-task parallel prohibited | Concurrent execution of multiple runs for the same task is prohibited (see [Business Rules](./business-rules.md)) |
-| Cross-task parallel allowed | Different tasks can execute concurrently (different worktrees) |
+| Cross-task parallel allowed   | Different tasks can execute concurrently (different worktrees)                                                    |
 
 ---
 
@@ -43,11 +43,11 @@ Two tasks are considered to conflict when their write_scopes "could potentially 
 
 Compare the write_scopes of two tasks A and B.
 
-| Judgment | Condition | Example |
-|----------|-----------|---------|
-| No conflict | Intersection of globs is empty | A: `src/api/**`, B: `src/ui/**` |
-| Conflict | Globs intersect | A: `src/**/*.ts`, B: `src/api/**` |
-| Conflict | One contains the other | A: `src/**`, B: `src/api/auth.ts` |
+| Judgment    | Condition                      | Example                           |
+| ----------- | ------------------------------ | --------------------------------- |
+| No conflict | Intersection of globs is empty | A: `src/api/**`, B: `src/ui/**`   |
+| Conflict    | Globs intersect                | A: `src/**/*.ts`, B: `src/api/**` |
+| Conflict    | One contains the other         | A: `src/**`, B: `src/api/auth.ts` |
 
 Note: Glob intersection detection is performed conservatively. When detection is difficult, it is treated as "conflict exists."
 
@@ -57,11 +57,11 @@ Note: Glob intersection detection is performed conservatively. When detection is
 
 Quantifies the degree of conflict for use in scheduling decisions.
 
-| Score | Meaning | Calculation Method |
-|-------|---------|-------------------|
-| 0.0 | No conflict | Glob intersection is empty |
+| Score     | Meaning          | Calculation Method                             |
+| --------- | ---------------- | ---------------------------------------------- |
+| 0.0       | No conflict      | Glob intersection is empty                     |
 | 0.0 - 1.0 | Partial conflict | Estimated by specificity of intersecting globs |
-| 1.0 | Full conflict | One completely contains the other |
+| 1.0       | Full conflict    | One completely contains the other              |
 
 ### Calculation Rules
 
@@ -76,11 +76,11 @@ Quantifies the degree of conflict for use in scheduling decisions.
 
 ### Decision Table
 
-| Conflict Score | Decision | Reason |
-|---------------|----------|--------|
-| 0.0 | Allow parallel execution | No conflict risk |
-| 0.0 - 0.5 | Allow parallel execution with warning | Low risk but attention needed |
-| 0.5 - 1.0 | Block parallel execution. Recommend sequential execution | High conflict risk |
+| Conflict Score | Decision                                                 | Reason                        |
+| -------------- | -------------------------------------------------------- | ----------------------------- |
+| 0.0            | Allow parallel execution                                 | No conflict risk              |
+| 0.0 - 0.5      | Allow parallel execution with warning                    | Low risk but attention needed |
+| 0.5 - 1.0      | Block parallel execution. Recommend sequential execution | High conflict risk            |
 
 Note: Thresholds can be adjusted via Project settings (`scheduler.conflictThreshold`).
 
@@ -88,15 +88,15 @@ Note: Thresholds can be adjusted via Project settings (`scheduler.conflictThresh
 
 Scheduling decisions are recorded as `scheduler_decision_log`.
 
-| Field | Type | Description |
-|-------|------|-------------|
-| id | integer | Decision ID |
-| task_a_id | integer FK | Compared task A |
-| task_b_id | integer FK | Compared task B |
-| conflict_score | number | Conflict score |
-| decision | string | allowed / warned / blocked |
-| reason | string | Decision reason |
-| created_at | datetime | Decision timestamp |
+| Field          | Type       | Description                |
+| -------------- | ---------- | -------------------------- |
+| id             | integer    | Decision ID                |
+| task_a_id      | integer FK | Compared task A            |
+| task_b_id      | integer FK | Compared task B            |
+| conflict_score | number     | Conflict score             |
+| decision       | string     | allowed / warned / blocked |
+| reason         | string     | Decision reason            |
+| created_at     | datetime   | Decision timestamp         |
 
 ---
 
@@ -114,9 +114,9 @@ flowchart LR
 
 ### Detection Inputs
 
-| Input | Source |
-|-------|--------|
-| New run's write_scope | Task's write_scope |
+| Input                     | Source                             |
+| ------------------------- | ---------------------------------- |
+| New run's write_scope     | Task's write_scope                 |
 | Running runs' write_scope | Running run -> task -> write_scope |
 
 Note: The task's write_scope is compared, not the scope_snapshot. This is because scope_snapshot is finalized after the run starts.
@@ -129,18 +129,18 @@ Note: The task's write_scope is compared, not the scope_snapshot. This is becaus
 
 Adds conflict detection to the existing run start endpoint.
 
-| Response | Condition |
-|----------|-----------|
-| 201 Created | No conflict, or score <= threshold |
-| 409 Conflict | Conflict score exceeds threshold |
+| Response     | Condition                          |
+| ------------ | ---------------------------------- |
+| 201 Created  | No conflict, or score <= threshold |
+| 409 Conflict | Conflict score exceeds threshold   |
 
 Information included in the 409 response:
 
-| Field | Description |
-|-------|-------------|
-| conflicting_tasks | List of conflicting tasks |
-| conflict_score | Conflict score with each task |
-| suggestion | Recommended action (sequential execution, scope narrowing, etc.) |
+| Field             | Description                                                      |
+| ----------------- | ---------------------------------------------------------------- |
+| conflicting_tasks | List of conflicting tasks                                        |
+| conflict_score    | Conflict score with each task                                    |
+| suggestion        | Recommended action (sequential execution, scope narrowing, etc.) |
 
 ### GET /api/tasks/:taskId/conflicts
 
@@ -154,11 +154,11 @@ Retrieves conflict information between the specified task and running tasks. Use
 
 Executes conflict detection when the run start button is pressed, and changes the display based on the result.
 
-| Conflict Score | UI Display |
-|---------------|------------|
-| 0.0 | Standard start confirmation |
-| 0.0 - 0.5 | Yellow warning banner + conflicting task names + "Continue" button |
-| 0.5 - 1.0 | Red error banner + conflicting task names + "Force Execute" button (with confirmation) |
+| Conflict Score | UI Display                                                                             |
+| -------------- | -------------------------------------------------------------------------------------- |
+| 0.0            | Standard start confirmation                                                            |
+| 0.0 - 0.5      | Yellow warning banner + conflicting task names + "Continue" button                     |
+| 0.5 - 1.0      | Red error banner + conflicting task names + "Force Execute" button (with confirmation) |
 
 ### Monitor Screen
 

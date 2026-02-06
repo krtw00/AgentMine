@@ -28,27 +28,27 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/).
 <footer>
 ```
 
-| Element | Required | Description |
-|---------|----------|-------------|
-| `type` | Required | Type of change |
-| `scope` | Optional | Target module or directory of the change |
-| `subject` | Required | Summary of the change (50 characters or fewer) |
-| `body` | Optional | Details and context of the change (wrap at 72 characters) |
-| `footer` | Optional | Breaking changes, issue references |
+| Element   | Required | Description                                               |
+| --------- | -------- | --------------------------------------------------------- |
+| `type`    | Required | Type of change                                            |
+| `scope`   | Optional | Target module or directory of the change                  |
+| `subject` | Required | Summary of the change (50 characters or fewer)            |
+| `body`    | Optional | Details and context of the change (wrap at 72 characters) |
+| `footer`  | Optional | Breaking changes, issue references                        |
 
 ### type List
 
-| type | Purpose | Included in CHANGELOG |
-|------|---------|:---:|
-| `feat` | Add a new feature | Yes |
-| `fix` | Fix a bug | Yes |
-| `docs` | Documentation-only changes | No |
-| `style` | Formatting changes (no behavioral impact) | No |
-| `refactor` | Refactoring (no feature additions or bug fixes) | No |
-| `perf` | Performance improvements | Yes |
-| `test` | Add or modify tests | No |
-| `ci` | CI/CD configuration changes | No |
-| `chore` | Build, tooling, or dependency changes | No |
+| type       | Purpose                                         | Included in CHANGELOG |
+| ---------- | ----------------------------------------------- | :-------------------: |
+| `feat`     | Add a new feature                               |          Yes          |
+| `fix`      | Fix a bug                                       |          Yes          |
+| `docs`     | Documentation-only changes                      |          No           |
+| `style`    | Formatting changes (no behavioral impact)       |          No           |
+| `refactor` | Refactoring (no feature additions or bug fixes) |          No           |
+| `perf`     | Performance improvements                        |          Yes          |
+| `test`     | Add or modify tests                             |          No           |
+| `ci`       | CI/CD configuration changes                     |          No           |
+| `chore`    | Build, tooling, or dependency changes           |          No           |
 
 ### Breaking Changes
 
@@ -103,13 +103,13 @@ Use the same type prefix as commit messages. Write the description in kebab-case
 
 ### Examples
 
-| Branch Name | Purpose |
-|-------------|---------|
-| `feat/oauth-login` | Add OAuth authentication feature |
-| `fix/cart-zero-quantity` | Fix cart zero-quantity bug |
-| `docs/api-rate-limit` | Add rate limit to API specs |
-| `refactor/repository-pattern` | Migrate to repository pattern |
-| `chore/upgrade-dependencies` | Upgrade dependency packages |
+| Branch Name                   | Purpose                          |
+| ----------------------------- | -------------------------------- |
+| `feat/oauth-login`            | Add OAuth authentication feature |
+| `fix/cart-zero-quantity`      | Fix cart zero-quantity bug       |
+| `docs/api-rate-limit`         | Add rate limit to API specs      |
+| `refactor/repository-pattern` | Migrate to repository pattern    |
+| `chore/upgrade-dependencies`  | Upgrade dependency packages      |
 
 ### Rules
 
@@ -134,18 +134,19 @@ developer (development integration)
 feature/* / fix/* / ... (working branches)
 ```
 
-| Branch | Purpose | Direct Push |
-|--------|---------|:-----------:|
-| `main` | Production releases. Always in a deployable state | Prohibited |
-| `developer` | Development integration. Consolidates changes for the next release | Prohibited |
-| `feature/*` | New feature development. Branched from developer | Allowed |
-| `fix/*` | Bug fixes. Branched from developer | Allowed |
-| `hotfix/*` | Urgent fixes. Branched from main, merged into both main and developer | Allowed |
-| `release/*` | Release preparation. Branched from developer | Allowed |
+| Branch      | Purpose                                                               | Direct Push |
+| ----------- | --------------------------------------------------------------------- | :---------: |
+| `main`      | Production releases. Always in a deployable state                     | Prohibited  |
+| `developer` | Development integration. Consolidates changes for the next release    | Prohibited  |
+| `feature/*` | New feature development. Branched from developer                      |   Allowed   |
+| `fix/*`     | Bug fixes. Branched from developer                                    |   Allowed   |
+| `hotfix/*`  | Urgent fixes. Branched from main, merged into both main and developer |   Allowed   |
+| `release/*` | Release preparation. Branched from developer                          |   Allowed   |
 
 ### Development Flow
 
 1. **Start work**: Create a working branch from `developer`
+
    ```bash
    git checkout developer
    git pull origin developer
@@ -153,12 +154,14 @@ feature/* / fix/* / ... (working branches)
    ```
 
 2. **During work**: Commit on the working branch
+
    ```bash
    git add .
    git commit -m "feat: implement memory layer API"
    ```
 
 3. **Work complete**: Create a PR to merge into `developer`
+
    ```bash
    git push -u origin feature/memory-layer
    gh pr create --base developer
@@ -168,12 +171,12 @@ feature/* / fix/* / ... (working branches)
 
 ### PR Rules
 
-| Rule | Description |
-|------|-------------|
-| Base branch | Usually `developer`; `main` for hotfixes |
-| Review | At least 1 approval required |
-| Merge method | Squash and merge recommended |
-| Branch deletion | Delete the working branch after merge |
+| Rule            | Description                              |
+| --------------- | ---------------------------------------- |
+| Base branch     | Usually `developer`; `main` for hotfixes |
+| Review          | At least 1 approval required             |
+| Merge method    | Squash and merge recommended             |
+| Branch deletion | Delete the working branch after merge    |
 
 ### Exceptions
 
@@ -207,12 +210,15 @@ Follow [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased]
 
 ### Added
+
 - Add social login via OAuth 2.0 (#42)
 
 ### Fixed
+
 - Fix issue where items with quantity 0 could be added to cart (#38)
 
 ### Changed
+
 - Change response format for user authentication endpoint (breaking change)
 ```
 

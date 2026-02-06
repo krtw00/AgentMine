@@ -54,4 +54,3 @@ MVPでは同一originでWeb UIとAPIを提供する。
 
 - [Local Daemon（起動・停止）](../03-details/daemon.md) - 起動/停止
 - [API設計](../03-details/api.md) - ベースURL
-

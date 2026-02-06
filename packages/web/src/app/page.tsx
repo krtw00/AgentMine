@@ -47,8 +47,19 @@ export default function ProjectSwitcher() {
       <div className="min-h-screen bg-zinc-900 flex items-center justify-center">
         <div className="flex items-center gap-3 text-zinc-400">
           <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            />
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+            />
           </svg>
           読み込み中...
         </div>
@@ -84,10 +95,15 @@ export default function ProjectSwitcher() {
 
           {/* Create Form */}
           {showForm && (
-            <form onSubmit={handleCreate} className="mb-6 p-4 bg-zinc-700/50 border border-zinc-600 rounded-lg">
+            <form
+              onSubmit={handleCreate}
+              className="mb-6 p-4 bg-zinc-700/50 border border-zinc-600 rounded-lg"
+            >
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-zinc-400 mb-2">プロジェクト名</label>
+                  <label className="block text-sm font-medium text-zinc-400 mb-2">
+                    プロジェクト名
+                  </label>
                   <input
                     type="text"
                     value={formData.name}
@@ -98,7 +114,9 @@ export default function ProjectSwitcher() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-zinc-400 mb-2">リポジトリパス</label>
+                  <label className="block text-sm font-medium text-zinc-400 mb-2">
+                    リポジトリパス
+                  </label>
                   <input
                     type="text"
                     value={formData.repoPath}
@@ -109,7 +127,9 @@ export default function ProjectSwitcher() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-zinc-400 mb-2">ベースブランチ</label>
+                  <label className="block text-sm font-medium text-zinc-400 mb-2">
+                    ベースブランチ
+                  </label>
                   <input
                     type="text"
                     value={formData.baseBranch}
@@ -162,7 +182,12 @@ export default function ProjectSwitcher() {
                       stroke="currentColor"
                       viewBox="0 0 24 24"
                     >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 5l7 7-7 7"
+                      />
                     </svg>
                   </div>
                 </button>
@@ -171,8 +196,18 @@ export default function ProjectSwitcher() {
           ) : (
             <div className="text-center py-12 bg-zinc-700/30 border border-dashed border-zinc-600 rounded-lg">
               <div className="w-12 h-12 mx-auto mb-4 bg-zinc-700 rounded-lg flex items-center justify-center">
-                <svg className="w-6 h-6 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                <svg
+                  className="w-6 h-6 text-zinc-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+                  />
                 </svg>
               </div>
               <p className="text-zinc-400">プロジェクトがありません</p>

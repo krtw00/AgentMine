@@ -11,7 +11,9 @@
       <div class="topbar">
         <div class="brand">AgentMine</div>
         <div class="pill"><span class="muted">Project</span> <strong>AgentMine</strong></div>
-        <div class="pill"><span class="muted">SSE</span> <strong id="sseState">connected</strong></div>
+        <div class="pill">
+          <span class="muted">SSE</span> <strong id="sseState">connected</strong>
+        </div>
         <div class="spacer"></div>
         <a class="btn" href="./monitor-split.html">Monitor B（Split）</a>
         <a class="btn" href="./monitor-graph.html">Monitor C（Graph）</a>
@@ -38,8 +40,12 @@
             </div>
             <div class="row" style="margin-top: 8px">
               <span class="pill"><span class="muted">Filter</span> <strong>running</strong></span>
-              <span class="pill"><span class="muted">Filter</span> <strong>needs_review</strong></span>
-              <span class="pill"><span class="muted">Filter</span> <strong>dod_failed</strong></span>
+              <span class="pill"
+                ><span class="muted">Filter</span> <strong>needs_review</strong></span
+              >
+              <span class="pill"
+                ><span class="muted">Filter</span> <strong>dod_failed</strong></span
+              >
               <span class="pill"><span class="muted">Hint</span> <strong>click row</strong></span>
             </div>
             <div style="height: 10px"></div>
@@ -48,7 +54,12 @@
                 <span>Overview（実行の時間分布）</span>
                 <span class="mono" id="rangeLabel">-</span>
               </div>
-              <svg class="overviewSvg" id="overview" viewBox="0 0 1000 64" preserveAspectRatio="none"></svg>
+              <svg
+                class="overviewSvg"
+                id="overview"
+                viewBox="0 0 1000 64"
+                preserveAspectRatio="none"
+              ></svg>
             </div>
           </div>
 
@@ -79,9 +90,12 @@
           <div class="section">
             <h2>Details</h2>
             <div class="row">
-              <span class="pill"><span class="muted">Selected</span> <strong id="selLabel">none</strong></span>
               <span class="pill"
-                ><span class="muted">head_sha</span> <strong class="mono" id="selSha">-</strong></span
+                ><span class="muted">Selected</span> <strong id="selLabel">none</strong></span
+              >
+              <span class="pill"
+                ><span class="muted">head_sha</span>
+                <strong class="mono" id="selSha">-</strong></span
               >
               <div class="spacer"></div>
               <button class="btn" id="btnHideDetails">Hide</button>
@@ -112,21 +126,24 @@
           <textarea class="textarea">MonitorをRun一覧（Network風）で実装する。</textarea>
         </div>
 
-	        <div class="field">
-	          <label class="label">write_scope（必須）</label>
-	          <div class="hint">B（ファイルツリー選択）で確定である。</div>
-	          <div class="hint">
-	            個人情報/秘密情報をAIから隠す場合は、write_scopeではなくexcludeを設定する。
-	            <a href="./settings.html" target="_blank" rel="noopener">Settings（scope.defaultExclude）</a> を参照。
-	          </div>
-	        </div>
+        <div class="field">
+          <label class="label">write_scope（必須）</label>
+          <div class="hint">B（ファイルツリー選択）で確定である。</div>
+          <div class="hint">
+            個人情報/秘密情報をAIから隠す場合は、write_scopeではなくexcludeを設定する。
+            <a href="./settings.html" target="_blank" rel="noopener"
+              >Settings（scope.defaultExclude）</a
+            >
+            を参照。
+          </div>
+        </div>
 
-	        <div class="field">
-	          <label class="label">Tree selection（B）</label>
-	          <div class="tree" id="tree">
-	            <ul>
-	              <li>
-	                <label><input type="checkbox" data-glob="apps/web/**" checked /> apps/web/</label>
+        <div class="field">
+          <label class="label">Tree selection（B）</label>
+          <div class="tree" id="tree">
+            <ul>
+              <li>
+                <label><input type="checkbox" data-glob="apps/web/**" checked /> apps/web/</label>
               </li>
               <li>
                 <label><input type="checkbox" data-glob="apps/daemon/**" /> apps/daemon/</label>
@@ -135,7 +152,9 @@
                 <label><input type="checkbox" data-glob="packages/**" checked /> packages/</label>
                 <ul>
                   <li>
-                    <label><input type="checkbox" data-glob="packages/core/**" /> packages/core/</label>
+                    <label
+                      ><input type="checkbox" data-glob="packages/core/**" /> packages/core/</label
+                    >
                   </li>
                   <li>
                     <label><input type="checkbox" data-glob="packages/ui/**" /> packages/ui/</label>
@@ -145,10 +164,10 @@
               <li>
                 <label><input type="checkbox" data-glob="docs/**" checked /> docs/</label>
               </li>
-	            </ul>
-	          </div>
-	          <div class="hint">視覚的で安全。ファイルツリーの取得と表現が必要。</div>
-	        </div>
+            </ul>
+          </div>
+          <div class="hint">視覚的で安全。ファイルツリーの取得と表現が必要。</div>
+        </div>
 
         <div class="field">
           <label class="label">プレビュー（最終write_scope）</label>
@@ -417,7 +436,8 @@
         }
 
         elOverview.innerHTML = [...grid, ...bars].join("");
-        if (elRangeLabel) elRangeLabel.textContent = `${fmtTime(windowStart)} - ${fmtTime(windowEnd)}`;
+        if (elRangeLabel)
+          elRangeLabel.textContent = `${fmtTime(windowStart)} - ${fmtTime(windowEnd)}`;
         if (elWfTicks) {
           const ticks = [];
           for (const p of [0, 0.25, 0.5, 0.75, 1]) {
@@ -758,28 +778,30 @@
       btnCloseDrawer.addEventListener("click", closeDrawer);
       drawerBackdrop.addEventListener("click", closeDrawer);
 
-	      // write_scope（B only）
-	      const scopePreview = document.getElementById("scopePreview");
+      // write_scope（B only）
+      const scopePreview = document.getElementById("scopePreview");
 
-	      function readTreeGlobs(rootId) {
-	        const root = document.getElementById(rootId);
-	        if (!root) return [];
-	        const checked = Array.from(root.querySelectorAll('input[type="checkbox"]:checked'));
+      function readTreeGlobs(rootId) {
+        const root = document.getElementById(rootId);
+        if (!root) return [];
+        const checked = Array.from(root.querySelectorAll('input[type="checkbox"]:checked'));
         return checked.map((x) => x.dataset.glob).filter(Boolean);
       }
 
-	      function updateScopePreview() {
-	        const scopes = Array.from(new Set(readTreeGlobs("tree")));
+      function updateScopePreview() {
+        const scopes = Array.from(new Set(readTreeGlobs("tree")));
 
-	        scopePreview.innerHTML = scopes.map((s) => `<span class="chip">${escapeHtml(s)}</span>`).join("");
-	      }
+        scopePreview.innerHTML = scopes
+          .map((s) => `<span class="chip">${escapeHtml(s)}</span>`)
+          .join("");
+      }
 
       function escapeHtml(s) {
         return s.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
       }
 
-	      const treeRoot = document.getElementById("tree");
-	      if (treeRoot) treeRoot.addEventListener("change", updateScopePreview);
-	    </script>
-	  </body>
-	</html>
+      const treeRoot = document.getElementById("tree");
+      if (treeRoot) treeRoot.addEventListener("change", updateScopePreview);
+    </script>
+  </body>
+</html>

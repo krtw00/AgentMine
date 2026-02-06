@@ -17,6 +17,7 @@
     "generate": "drizzle-kit generate",
     "migrate": "drizzle-kit migrate",
     "studio": "drizzle-kit studio",
+    "lint": "eslint src/",
     "clean": "rm -rf dist",
     "check-types": "tsc --noEmit"
   },

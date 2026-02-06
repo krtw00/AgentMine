@@ -4,12 +4,12 @@
 
 ## Prerequisites
 
-| Tool | Version | Notes |
-|------|---------|-------|
-| Node.js | >= 20 | |
-| pnpm | 10.28.2 | Auto-managed via corepack |
-| Git | >= 2.x | |
-| Docker + Compose | Latest | Only for Docker development |
+| Tool             | Version | Notes                       |
+| ---------------- | ------- | --------------------------- |
+| Node.js          | >= 20   |                             |
+| pnpm             | 10.28.2 | Auto-managed via corepack   |
+| Git              | >= 2.x  |                             |
+| Docker + Compose | Latest  | Only for Docker development |
 
 ---
 
@@ -69,10 +69,10 @@ pnpm --filter @agentmine/web dev
 
 ### 5. Verify
 
-| Service | URL | Description |
-|---------|-----|-------------|
-| Web UI | http://localhost:3000 | Frontend |
-| API | http://localhost:3001/api | Backend API |
+| Service | URL                       | Description |
+| ------- | ------------------------- | ----------- |
+| Web UI  | http://localhost:3000     | Frontend    |
+| API     | http://localhost:3001/api | Backend API |
 
 The Web UI automatically proxies API requests to the daemon (localhost:3001).
 
@@ -88,10 +88,10 @@ docker compose up -d
 
 ### 2. Verify
 
-| Service | URL | Description |
-|---------|-----|-------------|
-| Web UI | http://localhost:3000 | Frontend |
-| API | http://localhost:3001/api | Backend API |
+| Service | URL                       | Description |
+| ------- | ------------------------- | ----------- |
+| Web UI  | http://localhost:3000     | Frontend    |
+| API     | http://localhost:3001/api | Backend API |
 
 ### 3. View Logs
 

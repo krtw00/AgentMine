@@ -2,13 +2,7 @@ import { Hono } from "hono";
 import { execSync } from "child_process";
 import { mkdirSync, existsSync } from "fs";
 import { db } from "../db";
-import {
-  runs,
-  tasks,
-  agentProfiles,
-  projects,
-  eq,
-} from "@agentmine/db";
+import { runs, tasks, agentProfiles, projects, eq } from "@agentmine/db";
 import { runnerManager } from "../runner/manager";
 
 export const orchestrateRouter = new Hono();
@@ -33,27 +27,15 @@ orchestrateRouter.post("/", async (c) => {
   }
 
   // プロジェクト存在確認
-  const project = await db
-    .select()
-    .from(projects)
-    .where(eq(projects.id, projectId));
+  const project = await db.select().from(projects).where(eq(projects.id, projectId));
   if (project.length === 0) {
-    return c.json(
-      { error: { code: "NOT_FOUND", message: "Project not found" } },
-      404
-    );
+    return c.json({ error: { code: "NOT_FOUND", message: "Project not found" } }, 404);
   }
 
   // AgentProfile存在確認
-  const profile = await db
-    .select()
-    .from(agentProfiles)
-    .where(eq(agentProfiles.id, agentProfileId));
+  const profile = await db.select().from(agentProfiles).where(eq(agentProfiles.id, agentProfileId));
   if (profile.length === 0) {
-    return c.json(
-      { error: { code: "NOT_FOUND", message: "Agent profile not found" } },
-      404
-    );
+    return c.json({ error: { code: "NOT_FOUND", message: "Agent profile not found" } }, 404);
   }
 
   // 親タスク作成
@@ -167,14 +149,8 @@ ${command}`;
       profile[0]!.config || undefined
     )
     .catch((err) => {
-      console.error(
-        `Failed to start coordinator run ${coordinatorRunId}:`,
-        err
-      );
+      console.error(`Failed to start coordinator run ${coordinatorRunId}:`, err);
     });
 
-  return c.json(
-    { data: { parentTaskId, coordinatorRunId } },
-    201
-  );
+  return c.json({ data: { parentTaskId, coordinatorRunId } }, 201);
 });

@@ -11,7 +11,9 @@
       <div class="topbar">
         <div class="brand">AgentMine</div>
         <div class="pill"><span class="muted">Project</span> <strong>AgentMine</strong></div>
-        <div class="pill"><span class="muted">SSE</span> <strong id="sseState">connected</strong></div>
+        <div class="pill">
+          <span class="muted">SSE</span> <strong id="sseState">connected</strong>
+        </div>
         <div class="spacer"></div>
         <a class="btn" href="./monitor.html">Monitor A（Outline）</a>
         <a class="btn" href="./monitor-graph.html">Monitor C（Graph）</a>
@@ -24,7 +26,12 @@
           <div class="section">
             <h2>Monitor B（Split tree + table）</h2>
             <div class="row">
-              <input class="search" id="search" placeholder="検索: task / run / reason / agent_profile" autocomplete="off" />
+              <input
+                class="search"
+                id="search"
+                placeholder="検索: task / run / reason / agent_profile"
+                autocomplete="off"
+              />
               <label class="toggle">
                 <input type="checkbox" id="includeDesc" checked />
                 include descendants
@@ -32,7 +39,9 @@
               <button class="btn primary" id="btnNewTask">+ Task</button>
             </div>
             <div class="row" style="margin-top: 8px">
-              <span class="pill"><span class="muted">Selection</span> <strong id="selTask">All tasks</strong></span>
+              <span class="pill"
+                ><span class="muted">Selection</span> <strong id="selTask">All tasks</strong></span
+              >
               <span class="pill"><span class="muted">Hint</span> <strong>click task</strong></span>
             </div>
             <div style="height: 10px"></div>
@@ -41,7 +50,12 @@
                 <span>Overview（アクティビティ）</span>
                 <span class="mono" id="rangeLabel">-</span>
               </div>
-              <svg class="overviewSvg" id="overview" viewBox="0 0 1000 64" preserveAspectRatio="none"></svg>
+              <svg
+                class="overviewSvg"
+                id="overview"
+                viewBox="0 0 1000 64"
+                preserveAspectRatio="none"
+              ></svg>
             </div>
           </div>
 
@@ -76,8 +90,13 @@
           <div class="section">
             <h2>Details</h2>
             <div class="row">
-              <span class="pill"><span class="muted">Selected</span> <strong id="selLabel">none</strong></span>
-              <span class="pill"><span class="muted">head_sha</span> <strong class="mono" id="selSha">-</strong></span>
+              <span class="pill"
+                ><span class="muted">Selected</span> <strong id="selLabel">none</strong></span
+              >
+              <span class="pill"
+                ><span class="muted">head_sha</span>
+                <strong class="mono" id="selSha">-</strong></span
+              >
               <div class="spacer"></div>
               <button class="btn" id="btnHideDetails">Hide</button>
             </div>
@@ -112,7 +131,10 @@
           <div class="hint">B（ファイルツリー選択）で確定である。</div>
           <div class="hint">
             個人情報/秘密情報をAIから隠す場合は、write_scopeではなくexcludeを設定する。
-            <a href="./settings.html" target="_blank" rel="noopener">Settings（scope.defaultExclude）</a> を参照。
+            <a href="./settings.html" target="_blank" rel="noopener"
+              >Settings（scope.defaultExclude）</a
+            >
+            を参照。
           </div>
         </div>
 
@@ -130,7 +152,9 @@
                 <label><input type="checkbox" data-glob="packages/**" checked /> packages/</label>
                 <ul>
                   <li>
-                    <label><input type="checkbox" data-glob="packages/core/**" /> packages/core/</label>
+                    <label
+                      ><input type="checkbox" data-glob="packages/core/**" /> packages/core/</label
+                    >
                   </li>
                   <li>
                     <label><input type="checkbox" data-glob="packages/ui/**" /> packages/ui/</label>
@@ -394,7 +418,8 @@
           ticks.push(`<span>${fmtTime(sec)}</span>`);
         }
         if (elWfTicks) elWfTicks.innerHTML = ticks.join("");
-        if (elRangeLabel) elRangeLabel.textContent = `${fmtTime(windowStart)} - ${fmtTime(windowEnd)}`;
+        if (elRangeLabel)
+          elRangeLabel.textContent = `${fmtTime(windowStart)} - ${fmtTime(windowEnd)}`;
 
         const grid = [];
         for (const p of [0, 0.25, 0.5, 0.75, 1]) {
@@ -574,7 +599,8 @@
       }
 
       function clearSelection() {
-        for (const tr of document.querySelectorAll('tbody tr[data-kind="run"]')) tr.classList.remove("selected");
+        for (const tr of document.querySelectorAll('tbody tr[data-kind="run"]'))
+          tr.classList.remove("selected");
       }
 
       function selectRun(task, run, tr) {
@@ -787,7 +813,9 @@
       }
       function updateScopePreview() {
         const scopes = Array.from(new Set(readTreeGlobs("tree")));
-        scopePreview.innerHTML = scopes.map((s) => `<span class="chip">${escapeHtml(s)}</span>`).join("");
+        scopePreview.innerHTML = scopes
+          .map((s) => `<span class="chip">${escapeHtml(s)}</span>`)
+          .join("");
       }
       const treeRoot = document.getElementById("tree");
       if (treeRoot) treeRoot.addEventListener("change", updateScopePreview);
