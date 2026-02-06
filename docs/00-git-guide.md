@@ -28,27 +28,27 @@ Gitワークフローに関するルールを定義する。コミットメッ�
 <footer>
 ```
 
-| 要素 | 必須 | 内容 |
-|------|------|------|
-| `type` | 必須 | 変更の種類 |
-| `scope` | 任意 | 変更対象のモジュール・ディレクトリ |
-| `subject` | 必須 | 変更内容の要約（50文字以内） |
-| `body` | 任意 | 変更の詳細・背景（72文字で折り返し） |
-| `footer` | 任意 | Breaking Change、Issue参照 |
+| 要素      | 必須 | 内容                                 |
+| --------- | ---- | ------------------------------------ |
+| `type`    | 必須 | 変更の種類                           |
+| `scope`   | 任意 | 変更対象のモジュール・ディレクトリ   |
+| `subject` | 必須 | 変更内容の要約（50文字以内）         |
+| `body`    | 任意 | 変更の詳細・背景（72文字で折り返し） |
+| `footer`  | 任意 | Breaking Change、Issue参照           |
 
 ### type一覧
 
-| type | 用途 | CHANGELOG対象 |
-|------|------|:---:|
-| `feat` | 新機能の追加 | Yes |
-| `fix` | バグ修正 | Yes |
-| `docs` | ドキュメントのみの変更 | No |
-| `style` | フォーマット変更（動作に影響しない） | No |
-| `refactor` | リファクタリング（機能追加・バグ修正なし） | No |
-| `perf` | パフォーマンス改善 | Yes |
-| `test` | テストの追加・修正 | No |
-| `ci` | CI/CD設定の変更 | No |
-| `chore` | ビルド・補助ツール・依存関係の変更 | No |
+| type       | 用途                                       | CHANGELOG対象 |
+| ---------- | ------------------------------------------ | :-----------: |
+| `feat`     | 新機能の追加                               |      Yes      |
+| `fix`      | バグ修正                                   |      Yes      |
+| `docs`     | ドキュメントのみの変更                     |      No       |
+| `style`    | フォーマット変更（動作に影響しない）       |      No       |
+| `refactor` | リファクタリング（機能追加・バグ修正なし） |      No       |
+| `perf`     | パフォーマンス改善                         |      Yes      |
+| `test`     | テストの追加・修正                         |      No       |
+| `ci`       | CI/CD設定の変更                            |      No       |
+| `chore`    | ビルド・補助ツール・依存関係の変更         |      No       |
 
 ### 破壊的変更
 
@@ -103,13 +103,13 @@ feat(auth): OAuth2.0を追加した。  # 過去形、末尾ピリオド
 
 ### 例
 
-| ブランチ名 | 用途 |
-|-----------|------|
-| `feat/oauth-login` | OAuth認証機能の追加 |
-| `fix/cart-zero-quantity` | カート数量0バグの修正 |
-| `docs/api-rate-limit` | API仕様にレート制限を追加 |
+| ブランチ名                    | 用途                       |
+| ----------------------------- | -------------------------- |
+| `feat/oauth-login`            | OAuth認証機能の追加        |
+| `fix/cart-zero-quantity`      | カート数量0バグの修正      |
+| `docs/api-rate-limit`         | API仕様にレート制限を追加  |
 | `refactor/repository-pattern` | リポジトリパターンへの移行 |
-| `chore/upgrade-dependencies` | 依存パッケージの更新 |
+| `chore/upgrade-dependencies`  | 依存パッケージの更新       |
 
 ### ルール
 
@@ -134,18 +134,19 @@ developer (開発統合)
 feature/* / fix/* / ... (作業ブランチ)
 ```
 
-| ブランチ | 用途 | 直接push |
-|---------|------|:--------:|
-| `main` | 本番リリース用。常にデプロイ可能な状態を維持 | 禁止 |
-| `developer` | 開発統合用。次のリリースに向けた変更を統合 | 禁止 |
-| `feature/*` | 新機能開発用。developerから分岐 | 可 |
-| `fix/*` | バグ修正用。developerから分岐 | 可 |
-| `hotfix/*` | 緊急修正用。mainから分岐しmainとdeveloperにマージ | 可 |
-| `release/*` | リリース準備用。developerから分岐 | 可 |
+| ブランチ    | 用途                                              | 直接push |
+| ----------- | ------------------------------------------------- | :------: |
+| `main`      | 本番リリース用。常にデプロイ可能な状態を維持      |   禁止   |
+| `developer` | 開発統合用。次のリリースに向けた変更を統合        |   禁止   |
+| `feature/*` | 新機能開発用。developerから分岐                   |    可    |
+| `fix/*`     | バグ修正用。developerから分岐                     |    可    |
+| `hotfix/*`  | 緊急修正用。mainから分岐しmainとdeveloperにマージ |    可    |
+| `release/*` | リリース準備用。developerから分岐                 |    可    |
 
 ### 開発フロー
 
 1. **作業開始**: `developer` から作業ブランチを作成
+
    ```bash
    git checkout developer
    git pull origin developer
@@ -153,12 +154,14 @@ feature/* / fix/* / ... (作業ブランチ)
    ```
 
 2. **作業中**: 作業ブランチでコミット
+
    ```bash
    git add .
    git commit -m "feat: 記憶層のAPI実装"
    ```
 
 3. **作業完了**: PRを作成して `developer` にマージ
+
    ```bash
    git push -u origin feature/memory-layer
    gh pr create --base developer
@@ -168,12 +171,12 @@ feature/* / fix/* / ... (作業ブランチ)
 
 ### PRルール
 
-| ルール | 内容 |
-|--------|------|
+| ルール         | 内容                                |
+| -------------- | ----------------------------------- |
 | ベースブランチ | 通常は `developer`、hotfixは `main` |
-| レビュー | 1人以上のApproveが必要 |
-| マージ方法 | Squash and merge を推奨 |
-| ブランチ削除 | マージ後に作業ブランチを削除 |
+| レビュー       | 1人以上のApproveが必要              |
+| マージ方法     | Squash and merge を推奨             |
+| ブランチ削除   | マージ後に作業ブランチを削除        |
 
 ### 例外
 
@@ -207,12 +210,15 @@ feature/* / fix/* / ... (作業ブランチ)
 ## [Unreleased]
 
 ### Added
+
 - OAuth2.0によるソーシャルログインを追加 (#42)
 
 ### Fixed
+
 - カートに数量0の商品が追加される問題を修正 (#38)
 
 ### Changed
+
 - ユーザー認証エンドポイントのレスポンス形式を変更（破壊的変更）
 ```
 

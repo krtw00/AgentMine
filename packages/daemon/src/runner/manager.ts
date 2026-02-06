@@ -1,6 +1,6 @@
 import { ClaudeAdapter } from "./claude-adapter";
 import { CodexAdapter } from "./codex-adapter";
-import type { RunnerAdapter, RunHandle, RunOutput, RunOutputHandler } from "./types";
+import type { RunnerAdapter, RunHandle, RunOutput } from "./types";
 import { db } from "../db";
 import { runs, eq } from "@agentmine/db";
 import { eventEmitter } from "../events/emitter";
@@ -148,7 +148,7 @@ class RunnerManager {
   private findRunnerForHandle(runId: number): string | undefined {
     for (const [name, adapter] of this.adapters) {
       // アダプターのprocessesマップにrunIdがあるか確認
-      if ((adapter as any).processes?.has(runId)) {
+      if ((adapter as unknown as { processes?: Map<number, unknown> }).processes?.has(runId)) {
         return name;
       }
     }

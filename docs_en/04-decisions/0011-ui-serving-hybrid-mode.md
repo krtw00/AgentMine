@@ -35,27 +35,27 @@ The UI serving approach is hybrid.
 
 ### Option 1: Daemon Always Serves the UI (Not Adopted)
 
-| Item | Details |
-|------|---------|
-| Overview | The Daemon serves the UI in both development and production |
-| Pros | Simple with a single URL/origin. No CORS needed |
-| Cons | Slow iteration during UI development. Requires building and re-serving |
+| Item     | Details                                                                |
+| -------- | ---------------------------------------------------------------------- |
+| Overview | The Daemon serves the UI in both development and production            |
+| Pros     | Simple with a single URL/origin. No CORS needed                        |
+| Cons     | Slow iteration during UI development. Requires building and re-serving |
 
 ### Option 2: UI and Daemon Always Separated (Not Adopted)
 
-| Item | Details |
-|------|---------|
-| Overview | UI server and Daemon always run as separate processes/ports |
-| Pros | Fast UI development (HMR, etc.) |
-| Cons | Two-process operation. Requires CORS, proxy, and compatibility management |
+| Item     | Details                                                                   |
+| -------- | ------------------------------------------------------------------------- |
+| Overview | UI server and Daemon always run as separate processes/ports               |
+| Pros     | Fast UI development (HMR, etc.)                                           |
+| Cons     | Two-process operation. Requires CORS, proxy, and compatibility management |
 
 ### Option 3: Hybrid (Adopted)
 
-| Item | Details |
-|------|---------|
+| Item     | Details                                                        |
+| -------- | -------------------------------------------------------------- |
 | Overview | Daemon serves in production; dev server + proxy in development |
-| Pros | Balances operational simplicity with development speed |
-| Cons | Dev server proxy configuration is required |
+| Pros     | Balances operational simplicity with development speed         |
+| Cons     | Dev server proxy configuration is required                     |
 
 ## Rationale
 

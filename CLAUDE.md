@@ -59,16 +59,16 @@ Traefik (~/work/infra)
 
 ## API
 
-| エンドポイント | 説明 |
-|---------------|------|
-| GET /api/projects | Project一覧 |
-| POST /api/projects | Project作成 |
-| GET /api/projects/:id/tasks | Task一覧 |
-| POST /api/projects/:id/tasks | Task作成 |
+| エンドポイント                       | 説明        |
+| ------------------------------------ | ----------- |
+| GET /api/projects                    | Project一覧 |
+| POST /api/projects                   | Project作成 |
+| GET /api/projects/:id/tasks          | Task一覧    |
+| POST /api/projects/:id/tasks         | Task作成    |
 | GET /api/projects/:id/agent-profiles | Profile一覧 |
-| POST /api/tasks/:id/runs | Run開始 |
-| POST /api/runs/:id/stop | Run停止 |
-| GET /api/events | SSE |
+| POST /api/tasks/:id/runs             | Run開始     |
+| POST /api/runs/:id/stop              | Run停止     |
+| GET /api/events                      | SSE         |
 
 ## 技術スタック
 

@@ -34,27 +34,27 @@ Introduce a project-level "Memory Layer."
 
 ### Option 1: Add a Memory Table to the DB (Adopted)
 
-| Item | Details |
-|------|---------|
-| Overview | Add a project_memories table and reference it in prompt-composition |
-| Pros | Consistent with the DB-as-master principle; minimal impact on existing architecture |
-| Cons | Memory search and matching logic must be implemented in-house |
+| Item     | Details                                                                             |
+| -------- | ----------------------------------------------------------------------------------- |
+| Overview | Add a project_memories table and reference it in prompt-composition                 |
+| Pros     | Consistent with the DB-as-master principle; minimal impact on existing architecture |
+| Cons     | Memory search and matching logic must be implemented in-house                       |
 
 ### Option 2: Integrate Mem0 Directly
 
-| Item | Details |
-|------|---------|
-| Overview | Directly call the Mem0 API, delegating memory storage and search |
-| Pros | Advanced memory compression and search capabilities available out of the box |
-| Cons | Increases external dependency; difficult to align with the DB-as-master principle |
+| Item     | Details                                                                           |
+| -------- | --------------------------------------------------------------------------------- |
+| Overview | Directly call the Mem0 API, delegating memory storage and search                  |
+| Pros     | Advanced memory compression and search capabilities available out of the box      |
+| Cons     | Increases external dependency; difficult to align with the DB-as-master principle |
 
 ### Option 3: Extend the Settings Table
 
-| Item | Details |
-|------|---------|
-| Overview | Store memories in the existing settings table |
-| Pros | Minimal schema changes |
-| Cons | Difficult to represent memory-specific attributes (type/source/relevance) |
+| Item     | Details                                                                   |
+| -------- | ------------------------------------------------------------------------- |
+| Overview | Store memories in the existing settings table                             |
+| Pros     | Minimal schema changes                                                    |
+| Cons     | Difficult to represent memory-specific attributes (type/source/relevance) |
 
 ## Rationale
 

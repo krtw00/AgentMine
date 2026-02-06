@@ -28,12 +28,12 @@ Run完了時に、変更の証跡パック（Proof Bundle）を自動生成す�
 
 ## 設計原則との整合
 
-| 原則 | 対応 |
-|------|------|
+| 原則           | 対応                                                           |
+| -------------- | -------------------------------------------------------------- |
 | 観測可能な事実 | Proof Bundleの構成要素は全てDBまたはファイルに既存の事実である |
-| DBマスター | Bundleはメタ情報のみDB保持。実体は既存データへの参照集約 |
-| 再現性優先 | Bundle内のスナップショット（scope, DoD）は固定済み |
-| 判断しない | Bundleは事実の集約であり、合否判断を含まない |
+| DBマスター     | Bundleはメタ情報のみDB保持。実体は既存データへの参照集約       |
+| 再現性優先     | Bundle内のスナップショット（scope, DoD）は固定済み             |
+| 判断しない     | Bundleは事実の集約であり、合否判断を含まない                   |
 
 ---
 
@@ -41,18 +41,18 @@ Run完了時に、変更の証跡パック（Proof Bundle）を自動生成す�
 
 Run完了時に以下の情報を集約する。新規データの作成は行わず、既存データの**参照を束ねる**。
 
-| 要素 | 取得元 | 説明 |
-|------|--------|------|
-| prompt_hash | runs.log_ref → ログファイル | 実行プロンプトのSHA-256ハッシュ |
-| scope_snapshot | runs.scope_snapshot | 有効スコープのJSON |
-| dod_snapshot | runs.dod_snapshot | DoD定義のJSON |
-| changed_files | git diff --name-only（worktree） | 変更ファイル一覧 |
-| diff_stat | git diff --stat（worktree） | 変更の規模（行数） |
-| head_sha | runs.head_sha | Run終了時のコミットSHA |
-| exit_code | runs.exit_code | プロセス終了コード |
-| dod_results | checks（run_id） | 各チェックの結果一覧 |
-| scope_violations | scope_violations（run_id） | 違反一覧と承認状態 |
-| approval_history | scope_violations.approved_status + decided_at | 違反の承認/却下履歴 |
+| 要素             | 取得元                                        | 説明                            |
+| ---------------- | --------------------------------------------- | ------------------------------- |
+| prompt_hash      | runs.log_ref → ログファイル                   | 実行プロンプトのSHA-256ハッシュ |
+| scope_snapshot   | runs.scope_snapshot                           | 有効スコープのJSON              |
+| dod_snapshot     | runs.dod_snapshot                             | DoD定義のJSON                   |
+| changed_files    | git diff --name-only（worktree）              | 変更ファイル一覧                |
+| diff_stat        | git diff --stat（worktree）                   | 変更の規模（行数）              |
+| head_sha         | runs.head_sha                                 | Run終了時のコミットSHA          |
+| exit_code        | runs.exit_code                                | プロセス終了コード              |
+| dod_results      | checks（run_id）                              | 各チェックの結果一覧            |
+| scope_violations | scope_violations（run_id）                    | 違反一覧と承認状態              |
+| approval_history | scope_violations.approved_status + decided_at | 違反の承認/却下履歴             |
 
 ---
 
@@ -62,28 +62,28 @@ Run完了時に以下の情報を集約する。新規データの作成は行�
 
 既存runsテーブルに `proof_bundle_ref` カラムを追加する方式とする。BundleはJSONファイルとして保存する。
 
-| カラム | 必須 | 型 | 説明 |
-|--------|:---:|-----|------|
-| proof_bundle_ref | - | string | Bundleファイルへの参照パス |
+| カラム           | 必須 | 型     | 説明                       |
+| ---------------- | :--: | ------ | -------------------------- |
+| proof_bundle_ref |  -   | string | Bundleファイルへの参照パス |
 
 注: Bundleの実体はログと同様にファイルベースで保存する（→[ログ保存](./log-storage.md)に準拠）。
 
 ### Bundle JSONの構造
 
-| フィールド | 型 | 説明 |
-|-----------|-----|------|
-| version | string | Bundle形式のバージョン（"1.0"） |
-| run_id | integer | 対象Run |
-| generated_at | datetime | 生成日時 |
-| prompt_hash | string | SHA-256 |
-| scope_snapshot | object | 有効スコープ |
-| dod_snapshot | object | DoD定義 |
-| changed_files | string[] | 変更ファイル一覧 |
-| diff_stat | object | 追加行/削除行/ファイル数 |
-| head_sha | string | コミットSHA |
-| exit_code | integer | 終了コード |
-| dod_results | object[] | チェック結果一覧 |
-| scope_violations | object[] | 違反一覧（承認状態含む） |
+| フィールド       | 型       | 説明                            |
+| ---------------- | -------- | ------------------------------- |
+| version          | string   | Bundle形式のバージョン（"1.0"） |
+| run_id           | integer  | 対象Run                         |
+| generated_at     | datetime | 生成日時                        |
+| prompt_hash      | string   | SHA-256                         |
+| scope_snapshot   | object   | 有効スコープ                    |
+| dod_snapshot     | object   | DoD定義                         |
+| changed_files    | string[] | 変更ファイル一覧                |
+| diff_stat        | object   | 追加行/削除行/ファイル数        |
+| head_sha         | string   | コミットSHA                     |
+| exit_code        | integer  | 終了コード                      |
+| dod_results      | object[] | チェック結果一覧                |
+| scope_violations | object[] | 違反一覧（承認状態含む）        |
 
 ---
 
@@ -117,14 +117,14 @@ Run単位のProof Bundleを取得する。
 
 Run詳細パネルのタブに「Proof」を追加する。
 
-| 表示項目 | 説明 |
-|---------|------|
-| 変更ファイル一覧 | changed_filesをリスト表示 |
-| diff統計 | +行/-行/ファイル数 |
-| DoDチェック結果 | passed/failed/pendingのバッジ表示 |
-| Scope違反 | 違反パス+承認状態 |
-| スコープ定義 | scope_snapshotの内容 |
-| ダウンロード | Bundle JSONの保存 |
+| 表示項目         | 説明                              |
+| ---------------- | --------------------------------- |
+| 変更ファイル一覧 | changed_filesをリスト表示         |
+| diff統計         | +行/-行/ファイル数                |
+| DoDチェック結果  | passed/failed/pendingのバッジ表示 |
+| Scope違反        | 違反パス+承認状態                 |
+| スコープ定義     | scope_snapshotの内容              |
+| ダウンロード     | Bundle JSONの保存                 |
 
 ---
 

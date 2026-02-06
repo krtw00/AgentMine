@@ -27,11 +27,11 @@ In the MVP, logs are stored as files, and the DB holds references to them.
 
 ## Log Types
 
-| Type | Unit | Content |
-|------|------|---------|
-| run log | run | Runner's stdout/stderr |
-| check log | check | Verification output such as DoD |
-| daemon log | daemon | Startup/shutdown/errors, etc. |
+| Type       | Unit   | Content                         |
+| ---------- | ------ | ------------------------------- |
+| run log    | run    | Runner's stdout/stderr          |
+| check log  | check  | Verification output such as DoD |
+| daemon log | daemon | Startup/shutdown/errors, etc.   |
 
 ---
 
@@ -54,10 +54,10 @@ Logs are stored under the AgentMine Home directory.
 Log files are identified by reference strings (log_ref / output_ref).
 References are stored in the DB.
 
-| Target | Field | Purpose |
-|--------|-------|---------|
-| run | log_ref | Run log reference |
-| check | output_ref | Check log reference |
+| Target | Field      | Purpose             |
+| ------ | ---------- | ------------------- |
+| run    | log_ref    | Run log reference   |
+| check  | output_ref | Check log reference |
 
 ---
 
@@ -66,13 +66,14 @@ References are stored in the DB.
 Logs are append-only.
 Each record occupies one line.
 
-| Field | Description |
-|-------|-------------|
-| timestamp | Output timestamp |
-| stream | stdout / stderr / meta |
-| data | Output text or meta information |
+| Field     | Description                     |
+| --------- | ------------------------------- |
+| timestamp | Output timestamp                |
+| stream    | stdout / stderr / meta          |
+| data      | Output text or meta information |
 
 Note:
+
 - `meta` is used for tracking information other than stdout/stderr, such as the prompt at run start.
 
 ---
@@ -83,6 +84,7 @@ In the MVP, logs are not automatically deleted.
 Deletion is performed through explicit operations.
 
 Note:
+
 - In the future, retention periods and size limits will be added to Project settings.
 
 ---

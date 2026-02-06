@@ -18,27 +18,27 @@ An **AI-agnostic** development task orchestration platform. It manages multiple 
 
 AgentMine acts as a "project manager that manages AI programmers."
 
-| Aspect | AI Dev Tools (e.g. Claude Code) | AgentMine |
-|--------|--------------------------------|-----------|
-| AI support | Single AI only | AI-agnostic (RunnerAdapter) |
-| Safety control | Tool-level permissions | File-level scope + violation detection + approval |
-| Execution isolation | Shared directory | Physical isolation via worktree |
-| Completion criteria | AI self-report | Observable Facts + DoD |
-| Audit | None | Proof-Carrying Run (auto-generated proof bundles) |
-| Usage model | Individual terminal | Web UI for visualization and sharing |
+| Aspect              | AI Dev Tools (e.g. Claude Code) | AgentMine                                         |
+| ------------------- | ------------------------------- | ------------------------------------------------- |
+| AI support          | Single AI only                  | AI-agnostic (RunnerAdapter)                       |
+| Safety control      | Tool-level permissions          | File-level scope + violation detection + approval |
+| Execution isolation | Shared directory                | Physical isolation via worktree                   |
+| Completion criteria | AI self-report                  | Observable Facts + DoD                            |
+| Audit               | None                            | Proof-Carrying Run (auto-generated proof bundles) |
+| Usage model         | Individual terminal             | Web UI for visualization and sharing              |
 
 ## Key Features
 
-| Feature | Description |
-|---------|-------------|
-| AI-Agnostic Orchestration | Manage multiple AI Runners through RunnerAdapter |
-| Scope Control | Apply write/exclude per task, enforced by pre-constraints + post-detection |
-| Conflict-Aware Scheduler | Detect write_scope overlaps before parallel execution to prevent conflicts |
-| Proof-Carrying Run | Auto-generate proof bundles (prompt hash, scope, changed files, DoD results) on run completion |
-| Memory Governance | Maintain long-term quality with confidence scores, expiration, and approval for memories |
-| Observable Facts | Derive state automatically from exit codes, diffs, check results — never relying on AI self-reports |
-| Worktree Isolation | Create branch + worktree per task to physically prevent parallel execution conflicts |
-| Monitoring & Intervention (Web UI) | Monitor execution logs in the browser and intervene with stop/retry/continue/approve |
+| Feature                            | Description                                                                                         |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------- |
+| AI-Agnostic Orchestration          | Manage multiple AI Runners through RunnerAdapter                                                    |
+| Scope Control                      | Apply write/exclude per task, enforced by pre-constraints + post-detection                          |
+| Conflict-Aware Scheduler           | Detect write_scope overlaps before parallel execution to prevent conflicts                          |
+| Proof-Carrying Run                 | Auto-generate proof bundles (prompt hash, scope, changed files, DoD results) on run completion      |
+| Memory Governance                  | Maintain long-term quality with confidence scores, expiration, and approval for memories            |
+| Observable Facts                   | Derive state automatically from exit codes, diffs, check results — never relying on AI self-reports |
+| Worktree Isolation                 | Create branch + worktree per task to physically prevent parallel execution conflicts                |
+| Monitoring & Intervention (Web UI) | Monitor execution logs in the browser and intervene with stop/retry/continue/approve                |
 
 ## Architecture Overview
 
@@ -58,27 +58,28 @@ flowchart LR
 ```
 
 Notes:
+
 - Phase 1-2 run on localhost (single user). Team support is planned for Phase 3.
 - Log files are the source of truth for logs. The DB holds references (log_ref/output_ref).
 - The DB is the SSoT (Single Source of Truth); state is derived from Observable Facts.
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| Frontend | Next.js 15 / React 19, Tailwind CSS 4, TanStack Query + Zustand |
-| Backend | Hono, Drizzle ORM, SSE |
-| Data | SQLite |
-| Dev Tools | pnpm, Turborepo, tsup, Vitest |
+| Layer     | Technology                                                      |
+| --------- | --------------------------------------------------------------- |
+| Frontend  | Next.js 15 / React 19, Tailwind CSS 4, TanStack Query + Zustand |
+| Backend   | Hono, Drizzle ORM, SSE                                          |
+| Data      | SQLite                                                          |
+| Dev Tools | pnpm, Turborepo, tsup, Vitest                                   |
 
 ## Monorepo Structure
 
-| Package | Responsibility |
-|---------|---------------|
-| `packages/daemon` | Local Daemon (Hono API + RunnerManager) |
-| `packages/web` | Web UI (Next.js) |
+| Package           | Responsibility                             |
+| ----------------- | ------------------------------------------ |
+| `packages/daemon` | Local Daemon (Hono API + RunnerManager)    |
+| `packages/web`    | Web UI (Next.js)                           |
 | `packages/shared` | Shared type definitions (API schema, etc.) |
-| `packages/db` | Drizzle schema + migrations |
+| `packages/db`     | Drizzle schema + migrations                |
 
 ## Workflow
 
@@ -103,28 +104,28 @@ Notes:
 
 ## Roadmap
 
-| Phase | Theme | Key Items |
-|-------|-------|-----------|
-| 1 | MVP + Differentiation | Scope control completion, Proof-Carrying Run, Conflict-Aware Scheduler, Memory Governance, additional RunnerAdapters |
-| 2 | Operational Intelligence | Cost/SLA Router, Compliance Templates, audit log export |
-| 3 | Team Support | Auth & authorization, remote access, team dashboard |
+| Phase | Theme                    | Key Items                                                                                                            |
+| ----- | ------------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| 1     | MVP + Differentiation    | Scope control completion, Proof-Carrying Run, Conflict-Aware Scheduler, Memory Governance, additional RunnerAdapters |
+| 2     | Operational Intelligence | Cost/SLA Router, Compliance Templates, audit log export                                                              |
+| 3     | Team Support             | Auth & authorization, remote access, team dashboard                                                                  |
 
 ## Documentation
 
-| Category | Path |
-|----------|------|
-| Design entry point | `docs/00-index.md` |
-| Overview | `docs/01-overview/summary.md` |
-| Scope & Phases | `docs/01-overview/scope.md` |
-| Structure | `docs/02-architecture/structure.md` |
-| Role Model | `docs/02-architecture/role-model.md` |
-| Proof-Carrying Run | `docs/03-details/proof-carrying-run.md` |
-| Conflict-Aware Scheduler | `docs/03-details/conflict-aware-scheduler.md` |
-| Memory Layer + Governance | `docs/03-details/memory-layer.md` |
-| UI Spec (MVP) | `docs/03-details/ui-mvp.md` |
-| Repositioning Decision | `docs/04-decisions/0013-repositioning.md` |
-| Glossary | `docs/99-appendix/glossary.md` |
-| English docs | `docs_en/` |
+| Category                  | Path                                          |
+| ------------------------- | --------------------------------------------- |
+| Design entry point        | `docs/00-index.md`                            |
+| Overview                  | `docs/01-overview/summary.md`                 |
+| Scope & Phases            | `docs/01-overview/scope.md`                   |
+| Structure                 | `docs/02-architecture/structure.md`           |
+| Role Model                | `docs/02-architecture/role-model.md`          |
+| Proof-Carrying Run        | `docs/03-details/proof-carrying-run.md`       |
+| Conflict-Aware Scheduler  | `docs/03-details/conflict-aware-scheduler.md` |
+| Memory Layer + Governance | `docs/03-details/memory-layer.md`             |
+| UI Spec (MVP)             | `docs/03-details/ui-mvp.md`                   |
+| Repositioning Decision    | `docs/04-decisions/0013-repositioning.md`     |
+| Glossary                  | `docs/99-appendix/glossary.md`                |
+| English docs              | `docs_en/`                                    |
 
 ## Contributing
 

@@ -73,14 +73,14 @@ We follow [Conventional Commits](https://www.conventionalcommits.org/). See [doc
 
 ### type一覧 / Types
 
-| type | 用途 / Usage |
-|------|-------------|
-| `feat` | 新機能 / New feature |
-| `fix` | バグ修正 / Bug fix |
-| `docs` | ドキュメント / Documentation |
-| `refactor` | リファクタリング / Refactoring |
-| `test` | テスト / Tests |
-| `chore` | ビルド・依存関係 / Build, dependencies |
+| type       | 用途 / Usage                           |
+| ---------- | -------------------------------------- |
+| `feat`     | 新機能 / New feature                   |
+| `fix`      | バグ修正 / Bug fix                     |
+| `docs`     | ドキュメント / Documentation           |
+| `refactor` | リファクタリング / Refactoring         |
+| `test`     | テスト / Tests                         |
+| `chore`    | ビルド・依存関係 / Build, dependencies |
 
 ### ブランチ命名 / Branch Naming
 
@@ -111,12 +111,12 @@ packages/
 └── db/       # Drizzle ORM + SQLite スキーマ
 ```
 
-| パッケージ / Package | 責務 / Responsibility |
-|---------------------|----------------------|
-| `@agentmine/daemon` | HTTP API + タスク実行管理 / HTTP API + Task execution |
-| `@agentmine/web` | Web UI（React 19 + Next.js 15）|
-| `@agentmine/shared` | API型定義 / API type definitions |
-| `@agentmine/db` | DBスキーマ + マイグレーション / DB schema + migrations |
+| パッケージ / Package | 責務 / Responsibility                                  |
+| -------------------- | ------------------------------------------------------ |
+| `@agentmine/daemon`  | HTTP API + タスク実行管理 / HTTP API + Task execution  |
+| `@agentmine/web`     | Web UI（React 19 + Next.js 15）                        |
+| `@agentmine/shared`  | API型定義 / API type definitions                       |
+| `@agentmine/db`      | DBスキーマ + マイグレーション / DB schema + migrations |
 
 ---
 

@@ -12,26 +12,19 @@ export function parseStreamJsonLine(
       const texts = obj.message.content
         .filter((c: { type: string }) => c.type === "text")
         .map((c: { text: string }) => c.text);
-      if (texts.length > 0)
-        return { label: "assistant", text: texts.join(""), color: "#c9d1d9" };
+      if (texts.length > 0) return { label: "assistant", text: texts.join(""), color: "#c9d1d9" };
     }
     if (obj.type === "content_block_delta" && obj.delta?.text) {
       return { label: "text", text: obj.delta.text, color: "#c9d1d9" };
     }
-    if (
-      obj.type === "content_block_start" &&
-      obj.content_block?.type === "tool_use"
-    ) {
+    if (obj.type === "content_block_start" && obj.content_block?.type === "tool_use") {
       return {
         label: "tool",
         text: `${obj.content_block.name}(...)`,
         color: "#d2a8ff",
       };
     }
-    if (
-      obj.type === "tool_result" ||
-      (obj.type === "result" && obj.subtype === "success")
-    ) {
+    if (obj.type === "tool_result" || (obj.type === "result" && obj.subtype === "success")) {
       const preview =
         typeof obj.result === "string"
           ? obj.result.slice(0, 200)
@@ -127,9 +120,7 @@ export function TerminalOutput({
           if (line.type === "system") {
             return (
               <div key={i} className="py-0.5" style={{ color: "#58a6ff" }}>
-                <span style={{ color: "#484f58" }}>
-                  [{formatTs(line.timestamp)}]
-                </span>{" "}
+                <span style={{ color: "#484f58" }}>[{formatTs(line.timestamp)}]</span>{" "}
                 <span style={{ color: "#388bfd" }}>---</span> {line.data}
               </div>
             );
@@ -137,9 +128,7 @@ export function TerminalOutput({
           if (line.type === "stderr") {
             return (
               <div key={i} className="py-0.5" style={{ color: "#f85149" }}>
-                <span style={{ color: "#484f58" }}>
-                  [{formatTs(line.timestamp)}]
-                </span>{" "}
+                <span style={{ color: "#484f58" }}>[{formatTs(line.timestamp)}]</span>{" "}
                 <span style={{ color: "#da3633" }}>ERR</span> {line.data}
               </div>
             );
@@ -148,9 +137,7 @@ export function TerminalOutput({
             const color = line.exitCode === 0 ? "#7ee787" : "#f85149";
             return (
               <div key={i} className="py-0.5" style={{ color }}>
-                <span style={{ color: "#484f58" }}>
-                  [{formatTs(line.timestamp)}]
-                </span>{" "}
+                <span style={{ color: "#484f58" }}>[{formatTs(line.timestamp)}]</span>{" "}
                 <span style={{ color }}>EXIT</span> code={line.exitCode}
               </div>
             );
@@ -162,13 +149,8 @@ export function TerminalOutput({
             const parsed = parseStreamJsonLine(jsonLine);
             if (parsed) {
               elements.push(
-                <div
-                  key={`${i}-${elements.length}`}
-                  className="py-0.5 flex gap-1.5"
-                >
-                  <span style={{ color: "#484f58" }}>
-                    [{formatTs(line.timestamp)}]
-                  </span>
+                <div key={`${i}-${elements.length}`} className="py-0.5 flex gap-1.5">
+                  <span style={{ color: "#484f58" }}>[{formatTs(line.timestamp)}]</span>
                   <span
                     className="px-1 rounded text-[10px]"
                     style={{
@@ -178,11 +160,7 @@ export function TerminalOutput({
                   >
                     {parsed.label}
                   </span>
-                  <span
-                    style={{ color: parsed.color, wordBreak: "break-all" }}
-                  >
-                    {parsed.text}
-                  </span>
+                  <span style={{ color: parsed.color, wordBreak: "break-all" }}>{parsed.text}</span>
                 </div>
               );
             } else if (jsonLine.trim()) {
@@ -192,10 +170,7 @@ export function TerminalOutput({
                   className="py-0.5"
                   style={{ color: "#c9d1d9" }}
                 >
-                  <span style={{ color: "#484f58" }}>
-                    [{formatTs(line.timestamp)}]
-                  </span>{" "}
-                  {jsonLine}
+                  <span style={{ color: "#484f58" }}>[{formatTs(line.timestamp)}]</span> {jsonLine}
                 </div>
               );
             }

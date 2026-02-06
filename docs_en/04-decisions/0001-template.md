@@ -66,19 +66,19 @@ Copy the following to create a new ADR.
 
 ### Option 1: {Name}
 
-| Item | Details |
-|------|---------|
-| Overview | {Description} |
-| Pros | {Advantages} |
-| Cons | {Disadvantages} |
+| Item     | Details         |
+| -------- | --------------- |
+| Overview | {Description}   |
+| Pros     | {Advantages}    |
+| Cons     | {Disadvantages} |
 
 ### Option 2: {Name}
 
-| Item | Details |
-|------|---------|
-| Overview | {Description} |
-| Pros | {Advantages} |
-| Cons | {Disadvantages} |
+| Item     | Details         |
+| -------- | --------------- |
+| Overview | {Description}   |
+| Pros     | {Advantages}    |
+| Cons     | {Disadvantages} |
 
 ## Rationale
 
@@ -111,12 +111,12 @@ Reasons for adopting {Option 1}:
 
 ## Status Definitions
 
-| Status | Meaning |
-|--------|---------|
-| **Proposed** | Under proposal. Not yet finalized |
-| **Accepted** | Approved. Currently an active decision |
+| Status         | Meaning                                                                          |
+| -------------- | -------------------------------------------------------------------------------- |
+| **Proposed**   | Under proposal. Not yet finalized                                                |
+| **Accepted**   | Approved. Currently an active decision                                           |
 | **Deprecated** | Not recommended. No longer applied to new work, but existing usage is maintained |
-| **Superseded** | Replaced by another ADR. Noted as `Superseded by ADR-XXXX` |
+| **Superseded** | Replaced by another ADR. Noted as `Superseded by ADR-XXXX`                       |
 
 ---
 

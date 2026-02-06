@@ -27,12 +27,12 @@ This document defines the mechanism for managing per-project memories and inject
 
 ## Alignment with Design Principles
 
-| Principle | Memory Layer Alignment |
-|-----------|----------------------|
-| DB as Master | Memories are persisted in the DB, maintaining SSoT |
-| Observable Facts | Memories are treated as "supplementary information," not "facts" |
-| Do Not Judge | Memory application decisions are delegated to Supervisor/Planner |
-| Reproducibility First | The same memory set produces the same prompt |
+| Principle             | Memory Layer Alignment                                           |
+| --------------------- | ---------------------------------------------------------------- |
+| DB as Master          | Memories are persisted in the DB, maintaining SSoT               |
+| Observable Facts      | Memories are treated as "supplementary information," not "facts" |
+| Do Not Judge          | Memory application decisions are delegated to Supervisor/Planner |
+| Reproducibility First | The same memory set produces the same prompt                     |
 
 ---
 
@@ -40,35 +40,35 @@ This document defines the mechanism for managing per-project memories and inject
 
 ### project_memories
 
-| Column | Required | Type | Description |
-|--------|:--------:|------|-------------|
-| id | Yes | integer | Memory identifier |
-| project_id | Yes | integer FK | Owning Project |
-| type | Yes | string | Memory type |
-| content | Yes | string | Memory content (natural language) |
-| source | - | string | Memory origin (human/run/learning) |
-| source_run_id | - | integer FK | Related Run (if any) |
-| tags | - | json | Search tags (glob/keywords) |
-| relevance_score | - | number | Relevance score (0.0-1.0) |
-| active | Yes | boolean | Active flag |
-| created_at | Yes | datetime | Creation timestamp |
-| updated_at | Yes | datetime | Update timestamp |
+| Column          | Required | Type       | Description                        |
+| --------------- | :------: | ---------- | ---------------------------------- |
+| id              |   Yes    | integer    | Memory identifier                  |
+| project_id      |   Yes    | integer FK | Owning Project                     |
+| type            |   Yes    | string     | Memory type                        |
+| content         |   Yes    | string     | Memory content (natural language)  |
+| source          |    -     | string     | Memory origin (human/run/learning) |
+| source_run_id   |    -     | integer FK | Related Run (if any)               |
+| tags            |    -     | json       | Search tags (glob/keywords)        |
+| relevance_score |    -     | number     | Relevance score (0.0-1.0)          |
+| active          |   Yes    | boolean    | Active flag                        |
+| created_at      |   Yes    | datetime   | Creation timestamp                 |
+| updated_at      |   Yes    | datetime   | Update timestamp                   |
 
 ### type Values
 
-| type | Description | Example |
-|------|-------------|---------|
-| pattern | Project conventions and patterns | "Uses pnpm + Turborepo" |
-| warning | Areas requiring caution | "Full test suite required when modifying src/core/" |
+| type     | Description                                  | Example                                               |
+| -------- | -------------------------------------------- | ----------------------------------------------------- |
+| pattern  | Project conventions and patterns             | "Uses pnpm + Turborepo"                               |
+| warning  | Areas requiring caution                      | "Full test suite required when modifying src/core/"   |
 | learning | Lessons learned from past successes/failures | "Also check .eslintrc.js when changing ESLint config" |
-| context | Project-specific context | "Maintaining legacy API during v2 migration" |
+| context  | Project-specific context                     | "Maintaining legacy API during v2 migration"          |
 
 ### source Values
 
-| source | Description |
-|--------|-------------|
-| human | Manually registered by Human/Orchestrator |
-| run | Automatically extracted at Run completion (future) |
+| source   | Description                                                |
+| -------- | ---------------------------------------------------------- |
+| human    | Manually registered by Human/Orchestrator                  |
+| run      | Automatically extracted at Run completion (future)         |
 | learning | Results from Agent Lightning and similar learning (future) |
 
 ---
@@ -101,26 +101,27 @@ erDiagram
 
 ### Endpoint List
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | /api/projects/:id/memories | List memories |
-| POST | /api/projects/:id/memories | Create memory |
-| GET | /api/projects/:id/memories/:memoryId | Get memory details |
-| PATCH | /api/projects/:id/memories/:memoryId | Update memory |
-| DELETE | /api/projects/:id/memories/:memoryId | Delete memory |
+| Method | Path                                 | Description        |
+| ------ | ------------------------------------ | ------------------ |
+| GET    | /api/projects/:id/memories           | List memories      |
+| POST   | /api/projects/:id/memories           | Create memory      |
+| GET    | /api/projects/:id/memories/:memoryId | Get memory details |
+| PATCH  | /api/projects/:id/memories/:memoryId | Update memory      |
+| DELETE | /api/projects/:id/memories/:memoryId | Delete memory      |
 
 ### GET /api/projects/:id/memories
 
 Query parameters:
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| type | string | - | Filter by type |
-| active | boolean | true | Active memories only |
-| tags | string | - | Filter by tags (comma-separated) |
-| limit | number | 50 | Maximum number of results |
+| Parameter | Type    | Default | Description                      |
+| --------- | ------- | ------- | -------------------------------- |
+| type      | string  | -       | Filter by type                   |
+| active    | boolean | true    | Active memories only             |
+| tags      | string  | -       | Filter by tags (comma-separated) |
+| limit     | number  | 50      | Maximum number of results        |
 
 Response example:
+
 ```json
 {
   "memories": [
@@ -142,6 +143,7 @@ Response example:
 ### POST /api/projects/:id/memories
 
 Request body:
+
 ```json
 {
   "type": "warning",
@@ -204,38 +206,38 @@ To prevent quality degradation as memories accumulate, confidence, expiration, a
 
 ### Additional Fields
 
-| Column | Required | Type | Description |
-|--------|:--------:|------|-------------|
-| confidence | - | number | Confidence score (0.0-1.0). source=human is 1.0, source=run starts at 0.5 |
-| expires_at | - | datetime | Expiration date. null means no expiration |
-| approved_by | - | string | Approver (whether reviewed by a human) |
-| approved_at | - | datetime | Approval timestamp |
+| Column      | Required | Type     | Description                                                               |
+| ----------- | :------: | -------- | ------------------------------------------------------------------------- |
+| confidence  |    -     | number   | Confidence score (0.0-1.0). source=human is 1.0, source=run starts at 0.5 |
+| expires_at  |    -     | datetime | Expiration date. null means no expiration                                 |
+| approved_by |    -     | string   | Approver (whether reviewed by a human)                                    |
+| approved_at |    -     | datetime | Approval timestamp                                                        |
 
 ### Confidence Rules
 
-| source | Initial confidence | Description |
-|--------|:------------------:|-------------|
-| human | 1.0 | Human-registered memories have the highest confidence |
-| run | 0.5 | Memories extracted from Run results have medium confidence |
-| learning | 0.3 | Auto-learned memories start with low confidence |
+| source   | Initial confidence | Description                                                |
+| -------- | :----------------: | ---------------------------------------------------------- |
+| human    |        1.0         | Human-registered memories have the highest confidence      |
+| run      |        0.5         | Memories extracted from Run results have medium confidence |
+| learning |        0.3         | Auto-learned memories start with low confidence            |
 
 ### Confidence Changes
 
-| Event | Change | Reason |
-|-------|--------|--------|
-| Human approves | Raised to 1.0 | Human has verified the content |
-| Run referencing memory succeeds | +0.1 (max 1.0) | Effectiveness confirmed |
-| Run referencing memory fails | -0.1 (min 0.0) | Effectiveness questionable |
-| confidence < 0.2 | active = false | Low-confidence memory auto-deactivated |
+| Event                           | Change         | Reason                                 |
+| ------------------------------- | -------------- | -------------------------------------- |
+| Human approves                  | Raised to 1.0  | Human has verified the content         |
+| Run referencing memory succeeds | +0.1 (max 1.0) | Effectiveness confirmed                |
+| Run referencing memory fails    | -0.1 (min 0.0) | Effectiveness questionable             |
+| confidence < 0.2                | active = false | Low-confidence memory auto-deactivated |
 
 ### Expiration Rules
 
-| type | Default Expiration | Reason |
-|------|-------------------|--------|
-| pattern | None | Project conventions are stable long-term |
-| warning | 90 days | Warnings become stale as situations change |
-| learning | 180 days | Learnings are effective in the medium term |
-| context | 30 days | Project context changes frequently |
+| type     | Default Expiration | Reason                                     |
+| -------- | ------------------ | ------------------------------------------ |
+| pattern  | None               | Project conventions are stable long-term   |
+| warning  | 90 days            | Warnings become stale as situations change |
+| learning | 180 days           | Learnings are effective in the medium term |
+| context  | 30 days            | Project context changes frequently         |
 
 Note: Expiration can be adjusted per Project settings (`memory.defaultExpiry`).
 
@@ -262,17 +264,17 @@ Approves a memory by a human. Raises confidence to 1.0 and records approved_by a
 
 ### Phase 2: Agent Lightning Integration
 
-| Feature | Description |
-|---------|-------------|
-| Training data export | Export Runs history as training data |
-| Automatic memory generation | Auto-create learning memories from learning results |
-| Automatic relevance_score adjustment | Learn memory effectiveness from execution results |
+| Feature                              | Description                                         |
+| ------------------------------------ | --------------------------------------------------- |
+| Training data export                 | Export Runs history as training data                |
+| Automatic memory generation          | Auto-create learning memories from learning results |
+| Automatic relevance_score adjustment | Learn memory effectiveness from execution results   |
 
 ### Other Extension Candidates
 
-| Feature | Description |
-|---------|-------------|
-| Memory versioning | Tracking change history |
+| Feature                | Description             |
+| ---------------------- | ----------------------- |
+| Memory versioning      | Tracking change history |
 | Cross-project memories | Sharing common patterns |
 
 ---

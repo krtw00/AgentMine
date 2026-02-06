@@ -8,10 +8,7 @@ export const settingsRouter = new Hono();
 settingsRouter.get("/", async (c) => {
   const projectId = Number(c.req.param("projectId"));
 
-  const rows = await db
-    .select()
-    .from(settings)
-    .where(eq(settings.projectId, projectId));
+  const rows = await db.select().from(settings).where(eq(settings.projectId, projectId));
 
   // key-value行をネストされたオブジェクトに組み立てる
   const result: Record<string, unknown> = {};
@@ -69,8 +66,7 @@ settingsRouter.patch("/", async (c) => {
             {
               error: {
                 code: "VALIDATION_ERROR",
-                message:
-                  "Each requiredCheck must have check_key, label, and command",
+                message: "Each requiredCheck must have check_key, label, and command",
               },
             },
             400
@@ -97,15 +93,10 @@ settingsRouter.patch("/", async (c) => {
     const existing = await db
       .select()
       .from(settings)
-      .where(
-        and(eq(settings.projectId, projectId), eq(settings.key, entry.key))
-      );
+      .where(and(eq(settings.projectId, projectId), eq(settings.key, entry.key)));
 
     if (existing.length > 0) {
-      await db
-        .update(settings)
-        .set({ value: entry.value })
-        .where(eq(settings.id, existing[0]!.id));
+      await db.update(settings).set({ value: entry.value }).where(eq(settings.id, existing[0]!.id));
     } else {
       await db.insert(settings).values({
         projectId,
@@ -116,10 +107,7 @@ settingsRouter.patch("/", async (c) => {
   }
 
   // 更新後の設定を返す
-  const rows = await db
-    .select()
-    .from(settings)
-    .where(eq(settings.projectId, projectId));
+  const rows = await db.select().from(settings).where(eq(settings.projectId, projectId));
 
   const result: Record<string, unknown> = {};
   for (const row of rows) {

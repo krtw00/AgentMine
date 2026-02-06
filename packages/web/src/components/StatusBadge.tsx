@@ -28,10 +28,7 @@ export function StatusBadge({
       style={{ color, borderColor: `${color}44` }}
     >
       {status === "running" && (
-        <span
-          className="w-1.5 h-1.5 rounded-full animate-pulse"
-          style={{ background: color }}
-        />
+        <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: color }} />
       )}
       {status}
     </span>

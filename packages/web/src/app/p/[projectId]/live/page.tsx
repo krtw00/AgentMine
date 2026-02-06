@@ -173,9 +173,7 @@ function HumanCommandBar({
             <span
               className={`w-2 h-2 rounded-full ${sseConnected ? "bg-emerald-500 animate-pulse" : "bg-red-500"}`}
             />
-            <span style={{ color: "#8b949e" }}>
-              SSE: {sseConnected ? "接続中" : "切断"}
-            </span>
+            <span style={{ color: "#8b949e" }}>SSE: {sseConnected ? "接続中" : "切断"}</span>
           </span>
         </div>
         <textarea
@@ -250,9 +248,7 @@ function CoordinatorPane({
   coordinatorStatus: string | null;
 }) {
   const runOutputs = useAppStore((s) => s.runOutputs);
-  const lines = coordinatorRunId
-    ? runOutputs.get(coordinatorRunId) ?? []
-    : [];
+  const lines = coordinatorRunId ? (runOutputs.get(coordinatorRunId) ?? []) : [];
   const isRunning = coordinatorStatus === "running";
   const [collapsed, setCollapsed] = useState(false);
 
@@ -276,10 +272,7 @@ function CoordinatorPane({
           Orchestrator / Planner
         </span>
         {coordinatorRunId && (
-          <span
-            className="text-[10px] font-mono"
-            style={{ color: "#8b949e" }}
-          >
+          <span className="text-[10px] font-mono" style={{ color: "#8b949e" }}>
             Run #{coordinatorRunId}
           </span>
         )}
@@ -300,13 +293,7 @@ function CoordinatorPane({
 
 // --- SupervisorPane (Layer 4) ---
 
-function SupervisorPane({
-  childTasks,
-  allRuns,
-}: {
-  childTasks: Task[];
-  allRuns: Run[];
-}) {
+function SupervisorPane({ childTasks, allRuns }: { childTasks: Task[]; allRuns: Run[] }) {
   const runningCount = allRuns.filter(
     (r) => r.status === "running" && r.role !== "coordinator"
   ).length;
@@ -326,9 +313,7 @@ function SupervisorPane({
   };
 
   const getWorkerRunId = (task: Task): number | null => {
-    const taskRuns = allRuns.filter(
-      (r) => r.taskId === task.id && r.role !== "coordinator"
-    );
+    const taskRuns = allRuns.filter((r) => r.taskId === task.id && r.role !== "coordinator");
     return taskRuns[0]?.id ?? null;
   };
 
@@ -378,10 +363,7 @@ function SupervisorPane({
                     Task#{task.id}: {task.title}
                   </span>
                   {workerRunId && (
-                    <span
-                      className="text-[10px] font-mono ml-auto"
-                      style={{ color: "#8b949e" }}
-                    >
+                    <span className="text-[10px] font-mono ml-auto" style={{ color: "#8b949e" }}>
                       [Worker#{workerRunId}]
                     </span>
                   )}
@@ -430,10 +412,7 @@ function WorkerGrid({ workerRuns }: { workerRuns: Run[] }) {
           Workers
         </span>
         {workerRuns.filter((r) => r.status === "running").length > 0 && (
-          <span
-            className="flex items-center gap-1.5 text-[11px]"
-            style={{ color: "#cca700" }}
-          >
+          <span className="flex items-center gap-1.5 text-[11px]" style={{ color: "#cca700" }}>
             <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-pulse" />
             {workerRuns.filter((r) => r.status === "running").length} 件実行中
           </span>
@@ -449,11 +428,7 @@ function WorkerGrid({ workerRuns }: { workerRuns: Run[] }) {
           </div>
         ) : (
           displayRuns.map((run) => (
-            <WorkerPane
-              key={run.id}
-              run={run}
-              lines={runOutputs.get(run.id) ?? []}
-            />
+            <WorkerPane key={run.id} run={run} lines={runOutputs.get(run.id) ?? []} />
           ))
         )}
       </div>
@@ -491,16 +466,10 @@ function WorkerPane({ run, lines }: { run: Run; lines: OutputLine[] }) {
             boxShadow: isRunning ? `0 0 6px ${statusColor}` : "none",
           }}
         />
-        <span
-          className="text-[11px] font-semibold"
-          style={{ color: "#c9d1d9" }}
-        >
+        <span className="text-[11px] font-semibold" style={{ color: "#c9d1d9" }}>
           Worker #{run.id}
         </span>
-        <span
-          className="text-[10px] font-mono ml-auto"
-          style={{ color: "#8b949e" }}
-        >
+        <span className="text-[10px] font-mono ml-auto" style={{ color: "#8b949e" }}>
           Task#{run.taskId}
         </span>
       </div>
@@ -511,11 +480,7 @@ function WorkerPane({ run, lines }: { run: Run; lines: OutputLine[] }) {
 
 // --- ReviewerPane ---
 
-function ReviewerPane({
-  completedWorkerRuns,
-}: {
-  completedWorkerRuns: Run[];
-}) {
+function ReviewerPane({ completedWorkerRuns }: { completedWorkerRuns: Run[] }) {
   return (
     <div
       className="flex flex-col border rounded-lg overflow-hidden"
@@ -559,8 +524,7 @@ function ReviewerPane({
                     lint:{" "}
                     <span
                       style={{
-                        color:
-                          run.dodStatus === "passed" ? "#89d185" : "#8b949e",
+                        color: run.dodStatus === "passed" ? "#89d185" : "#8b949e",
                       }}
                     >
                       {run.dodStatus === "passed" ? "pass" : "---"}
@@ -570,8 +534,7 @@ function ReviewerPane({
                     test:{" "}
                     <span
                       style={{
-                        color:
-                          run.dodStatus === "passed" ? "#89d185" : "#8b949e",
+                        color: run.dodStatus === "passed" ? "#89d185" : "#8b949e",
                       }}
                     >
                       {run.dodStatus === "passed" ? "pass" : "---"}
@@ -581,15 +544,10 @@ function ReviewerPane({
                     scope:{" "}
                     <span
                       style={{
-                        color:
-                          (run.scopeViolationCount ?? 0) === 0
-                            ? "#89d185"
-                            : "#f14c4c",
+                        color: (run.scopeViolationCount ?? 0) === 0 ? "#89d185" : "#f14c4c",
                       }}
                     >
-                      {(run.scopeViolationCount ?? 0) === 0
-                        ? "ok"
-                        : "violation"}
+                      {(run.scopeViolationCount ?? 0) === 0 ? "ok" : "violation"}
                     </span>
                   </span>
                 </span>
@@ -686,9 +644,7 @@ export default function LivePage() {
       let running = 0;
       let completed = 0;
       for (const child of children) {
-        const childRuns = allRuns.filter(
-          (r) => r.taskId === child.id && r.role !== "coordinator"
-        );
+        const childRuns = allRuns.filter((r) => r.taskId === child.id && r.role !== "coordinator");
         if (childRuns.some((r) => r.status === "running")) running++;
         else if (childRuns.some((r) => r.status === "completed")) completed++;
       }
@@ -717,9 +673,7 @@ export default function LivePage() {
   const workerRuns = useMemo(() => {
     if (!allRuns || !activeSessionId) return [];
     const childTaskIds = new Set(childTasks.map((t) => t.id));
-    return allRuns.filter(
-      (r) => childTaskIds.has(r.taskId) && r.role !== "coordinator"
-    );
+    return allRuns.filter((r) => childTaskIds.has(r.taskId) && r.role !== "coordinator");
   }, [allRuns, activeSessionId, childTasks]);
 
   // セッション配下の全Run（全停止用）
@@ -730,15 +684,11 @@ export default function LivePage() {
   }, [allRuns, activeSessionId, childTasks]);
 
   const completedWorkerRuns = useMemo(
-    () =>
-      workerRuns.filter(
-        (r) => r.status === "completed" || r.status === "failed"
-      ),
+    () => workerRuns.filter((r) => r.status === "completed" || r.status === "failed"),
     [workerRuns]
   );
 
-  const isExecuting =
-    !!activeSession && activeSession.coordinatorRun.status === "running";
+  const isExecuting = !!activeSession && activeSession.coordinatorRun.status === "running";
 
   // Orchestrate起動
   const orchestrateMutation = useMutation({
@@ -772,8 +722,7 @@ export default function LivePage() {
       style={{
         background: "#1e1e1e",
         color: "#d4d4d4",
-        fontFamily:
-          "ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
+        fontFamily: "ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
       }}
     >
       {/* セッションサイドバー */}
@@ -796,10 +745,7 @@ export default function LivePage() {
 
         {/* メインコンテンツ */}
         {!activeSessionId ? (
-          <div
-            className="flex-1 flex items-center justify-center"
-            style={{ color: "#484f58" }}
-          >
+          <div className="flex-1 flex items-center justify-center" style={{ color: "#484f58" }}>
             <div className="text-center">
               <div className="text-sm mb-2">セッションを選択、または新規指令を実行してください</div>
               <div className="text-xs">左のサイドバーからセッションを選択できます</div>

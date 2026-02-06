@@ -52,4 +52,3 @@ RunnerAdapterはstart/stop等の最小I/Fを提供する。
 ## 関連ドキュメント
 
 - [RunnerAdapter](../03-details/runner-adapter.md) - RunnerAdapterの定義
-
