@@ -10,6 +10,8 @@
 ![pnpm](https://img.shields.io/badge/pnpm-9.x-F69220?logo=pnpm&logoColor=white)
 ![Turborepo](https://img.shields.io/badge/Turborepo-2.x-EF4444?logo=turborepo&logoColor=white)
 
+**[English](README_en.md)**
+
 **AI非依存**の開発タスクオーケストレーション基盤。複数のAI Runner（Claude, Codex, Gemini等）を統合管理し、スコープ制御・完了定義・監査証跡で**安全性と観測可能性**を提供する。
 
 ## ポジショニング
