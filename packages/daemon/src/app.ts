@@ -8,6 +8,7 @@ import { memoriesRouter } from "./routes/memories";
 import { runsRouter } from "./routes/runs";
 import { eventsRouter } from "./routes/events";
 import { orchestrateRouter } from "./routes/orchestrate";
+import { settingsRouter } from "./routes/settings";
 
 export const app = new Hono();
 
@@ -30,6 +31,7 @@ app.route("/api/tasks", tasksRouter);
 app.route("/api/projects/:projectId/agent-profiles", agentProfilesRouter);
 app.route("/api/agent-profiles", agentProfilesRouter);
 app.route("/api/projects/:projectId/memories", memoriesRouter);
+app.route("/api/projects/:projectId/settings", settingsRouter);
 app.route("/api/tasks/:taskId/runs", runsRouter);
 app.route("/api/runs", runsRouter);
 app.route("/api/events", eventsRouter);

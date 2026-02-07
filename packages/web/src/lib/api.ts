@@ -112,6 +112,17 @@ export const orchestrateApi = {
     ),
 };
 
+// Settings
+export const settingsApi = {
+  get: (projectId: number) =>
+    fetchApi<Setting[]>(`/projects/${projectId}/settings`),
+  update: (projectId: number, key: string, value: unknown) =>
+    fetchApi<Setting>(`/projects/${projectId}/settings`, {
+      method: "PATCH",
+      body: JSON.stringify({ key, value }),
+    }),
+};
+
 // Types
 export interface Project {
   id: number;
@@ -248,4 +259,11 @@ export interface RunnerCapabilities {
   supportsNonInteractive: boolean;
   supportsPromptFileInclusion: boolean;
   availableModels: string[];
+}
+
+export interface Setting {
+  id: number;
+  projectId: number;
+  key: string;
+  value: unknown;
 }

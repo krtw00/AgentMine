@@ -93,3 +93,22 @@ export interface ApiError {
     details?: Record<string, unknown>;
   };
 }
+
+// Setting
+export interface Setting {
+  id: number;
+  projectId: number;
+  key: string;
+  value: string;
+}
+
+// Setting value types
+export type ScopeDefaultExclude = string[]; // glob配列
+
+export interface DodRequiredCheck {
+  check_key: string;
+  label: string;
+  command: string;
+}
+
+export type DodRequiredChecks = DodRequiredCheck[];
