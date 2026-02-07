@@ -37,3 +37,7 @@ Thumbs.db
 
 # Test
 coverage/
+
+# AI
+CLAUDE.md
+.claude/
