@@ -5,6 +5,7 @@ import type {
   RunHandle,
   RunOutputHandler,
 } from "./types";
+import { killProcess } from "./process-utils";
 
 export class ClaudeAdapter implements RunnerAdapter {
   name = "claude";
@@ -91,7 +92,7 @@ export class ClaudeAdapter implements RunnerAdapter {
     return {
       runId,
       pid: proc.pid!,
-      kill: () => proc.kill("SIGTERM"),
+      kill: () => killProcess(proc),
     };
   }
 
@@ -99,13 +100,13 @@ export class ClaudeAdapter implements RunnerAdapter {
     const proc = this.processes.get(handle.runId);
     if (!proc) return;
 
-    proc.kill("SIGTERM");
+    killProcess(proc);
 
     // 5秒待ってもまだ動いていればSIGKILL
     await new Promise<void>((resolve) => {
       const timeout = setTimeout(() => {
         if (!proc.killed) {
-          proc.kill("SIGKILL");
+          killProcess(proc, "SIGKILL");
         }
         resolve();
       }, 5000);

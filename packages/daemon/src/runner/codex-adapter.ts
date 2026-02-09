@@ -5,6 +5,7 @@ import type {
   RunHandle,
   RunOutputHandler,
 } from "./types";
+import { killProcess } from "./process-utils";
 
 export class CodexAdapter implements RunnerAdapter {
   name = "codex";
@@ -75,7 +76,7 @@ export class CodexAdapter implements RunnerAdapter {
     return {
       runId,
       pid: proc.pid!,
-      kill: () => proc.kill("SIGTERM"),
+      kill: () => killProcess(proc),
     };
   }
 
@@ -83,12 +84,12 @@ export class CodexAdapter implements RunnerAdapter {
     const proc = this.processes.get(handle.runId);
     if (!proc) return;
 
-    proc.kill("SIGTERM");
+    killProcess(proc);
 
     await new Promise<void>((resolve) => {
       const timeout = setTimeout(() => {
         if (!proc.killed) {
-          proc.kill("SIGKILL");
+          killProcess(proc, "SIGKILL");
         }
         resolve();
       }, 5000);
