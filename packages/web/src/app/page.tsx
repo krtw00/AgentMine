@@ -104,7 +104,7 @@ export default function ProjectSwitcher() {
                     value={formData.repoPath}
                     onChange={(e) => setFormData({ ...formData, repoPath: e.target.value })}
                     className="w-full px-3 py-2 bg-zinc-800 border border-zinc-600 rounded text-zinc-100 focus:border-blue-500 focus:outline-none"
-                    placeholder="/home/user/projects/my-repo"
+                    placeholder="例: /home/user/my-repo, C:\Users\user\my-repo"
                     required
                   />
                 </div>
