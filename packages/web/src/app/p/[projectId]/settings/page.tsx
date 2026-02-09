@@ -2,6 +2,7 @@
 
 import { useParams } from "next/navigation";
 import { DefaultExcludeEditor } from "./components/DefaultExcludeEditor";
+import { RequiredChecksEditor } from "./components/RequiredChecksEditor";
 
 export default function SettingsPage() {
   const params = useParams();
@@ -31,9 +32,7 @@ export default function SettingsPage() {
           <p className="text-xs text-zinc-500 mb-4">
             Runの完了条件となる必須チェックを定義します。
           </p>
-          <div className="p-3 bg-zinc-700/50 border border-zinc-600 rounded text-sm text-zinc-400">
-            Settings API実装後に編集可能になります。
-          </div>
+          <RequiredChecksEditor projectId={projectId} />
         </section>
 
         {/* Danger Zone */}
