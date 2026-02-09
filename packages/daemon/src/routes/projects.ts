@@ -1,6 +1,22 @@
 import { Hono } from "hono";
+import { execSync } from "child_process";
+import { existsSync } from "fs";
+import { resolve } from "path";
 import { db } from "../db";
 import { projects, eq } from "@agentmine/db";
+
+function validateRepoPath(repoPath: string): { ok: true } | { ok: false; message: string } {
+  const resolved = resolve(repoPath);
+  if (!existsSync(resolved)) {
+    return { ok: false, message: `Path does not exist: ${resolved}` };
+  }
+  try {
+    execSync("git rev-parse --is-inside-work-tree", { cwd: resolved, stdio: "pipe" });
+  } catch {
+    return { ok: false, message: `Not a git repository: ${resolved}` };
+  }
+  return { ok: true };
+}
 
 export const projectsRouter = new Hono();
 
@@ -24,6 +40,14 @@ projectsRouter.post("/", async (c) => {
           message: "name, repoPath, baseBranch are required",
         },
       },
+      400
+    );
+  }
+
+  const pathCheck = validateRepoPath(repoPath);
+  if (!pathCheck.ok) {
+    return c.json(
+      { error: { code: "INVALID_REPO_PATH", message: pathCheck.message } },
       400
     );
   }
@@ -73,7 +97,16 @@ projectsRouter.patch("/:id", async (c) => {
   };
 
   if (body.name !== undefined) updateData.name = body.name;
-  if (body.repoPath !== undefined) updateData.repoPath = body.repoPath;
+  if (body.repoPath !== undefined) {
+    const pathCheck = validateRepoPath(body.repoPath);
+    if (!pathCheck.ok) {
+      return c.json(
+        { error: { code: "INVALID_REPO_PATH", message: pathCheck.message } },
+        400
+      );
+    }
+    updateData.repoPath = body.repoPath;
+  }
   if (body.baseBranch !== undefined) updateData.baseBranch = body.baseBranch;
 
   const result = await db
