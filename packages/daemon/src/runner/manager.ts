@@ -110,10 +110,9 @@ class RunnerManager {
 
     // logRefをDBに記録
     const logRef = join(LOG_DIR, `${runId}.jsonl`);
-    db.update(runs)
+    await db.update(runs)
       .set({ logRef })
-      .where(eq(runs.id, runId))
-      .catch((err) => console.error(`[run:${runId}] Failed to set logRef:`, err));
+      .where(eq(runs.id, runId));
 
     eventEmitter.emitRunEvent("run.started", { runId });
 

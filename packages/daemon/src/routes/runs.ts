@@ -131,7 +131,7 @@ ${basePrompt}`
 
   const newRun = result[0]!;
 
-  // RunnerAdapter呼び出し（非同期で実行）
+  // RunnerAdapter呼び出し（非同期で実行、失敗時はDB更新）
   runnerManager
     .start(
       newRun.id,
@@ -141,8 +141,12 @@ ${basePrompt}`
       params.profile.model || undefined,
       params.profile.config || undefined
     )
-    .catch((err) => {
+    .catch(async (err) => {
       console.error(`Failed to start runner for run ${newRun.id}:`, err);
+      await db
+        .update(runs)
+        .set({ status: "failed", finishedAt: new Date().toISOString() })
+        .where(eq(runs.id, newRun.id));
     });
 
   return { ok: true, run: newRun };
@@ -329,7 +333,9 @@ runsRouter.get("/:id/logs", async (c) => {
     const lines = content
       .split("\n")
       .filter((l) => l.trim())
-      .map((l) => JSON.parse(l));
+      .flatMap((l) => {
+        try { return [JSON.parse(l)]; } catch { return []; }
+      });
     return c.json({ data: lines });
   } catch {
     return c.json({ data: [] });

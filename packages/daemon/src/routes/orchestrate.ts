@@ -156,7 +156,7 @@ Human（ユーザー）からの指令を分析し、独立したサブタスク
 ## 指令
 ${command}`;
 
-  // RunnerAdapter呼び出し（非同期で実行）
+  // RunnerAdapter呼び出し（非同期で実行、失敗時はDB更新）
   runnerManager
     .start(
       coordinatorRunId,
@@ -166,11 +166,15 @@ ${command}`;
       profile[0]!.model || undefined,
       profile[0]!.config || undefined
     )
-    .catch((err) => {
+    .catch(async (err) => {
       console.error(
         `Failed to start coordinator run ${coordinatorRunId}:`,
         err
       );
+      await db
+        .update(runs)
+        .set({ status: "failed", finishedAt: new Date().toISOString() })
+        .where(eq(runs.id, coordinatorRunId));
     });
 
   return c.json(
