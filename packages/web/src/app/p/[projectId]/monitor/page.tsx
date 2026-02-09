@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { tasksApi, agentProfilesApi, runsApi, type Task, type Run } from "@/lib/api";
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { useAppStore, type OutputLine } from "@/lib/store";
@@ -211,6 +211,7 @@ export default function MonitorPage() {
   const params = useParams();
   const projectId = Number(params.projectId);
   const queryClient = useQueryClient();
+  const router = useRouter();
 
   const [showDrawer, setShowDrawer] = useState(false);
   const [selectedRunId, setSelectedRunId] = useState<number | null>(null);
@@ -489,12 +490,25 @@ export default function MonitorPage() {
     { id: "git" as const, label: "Git/Worktree" },
   ];
 
+  // orchestrator running判定（task単位）
+  const isOrchestratorRunning = useCallback(
+    (taskId: number): boolean => {
+      return (
+        allRuns?.some(
+          (r) => r.taskId === taskId && r.role === "coordinator" && r.status === "running"
+        ) ?? false
+      );
+    },
+    [allRuns]
+  );
+
   const renderTaskNode = (task: Task, depth: number) => {
     const children = taskTree.childMap?.get(task.id) ?? [];
     const hasChildren = children.length > 0;
     const isCollapsed = collapsedTasks.has(task.id);
     const isSelected = selectedTaskId === task.id;
     const runCount = countRunsForTask(task.id);
+    const autoRunning = isOrchestratorRunning(task.id);
 
     return (
       <div key={task.id}>
@@ -512,10 +526,28 @@ export default function MonitorPage() {
           >
             {hasChildren ? (isCollapsed ? "▸" : "▾") : "•"}
           </span>
-          <span className="text-[#d4d4d4]">
+          <span className="text-[#d4d4d4] truncate">
             タスク #{task.id}: {task.title}
           </span>
-          <span className="ml-auto text-[10px] text-[#a0a0a0] font-mono">{runCount} 件</span>
+          {autoRunning && (
+            <span
+              className="shrink-0 px-1.5 py-0.5 text-[9px] font-semibold rounded"
+              style={{ background: "rgba(204,167,0,0.2)", color: "#cca700" }}
+            >
+              Auto
+            </span>
+          )}
+          <span className="shrink-0 text-[10px] text-[#a0a0a0] font-mono">{runCount} 件</span>
+          <button
+            className="shrink-0 ml-auto px-1.5 py-0.5 text-[10px] rounded border cursor-pointer hover:bg-white/10"
+            style={{ borderColor: "#3c3c3c", color: "#4fc1ff" }}
+            onClick={(e) => {
+              e.stopPropagation();
+              router.push(`/p/${projectId}/live?taskId=${task.id}`);
+            }}
+          >
+            Live
+          </button>
         </div>
         {hasChildren && !isCollapsed && children.map((child) => renderTaskNode(child, depth + 1))}
       </div>
