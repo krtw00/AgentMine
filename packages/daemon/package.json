@@ -9,6 +9,7 @@
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
     "lint": "eslint src/",
+    "test": "vitest run",
     "clean": "rm -rf dist",
     "check-types": "tsc --noEmit"
   },
@@ -23,6 +24,7 @@
     "@types/node": "^22.13.1",
     "tsup": "^8.3.5",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "vitest": "^4.0.18"
   }
 }
