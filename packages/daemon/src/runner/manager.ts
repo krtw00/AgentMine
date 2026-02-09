@@ -7,7 +7,9 @@ import { eventEmitter } from "../events/emitter";
 import { appendFileSync, mkdirSync, existsSync } from "fs";
 import { join } from "path";
 
-const LOG_DIR = "/tmp/agentmine/logs";
+import { tmpdir } from "os";
+
+const LOG_DIR = join(tmpdir(), "agentmine", "logs");
 
 class RunnerManager {
   private adapters: Map<string, RunnerAdapter> = new Map();
