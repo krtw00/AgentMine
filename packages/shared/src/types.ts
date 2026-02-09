@@ -99,7 +99,7 @@ export interface Setting {
   id: number;
   projectId: number;
   key: string;
-  value: string;
+  value: unknown;
 }
 
 // Setting value types
@@ -109,6 +109,8 @@ export interface DodRequiredCheck {
   check_key: string;
   label: string;
   command: string;
+  timeout_sec?: number;
+  required: boolean;
 }
 
 export type DodRequiredChecks = DodRequiredCheck[];

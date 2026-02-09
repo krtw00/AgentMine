@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { db } from "../db";
 import { settings, projects, eq, and } from "@agentmine/db";
+import type { DodRequiredChecks } from "@agentmine/shared";
 
 export const settingsRouter = new Hono();
 
@@ -58,6 +59,54 @@ settingsRouter.patch("/", async (c) => {
     );
   }
 
+  // dod.requiredChecksのバリデーション
+  if (key === "dod.requiredChecks") {
+    if (!Array.isArray(value)) {
+      return c.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "dod.requiredChecks must be an array",
+          },
+        },
+        400
+      );
+    }
+
+    const checks = value as DodRequiredChecks;
+
+    // 各要素にcheck_key/label/commandがあるか確認
+    for (let i = 0; i < checks.length; i++) {
+      const check = checks[i];
+      if (!check || !check.check_key || !check.label || !check.command) {
+        return c.json(
+          {
+            error: {
+              code: "VALIDATION_ERROR",
+              message: `dod.requiredChecks[${i}] must have check_key, label, and command`,
+            },
+          },
+          400
+        );
+      }
+    }
+
+    // check_keyが配列内で一意か確認（Project内で一意）
+    const checkKeys = checks.map((c) => c.check_key);
+    const uniqueCheckKeys = new Set(checkKeys);
+    if (checkKeys.length !== uniqueCheckKeys.size) {
+      return c.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "check_key must be unique within the project",
+          },
+        },
+        400
+      );
+    }
+  }
+
   // プロジェクト存在確認
   const project = await db
     .select()
@@ -81,7 +130,7 @@ settingsRouter.patch("/", async (c) => {
     // 更新
     result = await db
       .update(settings)
-      .set({ value: JSON.stringify(value) })
+      .set({ value })
       .where(and(eq(settings.projectId, projectId), eq(settings.key, key)))
       .returning();
   } else {
@@ -91,7 +140,7 @@ settingsRouter.patch("/", async (c) => {
       .values({
         projectId,
         key,
-        value: JSON.stringify(value),
+        value,
       })
       .returning();
   }
