@@ -5,6 +5,7 @@ import { db } from "../db";
 import { runs, eq } from "@agentmine/db";
 import { eventEmitter } from "../events/emitter";
 import { detectScopeViolations } from "./scope-check";
+import { runDodChecks } from "./dod-check";
 import { appendFileSync, mkdirSync, existsSync } from "fs";
 import { join } from "path";
 
@@ -81,6 +82,9 @@ class RunnerManager {
     if (status === "completed") {
       detectScopeViolations(runId).catch((err) => {
         console.error(`[run:${runId}] Scope violation check failed:`, err);
+      });
+      runDodChecks(runId).catch((err) => {
+        console.error(`[run:${runId}] DoD check execution failed:`, err);
       });
     }
 
