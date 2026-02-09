@@ -112,13 +112,13 @@ dod.requiredChecksの各要素：
 
 モニター画面用の集約データを取得する。
 
-| クエリパラメータ | 説明                    |
-| ---------------- | ----------------------- |
-| status           | runのstatusでフィルタ   |
+| クエリパラメータ | 説明                                                     |
+| ---------------- | -------------------------------------------------------- |
+| status           | runのstatusでフィルタ                                    |
 | reason_codes     | reason codes（needs_review理由、dod_failed等）でフィルタ |
-| task_id          | taskでフィルタ          |
-| agent_profile_id | agent_profileでフィルタ |
-| since            | 指定時刻以降のrunのみ   |
+| task_id          | taskでフィルタ                                           |
+| agent_profile_id | agent_profileでフィルタ                                  |
+| since            | 指定時刻以降のrunのみ                                    |
 
 | レスポンス | 説明                                                                    |
 | ---------- | ----------------------------------------------------------------------- |

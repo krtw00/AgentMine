@@ -456,6 +456,18 @@ export default function MonitorPage() {
     };
   }, [filteredRuns, timelineData]);
 
+  // orchestrator running判定（task単位）
+  const isOrchestratorRunning = useCallback(
+    (taskId: number): boolean => {
+      return (
+        allRuns?.some(
+          (r) => r.taskId === taskId && r.role === "coordinator" && r.status === "running"
+        ) ?? false
+      );
+    },
+    [allRuns]
+  );
+
   if (tasksLoading) {
     return (
       <div className="flex items-center justify-center h-full" style={{ background: "#1e1e1e" }}>
@@ -489,18 +501,6 @@ export default function MonitorPage() {
     { id: "violations" as const, label: "違反" },
     { id: "git" as const, label: "Git/Worktree" },
   ];
-
-  // orchestrator running判定（task単位）
-  const isOrchestratorRunning = useCallback(
-    (taskId: number): boolean => {
-      return (
-        allRuns?.some(
-          (r) => r.taskId === taskId && r.role === "coordinator" && r.status === "running"
-        ) ?? false
-      );
-    },
-    [allRuns]
-  );
 
   const renderTaskNode = (task: Task, depth: number) => {
     const children = taskTree.childMap?.get(task.id) ?? [];
