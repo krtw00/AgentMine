@@ -4,6 +4,7 @@ import type { RunnerAdapter, RunHandle, RunOutput } from "./types";
 import { db } from "../db";
 import { runs, eq } from "@agentmine/db";
 import { eventEmitter } from "../events/emitter";
+import { detectScopeViolations } from "./scope-check";
 import { appendFileSync, mkdirSync, existsSync } from "fs";
 import { join } from "path";
 
@@ -75,6 +76,13 @@ class RunnerManager {
       .where(eq(runs.id, runId));
 
     this.handles.delete(runId);
+
+    // スコープ違反検出（完了時のみ）
+    if (status === "completed") {
+      detectScopeViolations(runId).catch((err) => {
+        console.error(`[run:${runId}] Scope violation check failed:`, err);
+      });
+    }
 
     eventEmitter.emitRunEvent("run.finished", { runId, status, exitCode });
   }
