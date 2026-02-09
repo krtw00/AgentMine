@@ -1,6 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
+import { DefaultExcludeEditor } from "./components/DefaultExcludeEditor";
 
 export default function SettingsPage() {
   const params = useParams();
@@ -21,9 +22,7 @@ export default function SettingsPage() {
           <p className="text-xs text-zinc-500 mb-4">
             プロジェクト共通でAIから隠すファイル/ディレクトリを指定します。
           </p>
-          <div className="p-3 bg-zinc-700/50 border border-zinc-600 rounded text-sm text-zinc-400">
-            Settings API実装後に編集可能になります。
-          </div>
+          <DefaultExcludeEditor projectId={projectId} />
         </section>
 
         {/* DoD Required Checks */}
