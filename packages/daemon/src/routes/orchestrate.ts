@@ -1,6 +1,8 @@
 import { Hono } from "hono";
 import { execSync } from "child_process";
 import { mkdirSync, existsSync } from "fs";
+import { tmpdir } from "os";
+import { join } from "path";
 import { db } from "../db";
 import {
   runs,
@@ -73,9 +75,8 @@ orchestrateRouter.post("/", async (c) => {
 
   // git worktree作成
   const branchName = `agentmine/coordinator-${parentTaskId}-${Date.now()}`;
-  const worktreePath = `/tmp/agentmine/worktrees/${branchName.replace(/\//g, "-")}`;
-
-  const worktreeParent = "/tmp/agentmine/worktrees";
+  const worktreeParent = join(tmpdir(), "agentmine", "worktrees");
+  const worktreePath = join(worktreeParent, branchName.replace(/\//g, "-"));
   if (!existsSync(worktreeParent)) {
     mkdirSync(worktreeParent, { recursive: true });
   }
