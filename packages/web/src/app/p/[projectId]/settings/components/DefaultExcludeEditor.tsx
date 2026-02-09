@@ -14,12 +14,11 @@ export function DefaultExcludeEditor({ projectId }: { projectId: number }) {
   const { data: settings, isLoading } = useSettings(projectId);
 
   // 設定から scope.defaultExclude を取得
-  const currentPatterns = useMemo(() => {
+  const currentPatterns = useMemo((): string[] => {
     const setting = settings?.find((s: Setting) => s.key === "scope.defaultExclude");
     if (!setting?.value) return [];
-    
-    const parsed = JSON.parse(setting.value as string);
-    return Array.isArray(parsed) ? parsed : [];
+    // データベースには常にJSON配列として保存されている
+    return Array.isArray(setting.value) ? (setting.value as string[]) : [];
   }, [settings]);
 
   // ローカル状態を初期化（設定が読み込まれたら）
@@ -40,6 +39,16 @@ export function DefaultExcludeEditor({ projectId }: { projectId: number }) {
       queryClient.invalidateQueries({ queryKey: ["settings", projectId] });
     },
   });
+
+  // 成功メッセージの自動消去
+  useEffect(() => {
+    if (updateMutation.isSuccess) {
+      const timer = setTimeout(() => {
+        updateMutation.reset();
+      }, 3000); // 3秒後に自動消去
+      return () => clearTimeout(timer);
+    }
+  }, [updateMutation.isSuccess]);
 
   const handleAdd = () => {
     const trimmed = newPattern.trim();
@@ -161,4 +170,3 @@ export function DefaultExcludeEditor({ projectId }: { projectId: number }) {
     </div>
   );
 }
-
