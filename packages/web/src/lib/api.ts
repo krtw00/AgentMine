@@ -123,6 +123,23 @@ export const settingsApi = {
     }),
 };
 
+// Monitor
+export const monitorApi = {
+  get: (
+    projectId: number,
+    params?: {
+      status?: string;
+      reason_codes?: string;
+      task?: string;
+      agent_profile?: string;
+      since?: string;
+    }
+  ) => {
+    const qs = params ? `?${new URLSearchParams(params as Record<string, string>).toString()}` : "";
+    return fetchApi<MonitorData>(`/projects/${projectId}/monitor${qs}`);
+  },
+};
+
 // Types
 export interface Project {
   id: number;
@@ -266,4 +283,23 @@ export interface Setting {
   projectId: number;
   key: string;
   value: unknown;
+}
+
+export interface MonitorData {
+  summary: {
+    total_tasks: number;
+    running_runs: number;
+    needs_review_tasks: number;
+    failed_tasks: number;
+  };
+  tasks: MonitorTask[];
+  overview: {
+    time_range: { start: string; end: string };
+    activity: Array<{ time: string; count: number }>;
+  };
+}
+
+export interface MonitorTask extends Task {
+  runs: Run[];
+  children: MonitorTask[];
 }

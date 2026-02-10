@@ -9,6 +9,7 @@ import { runsRouter } from "./routes/runs";
 import { eventsRouter } from "./routes/events";
 import { orchestrateRouter } from "./routes/orchestrate";
 import { settingsRouter } from "./routes/settings";
+import { monitorRouter } from "./routes/monitor";
 
 export const app = new Hono();
 
@@ -32,6 +33,7 @@ app.route("/api/projects/:projectId/agent-profiles", agentProfilesRouter);
 app.route("/api/agent-profiles", agentProfilesRouter);
 app.route("/api/projects/:projectId/memories", memoriesRouter);
 app.route("/api/projects/:projectId/settings", settingsRouter);
+app.route("/api/projects/:projectId/monitor", monitorRouter);
 app.route("/api/tasks/:taskId/runs", runsRouter);
 app.route("/api/runs", runsRouter);
 app.route("/api/events", eventsRouter);
