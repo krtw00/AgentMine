@@ -20,14 +20,14 @@ AgentMineが提供してきた「AIの並列オーケストレーション」は
 
 AgentMineの既存設計を精査した結果、Claude Codeが**持たない強み**が複数確認された。
 
-| AgentMineの既存資産 | Claude Codeの対応 |
-|---|---|
-| RunnerAdapter（AI非依存） | Claude専用 |
+| AgentMineの既存資産                              | Claude Codeの対応          |
+| ------------------------------------------------ | -------------------------- |
+| RunnerAdapter（AI非依存）                        | Claude専用                 |
 | write_scope + scope violation + 承認ワークフロー | ツール単位の権限モードのみ |
-| worktree物理隔離 | 同一ディレクトリで動作 |
-| Observable Facts + 状態導出 | AIの自己報告に依存 |
-| DoD（定義に基づく完了判定） | 形式的な完了定義なし |
-| Web UI（監視・介入・共有） | ターミナル完結 |
+| worktree物理隔離                                 | 同一ディレクトリで動作     |
+| Observable Facts + 状態導出                      | AIの自己報告に依存         |
+| DoD（定義に基づく完了判定）                      | 形式的な完了定義なし       |
+| Web UI（監視・介入・共有）                       | ターミナル完結             |
 
 ## 決定事項
 
@@ -41,11 +41,11 @@ RunnerAdapter設計を核に、Claude/Codex/Gemini等の複数AI Runnerを統合
 
 スコープ制御、DoD、Observable Facts、違反追跡を強化し、AIの実行に対する安全性と監査可能性を提供する。具体的な追加機能:
 
-| 機能 | 概要 |
-|---|---|
-| Proof-Carrying Run | Run完了時に変更の証跡パック（prompt hash、scope snapshot、changed files、DoD結果、承認履歴）を自動生成する |
-| Conflict-Aware Scheduler | 並列起動前にwrite_scopeの重なりを検出し、衝突を回避する実行順を決定する |
-| Memory Governance | 記憶に信頼度・有効期限・承認を追加し、記憶汚染を防ぐ |
+| 機能                     | 概要                                                                                                       |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| Proof-Carrying Run       | Run完了時に変更の証跡パック（prompt hash、scope snapshot、changed files、DoD結果、承認履歴）を自動生成する |
+| Conflict-Aware Scheduler | 並列起動前にwrite_scopeの重なりを検出し、衝突を回避する実行順を決定する                                    |
+| Memory Governance        | 記憶に信頼度・有効期限・承認を追加し、記憶汚染を防ぐ                                                       |
 
 ### D. チーム/組織向け（Phase 3）
 
@@ -53,46 +53,46 @@ RunnerAdapter設計を核に、Claude/Codex/Gemini等の複数AI Runnerを統合
 
 ## 採用した追加機能の評価
 
-| # | 機能 | Phase | 既存設計との整合 | 差別化効果 |
-|---|------|-------|----------------|-----------|
-| F | Proof-Carrying Run | 1 | scope_snapshot, dod_snapshot, log_ref等が既存。バンドル化のみ | 中〜高 |
-| G | Conflict-Aware Scheduler | 1 | write_scope必須(ADR-0006)の自然な拡張 | 高 |
-| K | Memory Governance | 1 | memory-layer.mdの将来拡張に記載済み | 中 |
-| I | Cost/SLA Router | 2 | agent_profilesのrunner/model選択の知的拡張 | 高 |
-| L | Compliance Templates | 2-3 | settings+scope+DoDの組み合わせで実現可能 | 中〜高 |
+| #   | 機能                     | Phase | 既存設計との整合                                              | 差別化効果 |
+| --- | ------------------------ | ----- | ------------------------------------------------------------- | ---------- |
+| F   | Proof-Carrying Run       | 1     | scope_snapshot, dod_snapshot, log_ref等が既存。バンドル化のみ | 中〜高     |
+| G   | Conflict-Aware Scheduler | 1     | write_scope必須(ADR-0006)の自然な拡張                         | 高         |
+| K   | Memory Governance        | 1     | memory-layer.mdの将来拡張に記載済み                           | 中         |
+| I   | Cost/SLA Router          | 2     | agent_profilesのrunner/model選択の知的拡張                    | 高         |
+| L   | Compliance Templates     | 2-3   | settings+scope+DoDの組み合わせで実現可能                      | 中〜高     |
 
 ## 保留・不採用とした機能
 
-| # | 機能 | 判定 | 理由 |
-|---|------|------|------|
-| E | Just-in-Time Scope | 保留 | 非対話Runner(ADR-0005)との矛盾。既存のretryフローで擬似的に実現可能 |
-| H | Spec Contract Mode | 不採用 | コード意味解析が必要で、現アーキテクチャのスコープ外 |
-| J | Forensic Replay | 保留 | 優先度低。再現性原則の運用で部分的に対応可能 |
+| #   | 機能               | 判定   | 理由                                                                |
+| --- | ------------------ | ------ | ------------------------------------------------------------------- |
+| E   | Just-in-Time Scope | 保留   | 非対話Runner(ADR-0005)との矛盾。既存のretryフローで擬似的に実現可能 |
+| H   | Spec Contract Mode | 不採用 | コード意味解析が必要で、現アーキテクチャのスコープ外                |
+| J   | Forensic Replay    | 保留   | 優先度低。再現性原則の運用で部分的に対応可能                        |
 
 ## 検討した選択肢
 
 ### 選択肢1: Claude Codeと同一路線で競合（不採用）
 
-| 項目 | 内容 |
-|------|------|
-| 概要 | オーケストレーション機能をそのまま拡充する |
-| メリット | 方向転換コストなし |
+| 項目       | 内容                                              |
+| ---------- | ------------------------------------------------- |
+| 概要       | オーケストレーション機能をそのまま拡充する        |
+| メリット   | 方向転換コストなし                                |
 | デメリット | Claude Codeのエコシステム・ユーザー基盤に勝てない |
 
 ### 選択肢2: AI非依存+安全性+チーム向けへ転換（採用）
 
-| 項目 | 内容 |
-|------|------|
-| 概要 | Claude Codeが持たない強みに集中する |
-| メリット | 明確な差別化、既存設計資産の活用 |
+| 項目       | 内容                                           |
+| ---------- | ---------------------------------------------- |
+| 概要       | Claude Codeが持たない強みに集中する            |
+| メリット   | 明確な差別化、既存設計資産の活用               |
 | デメリット | ポジショニング変更に伴うドキュメント更新コスト |
 
 ### 選択肢3: Claude Code補完ツールに特化
 
-| 項目 | 内容 |
-|------|------|
-| 概要 | Claude Code専用の管理レイヤーとして特化 |
-| メリット | Claude Codeユーザーを直接取り込める |
+| 項目       | 内容                                      |
+| ---------- | ----------------------------------------- |
+| 概要       | Claude Code専用の管理レイヤーとして特化   |
+| メリット   | Claude Codeユーザーを直接取り込める       |
 | デメリット | Claude Codeに依存し、AI非依存の強みを失う |
 
 ## 決定理由

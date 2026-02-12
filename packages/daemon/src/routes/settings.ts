@@ -83,12 +83,17 @@ settingsRouter.patch("/", async (c) => {
           {
             error: {
               code: "VALIDATION_ERROR",
+<<<<<<< HEAD
               message: `dod.requiredChecks[${i}] must have check_key, label, and command`,
+=======
+              message: "dod.requiredChecks must be an array",
+>>>>>>> 63f99f35976f5a6e81eb0dd7487376c04b56f0ad
             },
           },
           400
         );
       }
+<<<<<<< HEAD
     }
 
     // check_keyが配列内で一意か確認（Project内で一意）
@@ -148,3 +153,71 @@ settingsRouter.patch("/", async (c) => {
   return c.json({ data: result[0] });
 });
 
+=======
+      const checkKeys = new Set<string>();
+      for (const check of entry.value) {
+        if (!check.check_key || !check.label || !check.command) {
+          return c.json(
+            {
+              error: {
+                code: "VALIDATION_ERROR",
+                message: "Each requiredCheck must have check_key, label, and command",
+              },
+            },
+            400
+          );
+        }
+        if (checkKeys.has(check.check_key)) {
+          return c.json(
+            {
+              error: {
+                code: "VALIDATION_ERROR",
+                message: `Duplicate check_key: ${check.check_key}`,
+              },
+            },
+            400
+          );
+        }
+        checkKeys.add(check.check_key);
+      }
+    }
+  }
+
+  // upsert each key
+  for (const entry of entries) {
+    const existing = await db
+      .select()
+      .from(settings)
+      .where(and(eq(settings.projectId, projectId), eq(settings.key, entry.key)));
+
+    if (existing.length > 0) {
+      await db.update(settings).set({ value: entry.value }).where(eq(settings.id, existing[0]!.id));
+    } else {
+      await db.insert(settings).values({
+        projectId,
+        key: entry.key,
+        value: entry.value,
+      });
+    }
+  }
+
+  // 更新後の設定を返す
+  const rows = await db.select().from(settings).where(eq(settings.projectId, projectId));
+
+  const result: Record<string, unknown> = {};
+  for (const row of rows) {
+    const parts = row.key.split(".");
+    if (parts.length === 2) {
+      const [namespace, name] = parts;
+      if (!result[namespace!]) {
+        result[namespace!] = {};
+      }
+      (result[namespace!] as Record<string, unknown>)[name!] = row.value;
+    } else {
+      result[row.key] = row.value;
+    }
+  }
+
+  return c.json({ data: result });
+});
+>>>>>>> 63f99f35976f5a6e81eb0dd7487376c04b56f0ad

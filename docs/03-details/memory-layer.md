@@ -27,12 +27,12 @@ ai_summary: "記憶層（Memory Layer）の設計。project_memoriesのデータ
 
 ## 設計原則との整合
 
-| 原則 | 記憶層の対応 |
-|------|-------------|
-| DBマスター | 記憶はDBに永続化し、SSoTを維持 |
+| 原則           | 記憶層の対応                                 |
+| -------------- | -------------------------------------------- |
+| DBマスター     | 記憶はDBに永続化し、SSoTを維持               |
 | 観測可能な事実 | 記憶は「事実」ではなく「補助情報」として扱う |
-| 判断しない | 記憶の適用判断はSupervisor/Plannerに委ねる |
-| 再現性優先 | 同じ記憶セットなら同じプロンプトが生成される |
+| 判断しない     | 記憶の適用判断はSupervisor/Plannerに委ねる   |
+| 再現性優先     | 同じ記憶セットなら同じプロンプトが生成される |
 
 ---
 
@@ -40,35 +40,35 @@ ai_summary: "記憶層（Memory Layer）の設計。project_memoriesのデータ
 
 ### project_memories
 
-| カラム | 必須 | 型 | 説明 |
-|--------|:---:|-----|------|
-| id | ○ | integer | 記憶識別子 |
-| project_id | ○ | integer FK | 所属Project |
-| type | ○ | string | 記憶の種類 |
-| content | ○ | string | 記憶の内容（自然言語） |
-| source | - | string | 記憶の出所（human/run/learning） |
-| source_run_id | - | integer FK | 関連Run（あれば） |
-| tags | - | json | 検索用タグ（glob/キーワード） |
-| relevance_score | - | number | 関連度スコア（0.0-1.0） |
-| active | ○ | boolean | 有効フラグ |
-| created_at | ○ | datetime | 作成日時 |
-| updated_at | ○ | datetime | 更新日時 |
+| カラム          | 必須 | 型         | 説明                             |
+| --------------- | :--: | ---------- | -------------------------------- |
+| id              |  ○   | integer    | 記憶識別子                       |
+| project_id      |  ○   | integer FK | 所属Project                      |
+| type            |  ○   | string     | 記憶の種類                       |
+| content         |  ○   | string     | 記憶の内容（自然言語）           |
+| source          |  -   | string     | 記憶の出所（human/run/learning） |
+| source_run_id   |  -   | integer FK | 関連Run（あれば）                |
+| tags            |  -   | json       | 検索用タグ（glob/キーワード）    |
+| relevance_score |  -   | number     | 関連度スコア（0.0-1.0）          |
+| active          |  ○   | boolean    | 有効フラグ                       |
+| created_at      |  ○   | datetime   | 作成日時                         |
+| updated_at      |  ○   | datetime   | 更新日時                         |
 
 ### type の種類
 
-| type | 説明 | 例 |
-|------|------|-----|
-| pattern | プロジェクトの慣習・パターン | 「pnpm + Turborepo使用」 |
-| warning | 注意が必要な箇所 | 「src/core/は変更時に全テスト必須」 |
+| type     | 説明                          | 例                                       |
+| -------- | ----------------------------- | ---------------------------------------- |
+| pattern  | プロジェクトの慣習・パターン  | 「pnpm + Turborepo使用」                 |
+| warning  | 注意が必要な箇所              | 「src/core/は変更時に全テスト必須」      |
 | learning | 過去の成功/失敗から学んだこと | 「ESLint設定変更時は.eslintrc.jsも確認」 |
-| context | プロジェクト固有の文脈 | 「v2移行中のため旧APIも維持」 |
+| context  | プロジェクト固有の文脈        | 「v2移行中のため旧APIも維持」            |
 
 ### source の種類
 
-| source | 説明 |
-|--------|------|
-| human | Human/Orchestratorが手動登録 |
-| run | Run完了時に自動抽出（将来） |
+| source   | 説明                                |
+| -------- | ----------------------------------- |
+| human    | Human/Orchestratorが手動登録        |
+| run      | Run完了時に自動抽出（将来）         |
 | learning | Agent Lightning等の学習結果（将来） |
 
 ---
@@ -101,26 +101,27 @@ erDiagram
 
 ### エンドポイント一覧
 
-| メソッド | パス | 説明 |
-|---------|------|------|
-| GET | /api/projects/:id/memories | 記憶一覧取得 |
-| POST | /api/projects/:id/memories | 記憶作成 |
-| GET | /api/projects/:id/memories/:memoryId | 記憶詳細取得 |
-| PATCH | /api/projects/:id/memories/:memoryId | 記憶更新 |
-| DELETE | /api/projects/:id/memories/:memoryId | 記憶削除 |
+| メソッド | パス                                 | 説明         |
+| -------- | ------------------------------------ | ------------ |
+| GET      | /api/projects/:id/memories           | 記憶一覧取得 |
+| POST     | /api/projects/:id/memories           | 記憶作成     |
+| GET      | /api/projects/:id/memories/:memoryId | 記憶詳細取得 |
+| PATCH    | /api/projects/:id/memories/:memoryId | 記憶更新     |
+| DELETE   | /api/projects/:id/memories/:memoryId | 記憶削除     |
 
 ### GET /api/projects/:id/memories
 
 クエリパラメータ:
 
-| パラメータ | 型 | デフォルト | 説明 |
-|-----------|-----|-----------|------|
-| type | string | - | type でフィルタ |
-| active | boolean | true | 有効な記憶のみ |
-| tags | string | - | タグでフィルタ（カンマ区切り） |
-| limit | number | 50 | 取得件数上限 |
+| パラメータ | 型      | デフォルト | 説明                           |
+| ---------- | ------- | ---------- | ------------------------------ |
+| type       | string  | -          | type でフィルタ                |
+| active     | boolean | true       | 有効な記憶のみ                 |
+| tags       | string  | -          | タグでフィルタ（カンマ区切り） |
+| limit      | number  | 50         | 取得件数上限                   |
 
 レスポンス例:
+
 ```json
 {
   "memories": [
@@ -142,6 +143,7 @@ erDiagram
 ### POST /api/projects/:id/memories
 
 リクエストボディ:
+
 ```json
 {
   "type": "warning",
@@ -204,38 +206,38 @@ Run開始時に以下の条件で記憶を選択する:
 
 ### 追加フィールド
 
-| カラム | 必須 | 型 | 説明 |
-|--------|:---:|-----|------|
-| confidence | - | number | 信頼度スコア（0.0〜1.0）。source=humanは1.0、source=runは初期値0.5 |
-| expires_at | - | datetime | 有効期限。nullは無期限 |
-| approved_by | - | string | 承認者（人間が確認済みかどうか） |
-| approved_at | - | datetime | 承認日時 |
+| カラム      | 必須 | 型       | 説明                                                               |
+| ----------- | :--: | -------- | ------------------------------------------------------------------ |
+| confidence  |  -   | number   | 信頼度スコア（0.0〜1.0）。source=humanは1.0、source=runは初期値0.5 |
+| expires_at  |  -   | datetime | 有効期限。nullは無期限                                             |
+| approved_by |  -   | string   | 承認者（人間が確認済みかどうか）                                   |
+| approved_at |  -   | datetime | 承認日時                                                           |
 
 ### 信頼度の運用ルール
 
-| source | 初期confidence | 説明 |
-|--------|:---:|------|
-| human | 1.0 | 人間が登録した記憶は最高信頼度 |
-| run | 0.5 | Run結果から抽出した記憶は中間信頼度 |
-| learning | 0.3 | 自動学習による記憶は低信頼度から開始 |
+| source   | 初期confidence | 説明                                 |
+| -------- | :------------: | ------------------------------------ |
+| human    |      1.0       | 人間が登録した記憶は最高信頼度       |
+| run      |      0.5       | Run結果から抽出した記憶は中間信頼度  |
+| learning |      0.3       | 自動学習による記憶は低信頼度から開始 |
 
 ### 信頼度の変動
 
-| イベント | 変動 | 理由 |
-|---------|------|------|
-| 人間がapprove | → 1.0に引き上げ | 人間が内容を確認した |
-| 記憶を参照したRunが成功 | + 0.1（上限1.0） | 有効性が確認された |
-| 記憶を参照したRunが失敗 | - 0.1（下限0.0） | 有効性に疑問 |
-| confidence < 0.2 | → active = false | 低信頼記憶を自動無効化 |
+| イベント                | 変動             | 理由                   |
+| ----------------------- | ---------------- | ---------------------- |
+| 人間がapprove           | → 1.0に引き上げ  | 人間が内容を確認した   |
+| 記憶を参照したRunが成功 | + 0.1（上限1.0） | 有効性が確認された     |
+| 記憶を参照したRunが失敗 | - 0.1（下限0.0） | 有効性に疑問           |
+| confidence < 0.2        | → active = false | 低信頼記憶を自動無効化 |
 
 ### 有効期限の運用ルール
 
-| type | デフォルト期限 | 理由 |
-|------|-------------|------|
-| pattern | なし | プロジェクト慣習は長期安定 |
-| warning | 90日 | 警告は状況変化で陳腐化する |
-| learning | 180日 | 学習内容は中期的に有効 |
-| context | 30日 | プロジェクト文脈は頻繁に変わる |
+| type     | デフォルト期限 | 理由                           |
+| -------- | -------------- | ------------------------------ |
+| pattern  | なし           | プロジェクト慣習は長期安定     |
+| warning  | 90日           | 警告は状況変化で陳腐化する     |
+| learning | 180日          | 学習内容は中期的に有効         |
+| context  | 30日           | プロジェクト文脈は頻繁に変わる |
 
 注: 期限はProject設定で調整可能とする（`memory.defaultExpiry`）。
 
@@ -262,17 +264,17 @@ Run開始時の記憶選択を以下に更新する:
 
 ### Phase 2: Agent Lightning連携
 
-| 機能 | 説明 |
-|------|------|
-| training-dataエクスポート | Runs履歴を学習データとして出力 |
-| 自動記憶生成 | 学習結果からlearning記憶を自動作成 |
-| relevance_score自動調整 | 記憶の有効性を実行結果から学習 |
+| 機能                      | 説明                               |
+| ------------------------- | ---------------------------------- |
+| training-dataエクスポート | Runs履歴を学習データとして出力     |
+| 自動記憶生成              | 学習結果からlearning記憶を自動作成 |
+| relevance_score自動調整   | 記憶の有効性を実行結果から学習     |
 
 ### その他の拡張候補
 
-| 機能 | 説明 |
-|------|------|
-| 記憶のバージョニング | 変更履歴の追跡 |
+| 機能                   | 説明               |
+| ---------------------- | ------------------ |
+| 記憶のバージョニング   | 変更履歴の追跡     |
 | クロスプロジェクト記憶 | 共通パターンの共有 |
 
 ---

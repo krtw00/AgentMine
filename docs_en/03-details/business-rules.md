@@ -30,38 +30,39 @@ These rules are "commitments" that must be maintained regardless of implementati
 
 ### Project
 
-| Rule | Meaning |
-|------|---------|
+| Rule                   | Meaning                                           |
+| ---------------------- | ------------------------------------------------- |
 | 1 Project = 1 Git repo | `repo_path` serves as the identity of the Project |
-| Base branch required | Must always have a basis for done judgment |
+| Base branch required   | Must always have a basis for done judgment        |
 
 ### Task
 
-| Rule | Meaning |
-|------|---------|
-| Task must belong to a Project | `project_id` is required |
-| Dependencies must not form cycles | task_dependencies do not allow circular references |
+| Rule                                      | Meaning                                                  |
+| ----------------------------------------- | -------------------------------------------------------- |
+| Task must belong to a Project             | `project_id` is required                                 |
+| Dependencies must not form cycles         | task_dependencies do not allow circular references       |
 | Execution not allowed without write_scope | Agreement on the work scope is required before execution |
 
 ### Run
 
-| Rule | Meaning |
-|------|---------|
-| Run belongs to a Task | `task_id` is required |
-| Runs grow by appending | retry/continue add a "new run" |
-| Run must have a worktree | Fixes the identity of the execution context |
+| Rule                           | Meaning                                                       |
+| ------------------------------ | ------------------------------------------------------------- |
+| Run belongs to a Task          | `task_id` is required                                         |
+| Runs grow by appending         | retry/continue add a "new run"                                |
+| Run must have a worktree       | Fixes the identity of the execution context                   |
 | Run must have a scope snapshot | Enables reproduction of the effective scope at execution time |
 
 ---
 
 ## Concurrency Constraints (MVP)
 
-| Constraint | Policy | Reason |
-|------------|--------|--------|
-| Concurrent runs for the same Task | Prohibited | They share the same worktree and would conflict |
-| Concurrent runs across different Tasks | Allowed | Leverages task independence |
+| Constraint                             | Policy     | Reason                                          |
+| -------------------------------------- | ---------- | ----------------------------------------------- |
+| Concurrent runs for the same Task      | Prohibited | They share the same worktree and would conflict |
+| Concurrent runs across different Tasks | Allowed    | Leverages task independence                     |
 
 Note:
+
 - If run start requests for the same Task overlap, the Daemon rejects the start request (requiring a stop first).
 
 ---
@@ -71,12 +72,13 @@ Note:
 Both retry and continue are operations that "add a new run."
 The difference lies in the "intent of the input given to the new run."
 
-| Operation | Intent | Expected Input |
-|-----------|--------|----------------|
-| retry | Retry under the same conditions | Summary of failure causes or unresolved issues from the previous run |
-| continue | Continue with additional instructions | retry input + additional input from the Human User |
+| Operation | Intent                                | Expected Input                                                       |
+| --------- | ------------------------------------- | -------------------------------------------------------------------- |
+| retry     | Retry under the same conditions       | Summary of failure causes or unresolved issues from the previous run |
+| continue  | Continue with additional instructions | retry input + additional input from the Human User                   |
 
 Note:
+
 - The actual input (prompt passed to the runner) is the responsibility of the RunnerAdapter and is retained in a traceable form in the run log.
 
 ---

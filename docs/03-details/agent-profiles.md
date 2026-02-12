@@ -29,17 +29,18 @@ Agent Profileは役割モデル上の「Worker/Planner/Reviewer等」に対応�
 
 ## Agent Profileの要素（論理モデル）
 
-| 要素 | 例 | 説明 |
-|------|----|------|
-| name | coder | プロジェクト内で識別する名前 |
-| runner | `claude-cli` | 実行手段 |
-| model | `sonnet` | モデル名（任意） |
-| prompt_template | role指示 | 役割としての固定指示 |
-| default_exclude | `**/*.env` | デフォルト除外 |
-| default_write_scope | `src/**` | タスク作成時の提案値（任意） |
-| config | temperature等 | runner向け追加設定（任意） |
+| 要素                | 例            | 説明                         |
+| ------------------- | ------------- | ---------------------------- |
+| name                | coder         | プロジェクト内で識別する名前 |
+| runner              | `claude-cli`  | 実行手段                     |
+| model               | `sonnet`      | モデル名（任意）             |
+| prompt_template     | role指示      | 役割としての固定指示         |
+| default_exclude     | `**/*.env`    | デフォルト除外               |
+| default_write_scope | `src/**`      | タスク作成時の提案値（任意） |
+| config              | temperature等 | runner向け追加設定（任意）   |
 
 注:
+
 - 実行可能範囲の最終決定はタスクのwrite_scopeで行う（→スコープ制御）。
 
 ---
@@ -48,12 +49,13 @@ Agent Profileは役割モデル上の「Worker/Planner/Reviewer等」に対応�
 
 Agent Profileはrunnerを選択するため、RunnerAdapterのcapabilitiesと整合する必要がある。
 
-| Agent Profileの要素 | 関連capability | 方針 |
-|---------------------|----------------|------|
-| model | supports_model | falseの場合、modelは指定できない |
-| 実行方式 | supports_non_interactive | falseの場合、MVPの自動実行はできない |
+| Agent Profileの要素 | 関連capability           | 方針                                 |
+| ------------------- | ------------------------ | ------------------------------------ |
+| model               | supports_model           | falseの場合、modelは指定できない     |
+| 実行方式            | supports_non_interactive | falseの場合、MVPの自動実行はできない |
 
 注:
+
 - UIはcapabilitiesに基づき入力を制限するが、最終判断はDaemonが行う（RunnerAdapterのバリデーション）。
 
 ---
@@ -62,15 +64,16 @@ Agent Profileはrunnerを選択するため、RunnerAdapterのcapabilitiesと整
 
 MVPではプロジェクト作成時に、最低限のプロファイルを用意できる。
 
-| name | 想定役割 | 特徴 |
-|------|----------|------|
-| generalist | Worker | 汎用。判断困難な場合のデフォルト |
-| planner | Planner | 分解・計画用（原則読み取り中心） |
-| coder | Worker | 実装用 |
-| reviewer | Reviewer | DoD/レビュー用（原則読み取り中心） |
-| writer | Worker | docs更新用 |
+| name       | 想定役割 | 特徴                               |
+| ---------- | -------- | ---------------------------------- |
+| generalist | Worker   | 汎用。判断困難な場合のデフォルト   |
+| planner    | Planner  | 分解・計画用（原則読み取り中心）   |
+| coder      | Worker   | 実装用                             |
+| reviewer   | Reviewer | DoD/レビュー用（原則読み取り中心） |
+| writer     | Worker   | docs更新用                         |
 
 注:
+
 - 実際のwrite_scopeはタスクに必須で設定する。profileは提案値を持てる。
 
 ---
@@ -79,13 +82,14 @@ MVPではプロジェクト作成時に、最低限のプロファイルを用�
 
 run開始時、Daemonは以下を確定し、runの事実として記録する。
 
-| 確定項目 | 参照元 | 記録先 |
-|---------|--------|--------|
-| 有効スコープ | task.write_scope + profile.default_exclude | runs.scope_snapshot |
-| 最終プロンプト | profile.prompt_template + task情報 + 制約 | runログ（meta） |
-| 実行環境 | runner/model/config | runs + runログ（meta） |
+| 確定項目       | 参照元                                     | 記録先                 |
+| -------------- | ------------------------------------------ | ---------------------- |
+| 有効スコープ   | task.write_scope + profile.default_exclude | runs.scope_snapshot    |
+| 最終プロンプト | profile.prompt_template + task情報 + 制約  | runログ（meta）        |
+| 実行環境       | runner/model/config                        | runs + runログ（meta） |
 
 注:
+
 - promptは監査のためrunログに`meta`として残す（→ログ保存、RunnerAdapter）。
 
 ---
@@ -94,14 +98,15 @@ run開始時、Daemonは以下を確定し、runの事実として記録する�
 
 最終プロンプトは、少なくとも以下を含む。
 
-| セクション | 内容 |
-|-----------|------|
-| 役割 | 何を達成する担当か |
-| タスク | title/description、done条件 |
-| 制約 | write_scope、exclude、禁止事項 |
-| 出力 | 成果物の期待（例: 変更の要約、実行したチェック） |
+| セクション | 内容                                             |
+| ---------- | ------------------------------------------------ |
+| 役割       | 何を達成する担当か                               |
+| タスク     | title/description、done条件                      |
+| 制約       | write_scope、exclude、禁止事項                   |
+| 出力       | 成果物の期待（例: 変更の要約、実行したチェック） |
 
 注:
+
 - runのstdout/stderrだけでなく、prompt等も「観測可能な事実」として残す。
 
 ---

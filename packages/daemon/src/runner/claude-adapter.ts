@@ -45,7 +45,11 @@ export class ClaudeAdapter implements RunnerAdapter {
         args.push("--tools", tool);
       }
     }
-    if (config?.disallowedTools && Array.isArray(config.disallowedTools) && config.disallowedTools.length > 0) {
+    if (
+      config?.disallowedTools &&
+      Array.isArray(config.disallowedTools) &&
+      config.disallowedTools.length > 0
+    ) {
       for (const tool of config.disallowedTools as string[]) {
         args.push("--disallowedTools", tool);
       }

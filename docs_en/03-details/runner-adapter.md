@@ -29,11 +29,11 @@ Defines the RunnerAdapter that absorbs differences between runners. The MVP targ
 
 ## Assumptions
 
-| Item | Policy |
-|------|--------|
-| Execution mode | Non-interactive |
-| Additional input | No additional input to the same process |
-| Working directory | Must be a worktree |
+| Item              | Policy                                  |
+| ----------------- | --------------------------------------- |
+| Execution mode    | Non-interactive                         |
+| Additional input  | No additional input to the same process |
+| Working directory | Must be a worktree                      |
 
 Note: continue/retry creates a new run (see ADR-0005).
 
@@ -41,11 +41,11 @@ Note: continue/retry creates a new run (see ADR-0005).
 
 ## Interface
 
-| Operation | Input | Output | Description |
-|-----------|-------|--------|-------------|
-| start | run, prompt, env | process_handle | Launches the runner |
-| stop | process_handle | - | Stops the runner |
-| get_capabilities | - | capabilities | Returns model specification support, etc. |
+| Operation        | Input            | Output         | Description                               |
+| ---------------- | ---------------- | -------------- | ----------------------------------------- |
+| start            | run, prompt, env | process_handle | Launches the runner                       |
+| stop             | process_handle   | -              | Stops the runner                          |
+| get_capabilities | -                | capabilities   | Returns model specification support, etc. |
 
 ---
 
@@ -53,31 +53,31 @@ Note: continue/retry creates a new run (see ADR-0005).
 
 capabilities is information returned in a machine-readable format about "what this runner can do."
 
-| Use Case | Purpose |
-|----------|---------|
+| Use Case                 | Purpose                                                |
+| ------------------------ | ------------------------------------------------------ |
 | UI conditional rendering | Prevent unsupported input fields from being selectable |
-| Pre-execution validation | Reject unsupported requests before run start |
+| Pre-execution validation | Reject unsupported requests before run start           |
 
 ### Fields (MVP)
 
-| Field | Type | Meaning |
-|-------|------|---------|
-| supports_model | boolean | Whether model specification is supported |
-| supports_non_interactive | boolean | Whether non-interactive execution is supported |
-| supports_prompt_file_inclusion | boolean | Whether file embedding is supported |
-| available_models | string[] | List of available models |
+| Field                          | Type     | Meaning                                        |
+| ------------------------------ | -------- | ---------------------------------------------- |
+| supports_model                 | boolean  | Whether model specification is supported       |
+| supports_non_interactive       | boolean  | Whether non-interactive execution is supported |
+| supports_prompt_file_inclusion | boolean  | Whether file embedding is supported            |
+| available_models               | string[] | List of available models                       |
 
 ---
 
 ## start Input
 
-| Item | Required | Description |
-|------|:--------:|-------------|
-| run_id | Yes | Target run |
-| worktree_path | Yes | Execution directory |
-| prompt | Yes | Execution instructions |
-| env | - | Environment variables |
-| model | - | Model name (only when supported by runner) |
+| Item          | Required | Description                                |
+| ------------- | :------: | ------------------------------------------ |
+| run_id        |   Yes    | Target run                                 |
+| worktree_path |   Yes    | Execution directory                        |
+| prompt        |   Yes    | Execution instructions                     |
+| env           |    -     | Environment variables                      |
+| model         |    -     | Model name (only when supported by runner) |
 
 Note: The Daemon records the prompt as meta in the run log immediately before start.
 
@@ -85,10 +85,10 @@ Note: The Daemon records the prompt as meta in the run log immediately before st
 
 ## Output and Observable Facts
 
-| Fact | Example | Use |
-|------|---------|-----|
-| Output | stdout/stderr | Log display, auditing |
-| Termination | exit code | Run status determination |
+| Fact        | Example       | Use                      |
+| ----------- | ------------- | ------------------------ |
+| Output      | stdout/stderr | Log display, auditing    |
+| Termination | exit code     | Run status determination |
 
 Output is written to log storage and simultaneously streamed via events.
 
@@ -98,12 +98,12 @@ Output is written to log storage and simultaneously streamed via events.
 
 ### claude-cli
 
-| Item | Value |
-|------|-------|
-| Command | `claude` |
-| supports_model | true |
-| supports_non_interactive | true |
-| available_models | sonnet, opus, haiku |
+| Item                     | Value               |
+| ------------------------ | ------------------- |
+| Command                  | `claude`            |
+| supports_model           | true                |
+| supports_non_interactive | true                |
+| available_models         | sonnet, opus, haiku |
 
 #### Non-Interactive Execution
 
@@ -112,21 +112,21 @@ Non-interactive execution is achieved by combining `--print` and `--dangerously-
 
 #### Key Flags
 
-| Flag | Required | Description |
-|------|:--------:|-------------|
-| --print | Yes | Non-interactive mode |
-| --dangerously-skip-permissions | Yes | Auto-approve all operations |
-| --output-format stream-json | Yes | JSON output |
-| --model | - | Model specification |
-| --system-prompt | - | System prompt |
+| Flag                           | Required | Description                 |
+| ------------------------------ | :------: | --------------------------- |
+| --print                        |   Yes    | Non-interactive mode        |
+| --dangerously-skip-permissions |   Yes    | Auto-approve all operations |
+| --output-format stream-json    |   Yes    | JSON output                 |
+| --model                        |    -     | Model specification         |
+| --system-prompt                |    -     | System prompt               |
 
 ### codex-cli
 
-| Item | Value |
-|------|-------|
-| Command | `codex` |
-| supports_model | false |
-| supports_non_interactive | true |
+| Item                     | Value   |
+| ------------------------ | ------- |
+| Command                  | `codex` |
+| supports_model           | false   |
+| supports_non_interactive | true    |
 
 #### Non-Interactive Execution
 
@@ -134,12 +134,12 @@ Non-interactive execution is achieved by combining `--approval-policy never` and
 
 #### Key Flags
 
-| Flag | Required | Description |
-|------|:--------:|-------------|
-| --approval-policy never | Yes | Auto-approve all operations |
-| --sandbox danger-full-access | Yes | Full access permission |
-| --developer-instructions | - | Developer instructions |
-| --cwd | - | Working directory |
+| Flag                         | Required | Description                 |
+| ---------------------------- | :------: | --------------------------- |
+| --approval-policy never      |   Yes    | Auto-approve all operations |
+| --sandbox danger-full-access |   Yes    | Full access permission      |
+| --developer-instructions     |    -     | Developer instructions      |
+| --cwd                        |    -     | Working directory           |
 
 ---
 
@@ -166,18 +166,18 @@ sequenceDiagram
 
 ### Startup Failure
 
-| Cause | Response |
-|-------|----------|
-| Command not found | run.status = failed |
-| Argument error | run.status = failed, log stderr |
+| Cause                    | Response                        |
+| ------------------------ | ------------------------------- |
+| Command not found        | run.status = failed             |
+| Argument error           | run.status = failed, log stderr |
 | API authentication error | run.status = failed, log stderr |
 
 ### Runtime Error
 
-| Cause | Response |
-|-------|----------|
-| API error | run.status = failed |
-| Timeout | SIGTERM then SIGKILL, run.status = failed |
+| Cause     | Response                                  |
+| --------- | ----------------------------------------- |
+| API error | run.status = failed                       |
+| Timeout   | SIGTERM then SIGKILL, run.status = failed |
 
 ---
 

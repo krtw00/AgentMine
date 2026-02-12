@@ -4,12 +4,12 @@
 
 ## 前提条件 / Prerequisites
 
-| ツール / Tool | バージョン / Version | 備考 / Notes |
-|--------------|---------------------|-------------|
-| Node.js | >= 20 | |
-| pnpm | 10.28.2 | corepackで自動管理 / Auto-managed via corepack |
-| Git | >= 2.x | |
-| Docker + Compose | 最新推奨 / Latest | Docker開発の場合のみ / Only for Docker development |
+| ツール / Tool    | バージョン / Version | 備考 / Notes                                       |
+| ---------------- | -------------------- | -------------------------------------------------- |
+| Node.js          | >= 20                |                                                    |
+| pnpm             | 10.28.2              | corepackで自動管理 / Auto-managed via corepack     |
+| Git              | >= 2.x               |                                                    |
+| Docker + Compose | 最新推奨 / Latest    | Docker開発の場合のみ / Only for Docker development |
 
 ---
 
@@ -77,10 +77,10 @@ pnpm --filter @agentmine/web dev
 
 ### 5. 動作確認 / Verify
 
-| サービス / Service | URL | 説明 / Description |
-|-------------------|-----|-------------------|
-| Web UI | http://localhost:3000 | フロントエンド / Frontend |
-| API | http://localhost:3001/api | バックエンドAPI / Backend API |
+| サービス / Service | URL                       | 説明 / Description            |
+| ------------------ | ------------------------- | ----------------------------- |
+| Web UI             | http://localhost:3000     | フロントエンド / Frontend     |
+| API                | http://localhost:3001/api | バックエンドAPI / Backend API |
 
 Web UIはAPIリクエストをdaemon（localhost:3001）に自動プロキシします。
 
@@ -98,10 +98,10 @@ docker compose up -d
 
 ### 2. 動作確認 / Verify
 
-| サービス / Service | URL | 説明 / Description |
-|-------------------|-----|-------------------|
-| Web UI | http://localhost:3000 | フロントエンド / Frontend |
-| API | http://localhost:3001/api | バックエンドAPI / Backend API |
+| サービス / Service | URL                       | 説明 / Description            |
+| ------------------ | ------------------------- | ----------------------------- |
+| Web UI             | http://localhost:3000     | フロントエンド / Frontend     |
+| API                | http://localhost:3001/api | バックエンドAPI / Backend API |
 
 ### 3. ログの確認 / View Logs
 

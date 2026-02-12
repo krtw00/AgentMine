@@ -1,9 +1,11 @@
 import { ClaudeAdapter } from "./claude-adapter";
 import { CodexAdapter } from "./codex-adapter";
-import type { RunnerAdapter, RunHandle, RunOutput, RunOutputHandler } from "./types";
+import type { RunnerAdapter, RunHandle, RunOutput } from "./types";
 import { db } from "../db";
 import { runs, eq } from "@agentmine/db";
 import { eventEmitter } from "../events/emitter";
+import { detectScopeViolations } from "./scope-check";
+import { runDodChecks } from "./dod-check";
 import { appendFileSync, mkdirSync, existsSync } from "fs";
 import { join } from "path";
 
@@ -78,6 +80,16 @@ class RunnerManager {
 
     this.handles.delete(runId);
 
+    // スコープ違反検出（完了時のみ）
+    if (status === "completed") {
+      detectScopeViolations(runId).catch((err) => {
+        console.error(`[run:${runId}] Scope violation check failed:`, err);
+      });
+      runDodChecks(runId).catch((err) => {
+        console.error(`[run:${runId}] DoD check execution failed:`, err);
+      });
+    }
+
     eventEmitter.emitRunEvent("run.finished", { runId, status, exitCode });
   }
 
@@ -149,7 +161,7 @@ class RunnerManager {
   private findRunnerForHandle(runId: number): string | undefined {
     for (const [name, adapter] of this.adapters) {
       // アダプターのprocessesマップにrunIdがあるか確認
-      if ((adapter as any).processes?.has(runId)) {
+      if ((adapter as unknown as { processes?: Map<number, unknown> }).processes?.has(runId)) {
         return name;
       }
     }

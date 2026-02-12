@@ -8,11 +8,7 @@ import { useSSE } from "@/lib/sse";
 import { useAppStore } from "@/lib/store";
 import { useEffect } from "react";
 
-export default function ProjectLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function ProjectLayout({ children }: { children: React.ReactNode }) {
   const params = useParams();
   const pathname = usePathname();
   const projectId = Number(params.projectId);
@@ -63,7 +59,9 @@ export default function ProjectLayout({
           )}
         </div>
         <div className="flex items-center gap-2">
-          <span className={`w-2 h-2 rounded-full ${sseConnected ? "bg-emerald-500 animate-pulse" : "bg-red-500"}`} />
+          <span
+            className={`w-2 h-2 rounded-full ${sseConnected ? "bg-emerald-500 animate-pulse" : "bg-red-500"}`}
+          />
           <span className="text-xs text-zinc-400">{sseConnected ? "接続中" : "切断"}</span>
         </div>
       </header>

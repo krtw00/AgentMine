@@ -20,7 +20,7 @@ memoriesRouter.get("/", async (c) => {
   const conditions = [eq(projectMemories.projectId, projectId)];
 
   // type フィルタ
-  if (typeFilter && VALID_TYPES.includes(typeFilter as typeof VALID_TYPES[number])) {
+  if (typeFilter && VALID_TYPES.includes(typeFilter as (typeof VALID_TYPES)[number])) {
     conditions.push(eq(projectMemories.type, typeFilter));
   }
 
@@ -72,10 +72,7 @@ memoriesRouter.post("/", async (c) => {
   }
 
   if (!content || typeof content !== "string" || content.trim() === "") {
-    return c.json(
-      { error: { code: "VALIDATION_ERROR", message: "content is required" } },
-      400
-    );
+    return c.json({ error: { code: "VALIDATION_ERROR", message: "content is required" } }, 400);
   }
 
   if (source && !VALID_SOURCES.includes(source)) {
@@ -131,18 +128,10 @@ memoriesRouter.get("/:memoryId", async (c) => {
   const result = await db
     .select()
     .from(projectMemories)
-    .where(
-      and(
-        eq(projectMemories.id, memoryId),
-        eq(projectMemories.projectId, projectId)
-      )
-    );
+    .where(and(eq(projectMemories.id, memoryId), eq(projectMemories.projectId, projectId)));
 
   if (result.length === 0) {
-    return c.json(
-      { error: { code: "NOT_FOUND", message: "Memory not found" } },
-      404
-    );
+    return c.json({ error: { code: "NOT_FOUND", message: "Memory not found" } }, 404);
   }
 
   return c.json({ data: result[0] });
@@ -158,18 +147,10 @@ memoriesRouter.patch("/:memoryId", async (c) => {
   const existing = await db
     .select()
     .from(projectMemories)
-    .where(
-      and(
-        eq(projectMemories.id, memoryId),
-        eq(projectMemories.projectId, projectId)
-      )
-    );
+    .where(and(eq(projectMemories.id, memoryId), eq(projectMemories.projectId, projectId)));
 
   if (existing.length === 0) {
-    return c.json(
-      { error: { code: "NOT_FOUND", message: "Memory not found" } },
-      404
-    );
+    return c.json({ error: { code: "NOT_FOUND", message: "Memory not found" } }, 404);
   }
 
   const updateData: Record<string, unknown> = {
@@ -233,12 +214,7 @@ memoriesRouter.patch("/:memoryId", async (c) => {
   const result = await db
     .update(projectMemories)
     .set(updateData)
-    .where(
-      and(
-        eq(projectMemories.id, memoryId),
-        eq(projectMemories.projectId, projectId)
-      )
-    )
+    .where(and(eq(projectMemories.id, memoryId), eq(projectMemories.projectId, projectId)))
     .returning();
 
   return c.json({ data: result[0] });
@@ -252,19 +228,11 @@ memoriesRouter.delete("/:memoryId", async (c) => {
   // projectIdとmemoryIdの両方でチェック（セキュリティ対策）
   const result = await db
     .delete(projectMemories)
-    .where(
-      and(
-        eq(projectMemories.id, memoryId),
-        eq(projectMemories.projectId, projectId)
-      )
-    )
+    .where(and(eq(projectMemories.id, memoryId), eq(projectMemories.projectId, projectId)))
     .returning();
 
   if (result.length === 0) {
-    return c.json(
-      { error: { code: "NOT_FOUND", message: "Memory not found" } },
-      404
-    );
+    return c.json({ error: { code: "NOT_FOUND", message: "Memory not found" } }, 404);
   }
 
   return c.body(null, 204);

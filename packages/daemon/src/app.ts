@@ -38,6 +38,8 @@ app.route("/api/tasks/:taskId/runs", runsRouter);
 app.route("/api/runs", runsRouter);
 app.route("/api/events", eventsRouter);
 app.route("/api/projects/:projectId/orchestrate", orchestrateRouter);
+app.route("/api/projects/:projectId/files", filesRouter);
+app.route("/api/projects/:projectId/settings", settingsRouter);
 
 // Runners (static for now)
 app.get("/api/runners", (c) =>

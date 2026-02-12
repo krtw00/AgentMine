@@ -47,17 +47,9 @@ export const agentProfiles = sqliteTable("agent_profiles", {
   runner: text("runner").notNull(),
   model: text("model"),
   promptTemplate: text("prompt_template"),
-  defaultExclude: text("default_exclude", { mode: "json" })
-    .notNull()
-    .$type<string[]>()
-    .default([]),
-  defaultWriteScope: text("default_write_scope", { mode: "json" }).$type<
-    string[] | null
-  >(),
-  config: text("config", { mode: "json" }).$type<Record<
-    string,
-    unknown
-  > | null>(),
+  defaultExclude: text("default_exclude", { mode: "json" }).notNull().$type<string[]>().default([]),
+  defaultWriteScope: text("default_write_scope", { mode: "json" }).$type<string[] | null>(),
+  config: text("config", { mode: "json" }).$type<Record<string, unknown> | null>(),
   createdAt: text("created_at").notNull().default("CURRENT_TIMESTAMP"),
   updatedAt: text("updated_at").notNull().default("CURRENT_TIMESTAMP"),
 });
@@ -83,7 +75,7 @@ export const runs = sqliteTable("runs", {
   scopeSnapshot: text("scope_snapshot", { mode: "json" }).$type<string[]>(),
   dodSnapshot: text("dod_snapshot", { mode: "json" }),
   logRef: text("log_ref"),
-  role: text("role"),  // 'coordinator' | 'worker' | 'reviewer' | null
+  role: text("role"), // 'coordinator' | 'worker' | 'reviewer' | null
 });
 
 // Checks

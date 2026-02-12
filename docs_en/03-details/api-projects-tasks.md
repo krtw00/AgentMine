@@ -21,36 +21,36 @@ Defines the detailed API specifications for Project/Task/Dependencies. For commo
 
 Registers a project.
 
-| Request | Required | Type | Description |
-|---------|:--------:|------|-------------|
-| name | Yes | string | Display name |
-| repo_path | Yes | string | Absolute path to the Git repository |
-| base_branch | Yes | string | Base branch |
+| Request     | Required | Type   | Description                         |
+| ----------- | :------: | ------ | ----------------------------------- |
+| name        |   Yes    | string | Display name                        |
+| repo_path   |   Yes    | string | Absolute path to the Git repository |
+| base_branch |   Yes    | string | Base branch                         |
 
-| Validation | Error |
-|------------|-------|
+| Validation                    | Error            |
+| ----------------------------- | ---------------- |
 | repo_path is a Git repository | VALIDATION_ERROR |
-| base_branch exists | VALIDATION_ERROR |
+| base_branch exists            | VALIDATION_ERROR |
 
-| Response | Description |
-|----------|-------------|
-| id | Created Project ID |
+| Response                     | Description        |
+| ---------------------------- | ------------------ |
+| id                           | Created Project ID |
 | name, repo_path, base_branch | Registered content |
 
 ### GET /api/projects/:id
 
-| Response | Description |
-|----------|-------------|
+| Response                         | Description         |
+| -------------------------------- | ------------------- |
 | id, name, repo_path, base_branch | Project information |
 
 ### PATCH /api/projects/:id
 
 Updates only the specified fields.
 
-| Request | Required | Description |
-|---------|:--------:|-------------|
-| name | - | Display name |
-| base_branch | - | Base branch |
+| Request     | Required | Description  |
+| ----------- | :------: | ------------ |
+| name        |    -     | Display name |
+| base_branch |    -     | Base branch  |
 
 ### DELETE /api/projects/:id
 
@@ -62,52 +62,52 @@ Deletes a project. Related Tasks/Runs/worktrees are not deleted.
 
 ### GET /api/projects/:projectId/tasks
 
-| Query Parameter | Description |
-|----------------|-------------|
-| status | Filter (open/blocked/ready/running/needs_review/done/failed/cancelled) |
-| parent_id | Filter by parent task (null for top-level only) |
-| include_children | Include child tasks (default: true) |
+| Query Parameter  | Description                                                            |
+| ---------------- | ---------------------------------------------------------------------- |
+| status           | Filter (open/blocked/ready/running/needs_review/done/failed/cancelled) |
+| parent_id        | Filter by parent task (null for top-level only)                        |
+| include_children | Include child tasks (default: true)                                    |
 
-| Response | Description |
-|----------|-------------|
-| id, project_id, parent_id | Task identification information |
-| title, description, write_scope | Task content |
-| status, reasons | State derived from observable facts |
-| children | Child task array (when include_children=true) |
+| Response                        | Description                                   |
+| ------------------------------- | --------------------------------------------- |
+| id, project_id, parent_id       | Task identification information               |
+| title, description, write_scope | Task content                                  |
+| status, reasons                 | State derived from observable facts           |
+| children                        | Child task array (when include_children=true) |
 
 ### POST /api/projects/:projectId/tasks
 
-| Request | Required | Type | Description |
-|---------|:--------:|------|-------------|
-| title | Yes | string | Task name |
-| description | - | string | Details |
-| write_scope | Yes | string[] | Editable scope (glob array) |
-| parent_id | - | integer | Parent task ID |
-| depends_on | - | integer[] | Dependency task ID array |
+| Request     | Required | Type      | Description                 |
+| ----------- | :------: | --------- | --------------------------- |
+| title       |   Yes    | string    | Task name                   |
+| description |    -     | string    | Details                     |
+| write_scope |   Yes    | string[]  | Editable scope (glob array) |
+| parent_id   |    -     | integer   | Parent task ID              |
+| depends_on  |    -     | integer[] | Dependency task ID array    |
 
-| Validation | Error |
-|------------|-------|
-| write_scope has at least one entry | VALIDATION_ERROR |
-| parent_id is within the same project | VALIDATION_ERROR |
+| Validation                             | Error            |
+| -------------------------------------- | ---------------- |
+| write_scope has at least one entry     | VALIDATION_ERROR |
+| parent_id is within the same project   | VALIDATION_ERROR |
 | depends_on are within the same project | VALIDATION_ERROR |
-| No circular dependencies | VALIDATION_ERROR |
+| No circular dependencies               | VALIDATION_ERROR |
 
 ### GET /api/tasks/:id
 
-| Response | Description |
-|----------|-------------|
+| Response          | Description                                                |
+| ----------------- | ---------------------------------------------------------- |
 | Basic information | id, project_id, parent_id, title, description, write_scope |
-| State | status, reasons, cancelled_at |
-| Dependencies | dependencies array (task_id, title, status) |
-| Latest run | latest_run (id, status, started_at, finished_at) |
+| State             | status, reasons, cancelled_at                              |
+| Dependencies      | dependencies array (task_id, title, status)                |
+| Latest run        | latest_run (id, status, started_at, finished_at)           |
 
 ### PATCH /api/tasks/:id
 
-| Request | Required | Description |
-|---------|:--------:|-------------|
-| title | - | Task name |
-| description | - | Details |
-| write_scope | - | Editable scope |
+| Request     | Required | Description    |
+| ----------- | :------: | -------------- |
+| title       |    -     | Task name      |
+| description |    -     | Details        |
+| write_scope |    -     | Editable scope |
 
 Note: Changes to write_scope of a running task take effect at the next run start.
 
@@ -115,13 +115,13 @@ Note: Changes to write_scope of a running task take effect at the next run start
 
 Cancels a task. If there is a running run, it is stopped simultaneously.
 
-| Validation | Error |
-|------------|-------|
+| Validation                 | Error    |
+| -------------------------- | -------- |
 | Not already done/cancelled | CONFLICT |
 
-| Response | Description |
-|----------|-------------|
-| status | cancelled |
+| Response     | Description            |
+| ------------ | ---------------------- |
+| status       | cancelled              |
 | cancelled_at | Cancellation timestamp |
 
 ---
@@ -130,15 +130,15 @@ Cancels a task. If there is a running run, it is stopped simultaneously.
 
 ### POST /api/tasks/:id/dependencies
 
-| Request | Required | Description |
-|---------|:--------:|-------------|
-| depends_on_task_id | Yes | Dependency target task ID |
+| Request            | Required | Description               |
+| ------------------ | :------: | ------------------------- |
+| depends_on_task_id |   Yes    | Dependency target task ID |
 
-| Validation | Error |
-|------------|-------|
+| Validation                      | Error            |
+| ------------------------------- | ---------------- |
 | Task is within the same project | VALIDATION_ERROR |
-| No circular dependencies | VALIDATION_ERROR |
-| Not a duplicate | CONFLICT |
+| No circular dependencies        | VALIDATION_ERROR |
+| Not a duplicate                 | CONFLICT         |
 
 ### DELETE /api/tasks/:id/dependencies/:dependsOnId
 

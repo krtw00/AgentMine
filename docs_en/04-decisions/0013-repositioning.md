@@ -20,14 +20,14 @@ The "AI parallel orchestration" that AgentMine has been providing overlaps with 
 
 Upon reviewing AgentMine's existing design, several strengths **not present in Claude Code** were identified.
 
-| AgentMine's Existing Assets | Claude Code's Equivalent |
-|---|---|
-| RunnerAdapter (AI-agnostic) | Claude-only |
+| AgentMine's Existing Assets                       | Claude Code's Equivalent         |
+| ------------------------------------------------- | -------------------------------- |
+| RunnerAdapter (AI-agnostic)                       | Claude-only                      |
 | write_scope + scope violation + approval workflow | Tool-level permission modes only |
-| Worktree physical isolation | Operates in the same directory |
-| Observable Facts + state derivation | Relies on AI self-reporting |
-| DoD (definition-based completion verification) | No formal completion definition |
-| Web UI (monitoring, intervention, sharing) | Terminal-only |
+| Worktree physical isolation                       | Operates in the same directory   |
+| Observable Facts + state derivation               | Relies on AI self-reporting      |
+| DoD (definition-based completion verification)    | No formal completion definition  |
+| Web UI (monitoring, intervention, sharing)        | Terminal-only                    |
 
 ## Decision
 
@@ -41,11 +41,11 @@ With the RunnerAdapter design at its core, AgentMine becomes a platform that int
 
 Scope control, DoD, Observable Facts, and violation tracking are strengthened to provide safety and auditability for AI execution. Specific additional features:
 
-| Feature | Overview |
-|---|---|
-| Proof-Carrying Run | Automatically generates an evidence pack of changes at run completion (prompt hash, scope snapshot, changed files, DoD results, approval history) |
-| Conflict-Aware Scheduler | Detects write_scope overlaps before parallel execution and determines an execution order that avoids conflicts |
-| Memory Governance | Adds trust scores, expiration dates, and approvals to memories to prevent memory contamination |
+| Feature                  | Overview                                                                                                                                          |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Proof-Carrying Run       | Automatically generates an evidence pack of changes at run completion (prompt hash, scope snapshot, changed files, DoD results, approval history) |
+| Conflict-Aware Scheduler | Detects write_scope overlaps before parallel execution and determines an execution order that avoids conflicts                                    |
+| Memory Governance        | Adds trust scores, expiration dates, and approvals to memories to prevent memory contamination                                                    |
 
 ### D. Team/Organization-Oriented (Phase 3)
 
@@ -53,47 +53,47 @@ Authentication and authorization management are added to support shared team usa
 
 ## Evaluation of Adopted Additional Features
 
-| # | Feature | Phase | Consistency with Existing Design | Differentiation Impact |
-|---|---------|-------|----------------------------------|----------------------|
-| F | Proof-Carrying Run | 1 | scope_snapshot, dod_snapshot, log_ref, etc. already exist. Only bundling needed | Medium-High |
-| G | Conflict-Aware Scheduler | 1 | Natural extension of write_scope requirement (ADR-0006) | High |
-| K | Memory Governance | 1 | Already noted as future extension in memory-layer.md | Medium |
-| I | Cost/SLA Router | 2 | Intelligent extension of agent_profiles runner/model selection | High |
-| L | Compliance Templates | 2-3 | Achievable through combination of settings + scope + DoD | Medium-High |
+| #   | Feature                  | Phase | Consistency with Existing Design                                                | Differentiation Impact |
+| --- | ------------------------ | ----- | ------------------------------------------------------------------------------- | ---------------------- |
+| F   | Proof-Carrying Run       | 1     | scope_snapshot, dod_snapshot, log_ref, etc. already exist. Only bundling needed | Medium-High            |
+| G   | Conflict-Aware Scheduler | 1     | Natural extension of write_scope requirement (ADR-0006)                         | High                   |
+| K   | Memory Governance        | 1     | Already noted as future extension in memory-layer.md                            | Medium                 |
+| I   | Cost/SLA Router          | 2     | Intelligent extension of agent_profiles runner/model selection                  | High                   |
+| L   | Compliance Templates     | 2-3   | Achievable through combination of settings + scope + DoD                        | Medium-High            |
 
 ## Deferred/Rejected Features
 
-| # | Feature | Verdict | Reason |
-|---|---------|---------|--------|
-| E | Just-in-Time Scope | Deferred | Conflicts with non-interactive Runner (ADR-0005). Can be approximated through the existing retry flow |
-| H | Spec Contract Mode | Rejected | Requires code semantic analysis, which is outside the scope of the current architecture |
-| J | Forensic Replay | Deferred | Low priority. Partially addressable through the reproducibility principle |
+| #   | Feature            | Verdict  | Reason                                                                                                |
+| --- | ------------------ | -------- | ----------------------------------------------------------------------------------------------------- |
+| E   | Just-in-Time Scope | Deferred | Conflicts with non-interactive Runner (ADR-0005). Can be approximated through the existing retry flow |
+| H   | Spec Contract Mode | Rejected | Requires code semantic analysis, which is outside the scope of the current architecture               |
+| J   | Forensic Replay    | Deferred | Low priority. Partially addressable through the reproducibility principle                             |
 
 ## Considered Options
 
 ### Option 1: Compete on the Same Track as Claude Code (Not Adopted)
 
-| Item | Details |
-|------|---------|
-| Overview | Continue expanding orchestration features as-is |
-| Pros | No cost of direction change |
-| Cons | Cannot compete with Claude Code's ecosystem and user base |
+| Item     | Details                                                   |
+| -------- | --------------------------------------------------------- |
+| Overview | Continue expanding orchestration features as-is           |
+| Pros     | No cost of direction change                               |
+| Cons     | Cannot compete with Claude Code's ecosystem and user base |
 
 ### Option 2: Pivot to AI-Agnostic + Safety + Team-Oriented (Adopted)
 
-| Item | Details |
-|------|---------|
-| Overview | Focus on strengths that Claude Code does not have |
-| Pros | Clear differentiation; leverages existing design assets |
-| Cons | Documentation update costs associated with repositioning |
+| Item     | Details                                                  |
+| -------- | -------------------------------------------------------- |
+| Overview | Focus on strengths that Claude Code does not have        |
+| Pros     | Clear differentiation; leverages existing design assets  |
+| Cons     | Documentation update costs associated with repositioning |
 
 ### Option 3: Specialize as a Claude Code Complementary Tool
 
-| Item | Details |
-|------|---------|
-| Overview | Specialize as a management layer exclusively for Claude Code |
-| Pros | Can directly capture Claude Code users |
-| Cons | Becomes dependent on Claude Code, losing the AI-agnostic advantage |
+| Item     | Details                                                            |
+| -------- | ------------------------------------------------------------------ |
+| Overview | Specialize as a management layer exclusively for Claude Code       |
+| Pros     | Can directly capture Claude Code users                             |
+| Cons     | Becomes dependent on Claude Code, losing the AI-agnostic advantage |
 
 ## Rationale
 

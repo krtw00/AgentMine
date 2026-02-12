@@ -29,12 +29,12 @@ Worktrees are the execution context for runs and serve as the foundation for rep
 
 ## Basic Policy (MVP)
 
-| Item | Policy |
-|------|--------|
-| Unit | **1 Task = 1 worktree** |
-| Reuse | Runs for the same Task use the same worktree |
-| Parallelism | Concurrent runs for the same Task are prohibited (see Business Rules) |
-| Auto-deletion | Not supported (explicit operation only) |
+| Item          | Policy                                                                |
+| ------------- | --------------------------------------------------------------------- |
+| Unit          | **1 Task = 1 worktree**                                               |
+| Reuse         | Runs for the same Task use the same worktree                          |
+| Parallelism   | Concurrent runs for the same Task are prohibited (see Business Rules) |
+| Auto-deletion | Not supported (explicit operation only)                               |
 
 ---
 
@@ -44,23 +44,25 @@ Worktrees are the execution context for runs and serve as the foundation for rep
 
 Worktrees are placed under the AgentMine Home directory.
 
-| Item | Format |
-|------|--------|
-| Root | `~/.agentmine/worktrees/` |
+| Item     | Format                                                |
+| -------- | ----------------------------------------------------- |
+| Root     | `~/.agentmine/worktrees/`                             |
 | Location | `~/.agentmine/worktrees/{project_id}/task-{task_id}/` |
 
 Note:
+
 - `project_id` is used as a separator to support multiple projects on the same machine.
 
 ### Task Branch Name
 
 Task working branches are created in the following format.
 
-| Item | Format |
-|------|--------|
+| Item        | Format                     |
+| ----------- | -------------------------- |
 | Branch name | `agentmine/task-{task_id}` |
 
 Notes:
+
 - The branch name serves as an identifier for worktree identity and auditing.
 - Handling of conflicts with existing branches is a future extension (in the MVP, conflicts result in an error).
 
@@ -77,6 +79,7 @@ At the start of the first run, the Daemon performs the following:
 3. Check out to the worktree directory.
 
 Note:
+
 - Base branch updates (fetch/rebase, etc.) are not automated in the MVP.
 
 ### Reuse (Subsequent Runs)
@@ -90,6 +93,7 @@ Worktree deletion is performed only through explicit operations.
 Deletion includes both "directory deletion" and "git worktree removal."
 
 Note:
+
 - Worktree deletion is destructive, so even in the MVP, strong confirmation is required in the UI when the worktree is dirty.
 
 ---
@@ -99,13 +103,14 @@ Note:
 In the MVP, starting a run on a dirty worktree is permitted.
 However, since dirty state reduces reproducibility, it is recorded as an observable fact and displayed explicitly in the UI.
 
-| Situation | Policy |
-|-----------|--------|
-| At run start | Can start even when dirty (prioritizing continue/retry usability) |
-| At run end | Record dirty status (see Data Model) |
+| Situation          | Policy                                                                                  |
+| ------------------ | --------------------------------------------------------------------------------------- |
+| At run start       | Can start even when dirty (prioritizing continue/retry usability)                       |
+| At run end         | Record dirty status (see Data Model)                                                    |
 | Done determination | Dirty runs are not used as evidence for done determination (see DoD / Observable Facts) |
 
 Note:
+
 - Running DoD on a dirty state is permitted, but it is not used as done evidence.
 
 ---
@@ -114,12 +119,13 @@ Note:
 
 The Daemon records the following Git facts at run completion.
 
-| Fact | Storage | Use |
-|------|---------|-----|
-| `head_sha` | runs.head_sha | Reference point for DoD and merge determination |
+| Fact             | Storage             | Use                                                    |
+| ---------------- | ------------------- | ------------------------------------------------------ |
+| `head_sha`       | runs.head_sha       | Reference point for DoD and merge determination        |
 | `worktree_dirty` | runs.worktree_dirty | Exclusion from done determination, intervention reason |
 
 Note:
+
 - Changed file lists and diffs may be retained as log (meta) when needed.
 
 ---

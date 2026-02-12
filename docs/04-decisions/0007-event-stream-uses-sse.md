@@ -57,4 +57,3 @@ Web UIへのイベント配信方式としてSSE（Server-Sent Events）を採�
 
 - [技術スタック](../02-architecture/tech-stack.md) - SSE採用理由
 - [イベント配信](../03-details/event-stream.md) - イベント種別
-

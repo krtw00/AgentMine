@@ -55,16 +55,16 @@ flowchart TB
 
 ## Component List
 
-| Component | Type | Responsibility | Technology |
-|-----------|------|---------------|------------|
-| Web UI | Interface | Monitoring and intervention for humans | Browser |
-| Local Daemon | Core | API/event delivery, execution platform coordination | Node.js/TypeScript |
-| Domain Services | Core | Project/Task/Run management | TypeScript |
-| Worktree Manager | Core | Worktree creation/deletion, Git fact retrieval | Git/Filesystem |
-| Scope Enforcer | Core | Applying exclude/read/write rules and detecting violations | Git/Filesystem |
-| Runner Manager | Core | AI process start/stop, log collection | OS Process |
-| DoD Runner | Core | Verification execution and result recording | CLI/CI integration |
-| DB Master | Data | SSoT for state | SQLite (MVP) |
+| Component        | Type      | Responsibility                                             | Technology         |
+| ---------------- | --------- | ---------------------------------------------------------- | ------------------ |
+| Web UI           | Interface | Monitoring and intervention for humans                     | Browser            |
+| Local Daemon     | Core      | API/event delivery, execution platform coordination        | Node.js/TypeScript |
+| Domain Services  | Core      | Project/Task/Run management                                | TypeScript         |
+| Worktree Manager | Core      | Worktree creation/deletion, Git fact retrieval             | Git/Filesystem     |
+| Scope Enforcer   | Core      | Applying exclude/read/write rules and detecting violations | Git/Filesystem     |
+| Runner Manager   | Core      | AI process start/stop, log collection                      | OS Process         |
+| DoD Runner       | Core      | Verification execution and result recording                | CLI/CI integration |
+| DB Master        | Data      | SSoT for state                                             | SQLite (MVP)       |
 
 ---
 
@@ -72,41 +72,41 @@ flowchart TB
 
 ### Domain Services
 
-| Item | Details |
-|------|---------|
-| Responsibility | Consolidates and operates all state in the DB |
-| Input | Operations from Web UI/API |
-| Output | DB updates, events, logs |
-| Dependencies | DB Master, Runner Manager, Worktree Manager, Scope Enforcer |
+| Item           | Details                                                     |
+| -------------- | ----------------------------------------------------------- |
+| Responsibility | Consolidates and operates all state in the DB               |
+| Input          | Operations from Web UI/API                                  |
+| Output         | DB updates, events, logs                                    |
+| Dependencies   | DB Master, Runner Manager, Worktree Manager, Scope Enforcer |
 
 ### Runner Manager
 
-| Item | Details |
-|------|---------|
+| Item           | Details                                 |
+| -------------- | --------------------------------------- |
 | Responsibility | AI process start/monitoring/termination |
-| Input | Worker launch requests |
-| Output | Execution state, exit codes |
-| Dependencies | OS Process, worktree |
+| Input          | Worker launch requests                  |
+| Output         | Execution state, exit codes             |
+| Dependencies   | OS Process, worktree                    |
 
 ### Worktree Manager / Scope Enforcer
 
-| Item | Details |
-|------|---------|
-| Responsibility | Physical isolation and write constraints |
-| Input | Task and scope definitions |
-| Output | Worktree setup and constraint enforcement |
-| Dependencies | Git, Filesystem |
+| Item           | Details                                   |
+| -------------- | ----------------------------------------- |
+| Responsibility | Physical isolation and write constraints  |
+| Input          | Task and scope definitions                |
+| Output         | Worktree setup and constraint enforcement |
+| Dependencies   | Git, Filesystem                           |
 
 ---
 
 ## Inter-Component Communication
 
-| Source | Destination | Protocol | Content |
-|--------|-------------|----------|---------|
-| Web UI | Local Daemon | HTTP + Events | Task management, execution control, monitoring |
-| Local Daemon | DB Master | SQL | State persistence and retrieval |
-| Local Daemon | Git/Filesystem | CLI/FS | Worktree operations, diff retrieval |
-| Local Daemon | AI CLI | OS Process | AI execution |
+| Source       | Destination    | Protocol      | Content                                        |
+| ------------ | -------------- | ------------- | ---------------------------------------------- |
+| Web UI       | Local Daemon   | HTTP + Events | Task management, execution control, monitoring |
+| Local Daemon | DB Master      | SQL           | State persistence and retrieval                |
+| Local Daemon | Git/Filesystem | CLI/FS        | Worktree operations, diff retrieval            |
+| Local Daemon | AI CLI         | OS Process    | AI execution                                   |
 
 ---
 

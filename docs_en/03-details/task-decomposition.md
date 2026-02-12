@@ -30,13 +30,14 @@ Task decomposition is the responsibility of the Planner in the role model.
 
 The Planner uses the following self-assessment questions rather than complex score calculations to determine decomposition.
 
-| Question | Answer | Decision |
-|----------|--------|----------|
-| Can it be explained as a single commit (or diff)? | No | Decompose |
-| Does it contain multiple independent changes? | Yes | Decompose |
-| Can one person review it in a short time? | No | Decompose |
+| Question                                          | Answer | Decision  |
+| ------------------------------------------------- | ------ | --------- |
+| Can it be explained as a single commit (or diff)? | No     | Decompose |
+| Does it contain multiple independent changes?     | Yes    | Decompose |
+| Can one person review it in a short time?         | No     | Decompose |
 
 Note:
+
 - "Short time" is not a fixed number of hours but is judged by review ease.
 
 ---
@@ -46,24 +47,25 @@ Note:
 In the MVP, **1 Task = 1 worktree** (see worktree management).
 Therefore, task decomposition additionally uses "can it proceed in a separate worktree/branch?" as a criterion.
 
-| Perspective | Decision | Guideline |
-|-------------|----------|-----------|
-| write_scope | Decompose if too broad | e.g., containing both `apps/web/**` and `apps/daemon/**` |
-| Mergeability | Decompose if individually mergeable into base | Each subtask can pass DoD independently and be explained |
-| Strong coupling | Do not decompose if build/tests fail without the other | Splitting would always result in an incomplete state |
+| Perspective     | Decision                                               | Guideline                                                |
+| --------------- | ------------------------------------------------------ | -------------------------------------------------------- |
+| write_scope     | Decompose if too broad                                 | e.g., containing both `apps/web/**` and `apps/daemon/**` |
+| Mergeability    | Decompose if individually mergeable into base          | Each subtask can pass DoD independently and be explained |
+| Strong coupling | Do not decompose if build/tests fail without the other | Splitting would always result in an incomplete state     |
 
 Note:
+
 - When decomposition is not possible, progress is made incrementally by "adding multiple runs to the same task."
 
 ---
 
 ## Decomposition Patterns
 
-| Pattern | Decomposition Method | Example |
-|---------|---------------------|---------|
-| Cross-layer | Split into DB -> API -> UI | Authentication -> Schema, API, Screen |
-| Feature composite | Split into Feature A / Feature B | User management -> Registration, Editing, Deletion |
-| CRUD | Split by Create/Read/Update/Delete | Article API -> Each operation |
+| Pattern           | Decomposition Method               | Example                                            |
+| ----------------- | ---------------------------------- | -------------------------------------------------- |
+| Cross-layer       | Split into DB -> API -> UI         | Authentication -> Schema, API, Screen              |
+| Feature composite | Split into Feature A / Feature B   | User management -> Registration, Editing, Deletion |
+| CRUD              | Split by Create/Read/Update/Delete | Article API -> Each operation                      |
 
 ---
 
@@ -72,12 +74,13 @@ Note:
 Task decomposition uses both "parent-child" and "dependencies" to express relationships.
 The two serve different purposes.
 
-| Mechanism | Purpose | Example |
-|-----------|---------|---------|
-| Parent-child (parent_id) | Express the origin and grouping of decomposition | Parent: "UI Implementation" Children: "Monitor" / "Settings" |
-| Dependencies (task_dependencies) | Express execution order constraints | "Add API" -> "Display in UI" |
+| Mechanism                        | Purpose                                          | Example                                                      |
+| -------------------------------- | ------------------------------------------------ | ------------------------------------------------------------ |
+| Parent-child (parent_id)         | Express the origin and grouping of decomposition | Parent: "UI Implementation" Children: "Monitor" / "Settings" |
+| Dependencies (task_dependencies) | Express execution order constraints              | "Add API" -> "Display in UI"                                 |
 
 Note:
+
 - Parent-child does not imply "order." When order is needed, use dependencies.
 
 ---
@@ -86,13 +89,14 @@ Note:
 
 Decomposition output is expressed as "child tasks" and "dependency relationships."
 
-| Output | Target | Description |
-|--------|--------|-------------|
-| Parent-child relationship | tasks.parent_id | Track the decomposition origin |
-| Dependency relationship | task_dependencies | Express execution order constraints |
-| Execution scope | tasks.write_scope | Defined as required for each child task |
+| Output                    | Target            | Description                             |
+| ------------------------- | ----------------- | --------------------------------------- |
+| Parent-child relationship | tasks.parent_id   | Track the decomposition origin          |
+| Dependency relationship   | task_dependencies | Express execution order constraints     |
+| Execution scope           | tasks.write_scope | Defined as required for each child task |
 
 Notes:
+
 - Additional metadata (complexity, task type, etc.) is not required in the MVP.
 - If additional metadata becomes necessary, it will be handled through DB extensions (settings or dedicated tables).
 
@@ -102,11 +106,11 @@ Notes:
 
 Decomposition is not always beneficial. In the following cases, it is safer to proceed as a single task.
 
-| Case | Reason | Alternative |
-|------|--------|-------------|
-| Changes are tightly coupled | Splitting always results in incomplete/inconsistent state | Add runs to the same task |
-| Frequent conflicts in the same file | Benefits of worktree separation are minimal | Keep as one task |
-| Cannot separate write_scope | Cannot draw safe constraints | Update the plan until scope can be narrowed |
+| Case                                | Reason                                                    | Alternative                                 |
+| ----------------------------------- | --------------------------------------------------------- | ------------------------------------------- |
+| Changes are tightly coupled         | Splitting always results in incomplete/inconsistent state | Add runs to the same task                   |
+| Frequent conflicts in the same file | Benefits of worktree separation are minimal               | Keep as one task                            |
+| Cannot separate write_scope         | Cannot draw safe constraints                              | Update the plan until scope can be narrowed |
 
 ---
 
@@ -128,6 +132,7 @@ sequenceDiagram
 ```
 
 Note:
+
 - In the MVP, Humans may perform the Planner's work (registering child tasks and dependencies) via the UI.
 
 ---
@@ -137,12 +142,12 @@ Note:
 Failures are not returned to the Worker; the Planner updates the plan.
 Re-planning is fundamentally "modifying the task definition and re-executing with a new run."
 
-| Failure Cause | Planner's Response |
-|---------------|-------------------|
+| Failure Cause          | Planner's Response                                     |
+| ---------------------- | ------------------------------------------------------ |
 | Ambiguous instructions | Make description more specific, re-decompose if needed |
-| Granularity too large | Add child tasks and redesign dependencies |
-| Incorrect dependencies | Fix task_dependencies |
-| Verification failure | Reflect failure reason in the task and re-execute |
+| Granularity too large  | Add child tasks and redesign dependencies              |
+| Incorrect dependencies | Fix task_dependencies                                  |
+| Verification failure   | Reflect failure reason in the task and re-execute      |
 
 ---
 

@@ -46,11 +46,11 @@ stateDiagram-v2
 The Daemon is a single instance per user environment.
 Multiple instances are not launched.
 
-| Item | Policy |
-|------|--------|
-| Duplicate startup | If an existing Daemon exists, return its URL |
-| Detection | Place a lock file in AgentMine Home |
-| Release | Released on normal shutdown. Recovered on restart after abnormal termination |
+| Item              | Policy                                                                       |
+| ----------------- | ---------------------------------------------------------------------------- |
+| Duplicate startup | If an existing Daemon exists, return its URL                                 |
+| Detection         | Place a lock file in AgentMine Home                                          |
+| Release           | Released on normal shutdown. Recovered on restart after abnormal termination |
 
 ---
 
@@ -59,11 +59,11 @@ Multiple instances are not launched.
 The Daemon binds to `127.0.0.1`.
 The default port is `6419`.
 
-| Item | Policy |
-|------|--------|
-| Default | `http://127.0.0.1:6419` |
-| On conflict | Switch to the next candidate port |
-| Reference | The actual URL is saved in the state file |
+| Item        | Policy                                    |
+| ----------- | ----------------------------------------- |
+| Default     | `http://127.0.0.1:6419`                   |
+| On conflict | Switch to the next candidate port         |
+| Reference   | The actual URL is saved in the state file |
 
 ---
 
@@ -72,14 +72,15 @@ The default port is `6419`.
 In the MVP operational mode, the Daemon serves the Web UI.
 The Web UI and API/SSE are served from the same origin.
 
-| Item | Policy |
-|------|--------|
+| Item            | Policy                                |
+| --------------- | ------------------------------------- |
 | Delivery method | Static delivery of UI build artifacts |
-| Route | Returns the UI at `/` |
-| API | Serves `/api/*` |
-| Events | Serves `/api/events` (SSE) |
+| Route           | Returns the UI at `/`                 |
+| API             | Serves `/api/*`                       |
+| Events          | Serves `/api/events` (SSE)            |
 
 Note:
+
 - The UI references API/SSE using relative paths (`/api/...`). The Daemon's port configuration is not brought into the UI side.
 
 ### Development Mode (Hybrid)
@@ -87,10 +88,10 @@ Note:
 During development, the Web UI may be started on a separate port's dev server.
 In this case, the Web UI proxies `/api/*` and `/api/events` to the Daemon.
 
-| Aspect | Policy |
-|--------|--------|
-| Purpose | Ensure UI development speed with HMR, etc. |
-| CORS | Proxy so it appears as the same origin from the browser |
+| Aspect   | Policy                                                       |
+| -------- | ------------------------------------------------------------ |
+| Purpose  | Ensure UI development speed with HMR, etc.                   |
+| CORS     | Proxy so it appears as the same origin from the browser      |
 | Contract | UI API call paths are the same in production and development |
 
 ---
@@ -108,12 +109,12 @@ The Daemon creates necessary files under AgentMine Home.
   worktrees/
 ```
 
-| Directory | Purpose |
-|-----------|---------|
-| `db/` | Stores DB files |
-| `daemon/` | Stores lock and state files |
-| `logs/` | Stores run/check logs |
-| `worktrees/` | Stores worktrees |
+| Directory    | Purpose                     |
+| ------------ | --------------------------- |
+| `db/`        | Stores DB files             |
+| `daemon/`    | Stores lock and state files |
+| `logs/`      | Stores run/check logs       |
+| `worktrees/` | Stores worktrees            |
 
 ---
 
@@ -122,9 +123,9 @@ The Daemon creates necessary files under AgentMine Home.
 Daemon shutdown includes stopping runs.
 Shutdown behavior differs between normal shutdown and abnormal termination.
 
-| Event | Run Process | Run State |
-|-------|-------------|-----------|
-| Normal shutdown (stop) | Stopped | Set to cancelled |
+| Event                        | Run Process     | Run State                      |
+| ---------------------------- | --------------- | ------------------------------ |
+| Normal shutdown (stop)       | Stopped         | Set to cancelled               |
 | Abnormal termination (crash) | Attempt to stop | Reconciliation on next startup |
 
 ---
@@ -135,6 +136,7 @@ On startup, if runs with `running` status exist in the DB, reconciliation is per
 In the MVP, `running` runs are changed to `cancelled`.
 
 Note:
+
 - Runner child processes are managed by the Daemon.
 - Runs are not allowed to continue while the Daemon is stopped.
 

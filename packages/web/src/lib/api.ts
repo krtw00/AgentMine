@@ -34,8 +34,7 @@ export const projectsApi = {
       method: "PATCH",
       body: JSON.stringify(data),
     }),
-  delete: (id: number) =>
-    fetchApi<void>(`/projects/${id}`, { method: "DELETE" }),
+  delete: (id: number) => fetchApi<void>(`/projects/${id}`, { method: "DELETE" }),
 };
 
 // Tasks
@@ -52,14 +51,12 @@ export const tasksApi = {
       method: "PATCH",
       body: JSON.stringify(data),
     }),
-  cancel: (id: number) =>
-    fetchApi<Task>(`/tasks/${id}/cancel`, { method: "POST" }),
+  cancel: (id: number) => fetchApi<Task>(`/tasks/${id}/cancel`, { method: "POST" }),
 };
 
 // Agent Profiles
 export const agentProfilesApi = {
-  list: (projectId: number) =>
-    fetchApi<AgentProfile[]>(`/projects/${projectId}/agent-profiles`),
+  list: (projectId: number) => fetchApi<AgentProfile[]>(`/projects/${projectId}/agent-profiles`),
   get: (id: number) => fetchApi<AgentProfileDetail>(`/agent-profiles/${id}`),
   create: (projectId: number, data: CreateAgentProfileInput) =>
     fetchApi<AgentProfile>(`/projects/${projectId}/agent-profiles`, {
@@ -71,8 +68,7 @@ export const agentProfilesApi = {
       method: "PATCH",
       body: JSON.stringify(data),
     }),
-  delete: (id: number) =>
-    fetchApi<void>(`/agent-profiles/${id}`, { method: "DELETE" }),
+  delete: (id: number) => fetchApi<void>(`/agent-profiles/${id}`, { method: "DELETE" }),
 };
 
 // Runs

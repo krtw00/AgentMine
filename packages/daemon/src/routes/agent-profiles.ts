@@ -57,16 +57,10 @@ agentProfilesRouter.post("/", async (c) => {
 
   // バリデーション
   if (!name) {
-    return c.json(
-      { error: { code: "VALIDATION_ERROR", message: "name is required" } },
-      400
-    );
+    return c.json({ error: { code: "VALIDATION_ERROR", message: "name is required" } }, 400);
   }
   if (!runner || !(runner in RUNNERS)) {
-    return c.json(
-      { error: { code: "VALIDATION_ERROR", message: "Invalid runner" } },
-      400
-    );
+    return c.json({ error: { code: "VALIDATION_ERROR", message: "Invalid runner" } }, 400);
   }
 
   const runnerConfig = RUNNERS[runner as keyof typeof RUNNERS];
@@ -88,15 +82,10 @@ agentProfilesRouter.post("/", async (c) => {
   const existing = await db
     .select()
     .from(agentProfiles)
-    .where(
-      and(eq(agentProfiles.projectId, projectId), eq(agentProfiles.name, name))
-    );
+    .where(and(eq(agentProfiles.projectId, projectId), eq(agentProfiles.name, name)));
 
   if (existing.length > 0) {
-    return c.json(
-      { error: { code: "CONFLICT", message: "Name already exists" } },
-      409
-    );
+    return c.json({ error: { code: "CONFLICT", message: "Name already exists" } }, 409);
   }
 
   const now = new Date().toISOString();
@@ -124,16 +113,10 @@ agentProfilesRouter.post("/", async (c) => {
 agentProfilesRouter.get("/:id", async (c) => {
   const id = Number(c.req.param("id"));
 
-  const result = await db
-    .select()
-    .from(agentProfiles)
-    .where(eq(agentProfiles.id, id));
+  const result = await db.select().from(agentProfiles).where(eq(agentProfiles.id, id));
 
   if (result.length === 0) {
-    return c.json(
-      { error: { code: "NOT_FOUND", message: "Agent profile not found" } },
-      404
-    );
+    return c.json({ error: { code: "NOT_FOUND", message: "Agent profile not found" } }, 404);
   }
 
   const profile = result[0]!;
@@ -153,15 +136,9 @@ agentProfilesRouter.patch("/:id", async (c) => {
   const body = await c.req.json();
 
   // 既存レコード確認
-  const existing = await db
-    .select()
-    .from(agentProfiles)
-    .where(eq(agentProfiles.id, id));
+  const existing = await db.select().from(agentProfiles).where(eq(agentProfiles.id, id));
   if (existing.length === 0) {
-    return c.json(
-      { error: { code: "NOT_FOUND", message: "Agent profile not found" } },
-      404
-    );
+    return c.json({ error: { code: "NOT_FOUND", message: "Agent profile not found" } }, 404);
   }
 
   const updateData: Record<string, unknown> = {
@@ -172,12 +149,9 @@ agentProfilesRouter.patch("/:id", async (c) => {
   if (body.description !== undefined) updateData.description = body.description;
   if (body.runner !== undefined) updateData.runner = body.runner;
   if (body.model !== undefined) updateData.model = body.model;
-  if (body.promptTemplate !== undefined)
-    updateData.promptTemplate = body.promptTemplate;
-  if (body.defaultExclude !== undefined)
-    updateData.defaultExclude = body.defaultExclude;
-  if (body.defaultWriteScope !== undefined)
-    updateData.defaultWriteScope = body.defaultWriteScope;
+  if (body.promptTemplate !== undefined) updateData.promptTemplate = body.promptTemplate;
+  if (body.defaultExclude !== undefined) updateData.defaultExclude = body.defaultExclude;
+  if (body.defaultWriteScope !== undefined) updateData.defaultWriteScope = body.defaultWriteScope;
   if (body.config !== undefined) updateData.config = body.config;
 
   const result = await db
@@ -211,16 +185,10 @@ agentProfilesRouter.delete("/:id", async (c) => {
     );
   }
 
-  const result = await db
-    .delete(agentProfiles)
-    .where(eq(agentProfiles.id, id))
-    .returning();
+  const result = await db.delete(agentProfiles).where(eq(agentProfiles.id, id)).returning();
 
   if (result.length === 0) {
-    return c.json(
-      { error: { code: "NOT_FOUND", message: "Agent profile not found" } },
-      404
-    );
+    return c.json({ error: { code: "NOT_FOUND", message: "Agent profile not found" } }, 404);
   }
 
   return c.body(null, 204);

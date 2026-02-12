@@ -55,4 +55,3 @@ MVPでは、タスクの `write_scope` を明示必須とする。
 
 - [ADR-0004](./0004-agentmine-home-dir.md) - AgentMine Home
 - [ADR-0005](./0005-continue-adds-new-run.md) - run単位の実行
-

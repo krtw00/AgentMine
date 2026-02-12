@@ -27,14 +27,15 @@ MVPではSSE（Server-Sent Events）を採用する。
 
 ## 接続方式
 
-| 項目 | 方針 |
-|------|------|
-| プロトコル | SSE |
-| エンドポイント | `GET /api/events` |
-| 方向 | サーバ→クライアントの単方向 |
-| 再接続 | Web UIが自動で再接続する |
+| 項目           | 方針                        |
+| -------------- | --------------------------- |
+| プロトコル     | SSE                         |
+| エンドポイント | `GET /api/events`           |
+| 方向           | サーバ→クライアントの単方向 |
+| 再接続         | Web UIが自動で再接続する    |
 
 注:
+
 - 再接続後、Web UIは必要な状態をAPIで再取得する。
 - MVPではイベントの永続バックログは持たない。
 
@@ -42,13 +43,13 @@ MVPではSSE（Server-Sent Events）を採用する。
 
 ## イベント種別（MVP）
 
-| event | 発生条件 | 主な用途 |
-|-------|----------|----------|
-| run.output | stdout/stderr/metaの出力が出た | ログ表示 |
-| run.status_changed | runの状態が変わった | 実行状態の反映 |
-| check.status_changed | checkの状態が変わった | DoD結果の反映 |
-| scope_violation.created | scope違反を検出した | 承認待ちの提示 |
-| scope_violation.decided | 承認/却下が確定した | needs_reviewの反映 |
+| event                   | 発生条件                       | 主な用途           |
+| ----------------------- | ------------------------------ | ------------------ |
+| run.output              | stdout/stderr/metaの出力が出た | ログ表示           |
+| run.status_changed      | runの状態が変わった            | 実行状態の反映     |
+| check.status_changed    | checkの状態が変わった          | DoD結果の反映      |
+| scope_violation.created | scope違反を検出した            | 承認待ちの提示     |
+| scope_violation.decided | 承認/却下が確定した            | needs_reviewの反映 |
 
 ---
 
@@ -57,33 +58,34 @@ MVPではSSE（Server-Sent Events）を採用する。
 イベントのdataはJSONである。
 すべてのイベントは共通フィールドを持つ。
 
-| フィールド | 必須 | 説明 |
-|-----------|:---:|------|
-| id | ○ | イベントID（単調増加） |
-| type | ○ | event種別 |
-| timestamp | ○ | 発生時刻 |
+| フィールド | 必須 | 説明                   |
+| ---------- | :--: | ---------------------- |
+| id         |  ○   | イベントID（単調増加） |
+| type       |  ○   | event種別              |
+| timestamp  |  ○   | 発生時刻               |
 
 ---
 
 ## run.output
 
-| フィールド | 必須 | 説明 |
-|-----------|:---:|------|
-| run_id | ○ | 対象run |
-| stream | ○ | stdout / stderr / meta |
-| data | ○ | 出力テキスト |
+| フィールド | 必須 | 説明                   |
+| ---------- | :--: | ---------------------- |
+| run_id     |  ○   | 対象run                |
+| stream     |  ○   | stdout / stderr / meta |
+| data       |  ○   | 出力テキスト           |
 
 注:
+
 - 受信済みログの正はログファイルである（→ログ保存）。
 
 ---
 
 ## エラー時の扱い
 
-| 事象 | 挙動 |
-|------|------|
-| SSE切断 | Web UIが再接続する |
-| Daemon再起動 | Web UIが状態を再取得する |
+| 事象         | 挙動                              |
+| ------------ | --------------------------------- |
+| SSE切断      | Web UIが再接続する                |
+| Daemon再起動 | Web UIが状態を再取得する          |
 | イベント欠落 | Web UIがrun詳細とログを再取得する |
 
 ---

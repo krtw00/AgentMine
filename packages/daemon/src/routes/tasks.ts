@@ -60,7 +60,7 @@ tasksRouter.get("/", async (c) => {
   const statusFilter = c.req.query("status");
   const parentIdFilter = c.req.query("parent_id");
 
-  let query = db.select().from(tasks).where(eq(tasks.projectId, projectId));
+  const query = db.select().from(tasks).where(eq(tasks.projectId, projectId));
 
   const result = await query;
 
@@ -68,10 +68,7 @@ tasksRouter.get("/", async (c) => {
   const tasksWithStatus = await Promise.all(
     result.map(async (task) => {
       // このタスクのruns取得
-      const taskRuns = await db
-        .select()
-        .from(runs)
-        .where(eq(runs.taskId, task.id));
+      const taskRuns = await db.select().from(runs).where(eq(runs.taskId, task.id));
 
       // 依存タスクの状態取得
       const deps = await db
@@ -81,10 +78,7 @@ tasksRouter.get("/", async (c) => {
 
       const depsWithStatus = await Promise.all(
         deps.map(async (dep) => {
-          const depTask = await db
-            .select()
-            .from(tasks)
-            .where(eq(tasks.id, dep.dependsOnTaskId));
+          const depTask = await db.select().from(tasks).where(eq(tasks.id, dep.dependsOnTaskId));
           // 簡易的にcancelledAtで判定
           return {
             dependsOnTaskId: dep.dependsOnTaskId,
@@ -93,11 +87,7 @@ tasksRouter.get("/", async (c) => {
         })
       );
 
-      const { status, reasons } = deriveTaskStatus(
-        task,
-        taskRuns,
-        depsWithStatus
-      );
+      const { status, reasons } = deriveTaskStatus(task, taskRuns, depsWithStatus);
 
       return {
         ...task,
@@ -128,10 +118,7 @@ tasksRouter.post("/", async (c) => {
 
   // バリデーション
   if (!title) {
-    return c.json(
-      { error: { code: "VALIDATION_ERROR", message: "title is required" } },
-      400
-    );
+    return c.json({ error: { code: "VALIDATION_ERROR", message: "title is required" } }, 400);
   }
   if (!writeScope || !Array.isArray(writeScope) || writeScope.length === 0) {
     return c.json(
@@ -171,10 +158,7 @@ tasksRouter.post("/", async (c) => {
     }
   }
 
-  return c.json(
-    { data: { ...newTask, status: "ready", reasons: [] } },
-    201
-  );
+  return c.json({ data: { ...newTask, status: "ready", reasons: [] } }, 201);
 });
 
 // GET /api/tasks/:id - 単体取得
@@ -192,17 +176,11 @@ tasksRouter.get("/:id", async (c) => {
   const taskRuns = await db.select().from(runs).where(eq(runs.taskId, id));
 
   // 依存取得
-  const deps = await db
-    .select()
-    .from(taskDependencies)
-    .where(eq(taskDependencies.taskId, id));
+  const deps = await db.select().from(taskDependencies).where(eq(taskDependencies.taskId, id));
 
   const dependencies = await Promise.all(
     deps.map(async (dep) => {
-      const depTask = await db
-        .select()
-        .from(tasks)
-        .where(eq(tasks.id, dep.dependsOnTaskId));
+      const depTask = await db.select().from(tasks).where(eq(tasks.id, dep.dependsOnTaskId));
       return {
         taskId: dep.dependsOnTaskId,
         title: depTask[0]?.title ?? "",
@@ -250,11 +228,7 @@ tasksRouter.patch("/:id", async (c) => {
   if (body.description !== undefined) updateData.description = body.description;
   if (body.writeScope !== undefined) updateData.writeScope = body.writeScope;
 
-  const result = await db
-    .update(tasks)
-    .set(updateData)
-    .where(eq(tasks.id, id))
-    .returning();
+  const result = await db.update(tasks).set(updateData).where(eq(tasks.id, id)).returning();
 
   if (result.length === 0) {
     return c.json({ error: { code: "NOT_FOUND", message: "Task not found" } }, 404);
@@ -273,10 +247,7 @@ tasksRouter.post("/:id/cancel", async (c) => {
   }
 
   if (existing[0]!.cancelledAt) {
-    return c.json(
-      { error: { code: "CONFLICT", message: "Task already cancelled" } },
-      409
-    );
+    return c.json({ error: { code: "CONFLICT", message: "Task already cancelled" } }, 409);
   }
 
   const now = new Date().toISOString();
