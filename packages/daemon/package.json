@@ -16,6 +16,7 @@
     "@agentmine/shared": "workspace:*",
     "@hono/node-server": "^1.13.8",
     "hono": "^4.6.16",
+    "drizzle-orm": "^0.38.3",
     "ignore": "^7.0.5"
   },
   "devDependencies": {

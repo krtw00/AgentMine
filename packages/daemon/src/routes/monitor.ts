@@ -7,135 +7,14 @@ import {
   taskDependencies,
   checks,
   scopeViolations,
+  projects,
   eq,
   and,
-  or,
-  sql,
 } from "@agentmine/db";
+import { inArray } from "drizzle-orm";
+import { deriveTaskStatus } from "../utils/task-status";
 
 export const monitorRouter = new Hono();
-
-// Task状態を導出する関数（tasks.tsと同様だが、より詳細な理由コードを返す）
-async function deriveTaskStatusWithReasons(
-  task: typeof tasks.$inferSelect,
-  taskRuns: (typeof runs.$inferSelect)[],
-  dependencies: { dependsOnTaskId: number; status: string }[]
-): Promise<{ status: string; reasons: string[] }> {
-  const reasons: string[] = [];
-
-  // キャンセル済み
-  if (task.cancelledAt) {
-    return { status: "cancelled", reasons: [] };
-  }
-
-  // 依存タスクがすべてdoneか確認
-  const blockedDeps = dependencies.filter((d) => d.status !== "done");
-  if (blockedDeps.length > 0) {
-    reasons.push("blocked_by_dependencies");
-    return { status: "blocked", reasons };
-  }
-
-  // 実行中のrunがあるか
-  const runningRun = taskRuns.find((r) => r.status === "running");
-  if (runningRun) {
-    return { status: "running", reasons: [] };
-  }
-
-  // 完了したrunがあるか
-  const completedRuns = taskRuns.filter((r) => r.status === "completed");
-  const failedRuns = taskRuns.filter((r) => r.status === "failed");
-
-  if (failedRuns.length > 0 && completedRuns.length === 0) {
-    reasons.push("run_failed");
-    return { status: "failed", reasons };
-  }
-
-  // 最新のrunを取得
-  const latestRun = taskRuns.length > 0
-    ? taskRuns.sort((a, b) => 
-        new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()
-      )[0]
-    : null;
-
-  // scope violationsをチェック
-  if (latestRun) {
-    const pendingViolations = await db
-      .select()
-      .from(scopeViolations)
-      .where(
-        and(
-          eq(scopeViolations.runId, latestRun.id),
-          eq(scopeViolations.approvedStatus, "pending")
-        )
-      );
-    
-    if (pendingViolations.length > 0) {
-      reasons.push("scope_violation_pending");
-    }
-
-    const rejectedViolations = await db
-      .select()
-      .from(scopeViolations)
-      .where(
-        and(
-          eq(scopeViolations.runId, latestRun.id),
-          eq(scopeViolations.approvedStatus, "rejected")
-        )
-      );
-    
-    if (rejectedViolations.length > 0) {
-      reasons.push("scope_violation_rejected");
-    }
-
-    // DoDチェック
-    const runChecks = await db
-      .select()
-      .from(checks)
-      .where(eq(checks.runId, latestRun.id));
-
-    // dodSnapshotから必須チェックを取得
-    const dodSnapshot = latestRun.dodSnapshot as
-      | { requiredChecks?: { check_key: string; required?: boolean }[] }
-      | null
-      | undefined;
-
-    if (dodSnapshot?.requiredChecks) {
-      const requiredCheckKeys = dodSnapshot.requiredChecks
-        .filter((c) => c.required !== false)
-        .map((c) => c.check_key);
-
-      const completedCheckKeys = runChecks
-        .filter((c) => c.status !== "pending")
-        .map((c) => c.checkKey);
-
-      const missingChecks = requiredCheckKeys.filter(
-        (key) => !completedCheckKeys.includes(key)
-      );
-      if (missingChecks.length > 0) {
-        reasons.push("dod_pending");
-      }
-
-      const failedChecks = runChecks.filter(
-        (c) => c.status === "failed" && requiredCheckKeys.includes(c.checkKey)
-      );
-      if (failedChecks.length > 0) {
-        reasons.push("dod_failed");
-      }
-    }
-  }
-
-  // needs_review判定
-  if (reasons.length > 0 || (completedRuns.length > 0 && latestRun)) {
-    return { status: "needs_review", reasons };
-  }
-
-  // runがない場合
-  if (taskRuns.length === 0) {
-    return { status: "ready", reasons: [] };
-  }
-
-  return { status: "open", reasons: [] };
-}
 
 // GET /api/projects/:projectId/monitor
 monitorRouter.get("/", async (c) => {
@@ -144,9 +23,23 @@ monitorRouter.get("/", async (c) => {
   // クエリパラメータ取得
   const statusFilter = c.req.query("status"); // run status: running/failed/completed
   const reasonCodesFilter = c.req.query("reason_codes"); // カンマ区切り: dod_failed,scope_violation_pending,etc.
-  const taskFilter = c.req.query("task"); // task_id または title検索
-  const agentProfileFilter = c.req.query("agent_profile"); // profile name
+  const taskFilter = c.req.query("task_id"); // task_id または title検索
+  const agentProfileFilter = c.req.query("agent_profile_id"); // profile name
   const sinceFilter = c.req.query("since"); // ISO timestamp
+
+  // プロジェクト情報取得（repoPath, baseBranch）
+  const projectResult = await db
+    .select()
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .limit(1);
+
+  if (projectResult.length === 0) {
+    return c.json({ error: "Project not found" }, 404);
+  }
+
+  const project = projectResult[0]!;
+  const { repoPath, baseBranch } = project;
 
   // 全タスク取得
   const allTasks = await db
@@ -154,13 +47,11 @@ monitorRouter.get("/", async (c) => {
     .from(tasks)
     .where(eq(tasks.projectId, projectId));
 
-  // 全runs取得（フィルタ適用前）
-  // まず全runsを取得してからフィルタリング
-  let allRuns = await db.select().from(runs);
-  
-  // taskIdでフィルタ
+  // taskIdでフィルタしてruns取得
   const taskIds = allTasks.map((t) => t.id);
-  allRuns = allRuns.filter((r) => taskIds.includes(r.taskId));
+  let allRuns = taskIds.length > 0
+    ? await db.select().from(runs).where(inArray(runs.taskId, taskIds))
+    : [];
   
   // sinceフィルタ適用
   if (sinceFilter) {
@@ -180,56 +71,107 @@ monitorRouter.get("/", async (c) => {
     });
   }
 
-  // 各タスクの状態を導出
-  const tasksWithStatus = await Promise.all(
-    allTasks.map(async (task) => {
-      // このタスクのruns取得
-      let taskRuns = allRuns.filter((r) => r.taskId === task.id);
+  // 一括取得: taskDependencies
+  const allTaskDependencies = taskIds.length > 0
+    ? await db
+        .select()
+        .from(taskDependencies)
+        .where(inArray(taskDependencies.taskId, taskIds))
+    : [];
+  
+  // taskId -> taskDependencies[] のMapを作成
+  const taskDependenciesMap = new Map<number, (typeof taskDependencies.$inferSelect)[]>();
+  allTaskDependencies.forEach((dep) => {
+    const existing = taskDependenciesMap.get(dep.taskId) || [];
+    existing.push(dep);
+    taskDependenciesMap.set(dep.taskId, existing);
+  });
+
+  // 一括取得: scopeViolations と checks
+  const runIds = allRuns.map((r) => r.id);
+  const [allScopeViolations, allChecks] = await Promise.all([
+    runIds.length > 0
+      ? db
+          .select()
+          .from(scopeViolations)
+          .where(inArray(scopeViolations.runId, runIds))
+      : Promise.resolve([]),
+    runIds.length > 0
+      ? db
+          .select()
+          .from(checks)
+          .where(inArray(checks.runId, runIds))
+      : Promise.resolve([]),
+  ]);
+
+  // runId -> scopeViolations[] のMapを作成
+  const scopeViolationsMap = new Map<number, (typeof scopeViolations.$inferSelect)[]>();
+  allScopeViolations.forEach((violation) => {
+    const existing = scopeViolationsMap.get(violation.runId) || [];
+    existing.push(violation);
+    scopeViolationsMap.set(violation.runId, existing);
+  });
+
+  // runId -> checks[] のMapを作成
+  const checksMap = new Map<number, (typeof checks.$inferSelect)[]>();
+  allChecks.forEach((check) => {
+    const existing = checksMap.get(check.runId) || [];
+    existing.push(check);
+    checksMap.set(check.runId, existing);
+  });
+
+  // 各タスクの状態を導出（フィルタ適用前の全runsで計算）
+  const tasksWithStatus = allTasks.map((task) => {
+    // このタスクのruns取得（フィルタ適用前）
+    const taskRuns = allRuns.filter((r) => r.taskId === task.id);
+
+    // 依存タスクの状態取得（Mapから取得）
+    const deps = taskDependenciesMap.get(task.id) || [];
+
+    const depsWithStatus = deps.map((dep) => {
+      const depTask = allTasks.find((t) => t.id === dep.dependsOnTaskId);
+      // 簡易的にcancelledAtで判定
+      return {
+        dependsOnTaskId: dep.dependsOnTaskId,
+        status: depTask?.cancelledAt ? "cancelled" : "open",
+      };
+    });
+
+    const { status, reasons } = deriveTaskStatus(
+      task,
+      taskRuns,
+      depsWithStatus,
+      {
+        repoPath,
+        baseBranch,
+        scopeViolationsMap,
+        checksMap,
+      }
+    );
+
+      // フィルタ適用前の全runsを保持
+      let filteredRuns = taskRuns;
 
       // statusフィルタ適用（run status）
       if (statusFilter) {
-        taskRuns = taskRuns.filter((r) => r.status === statusFilter);
+        filteredRuns = filteredRuns.filter((r) => r.status === statusFilter);
       }
 
       // agent_profileフィルタ適用
-      if (agentProfileFilter && taskRuns.length > 0) {
-        taskRuns = taskRuns.filter((r) => {
+      if (agentProfileFilter && filteredRuns.length > 0) {
+        filteredRuns = filteredRuns.filter((r) => {
           const profileName = profileNameMap.get(r.agentProfileId);
           return profileName === agentProfileFilter;
         });
       }
 
-      // 依存タスクの状態取得
-      const deps = await db
-        .select()
-        .from(taskDependencies)
-        .where(eq(taskDependencies.taskId, task.id));
-
-      const depsWithStatus = await Promise.all(
-        deps.map(async (dep) => {
-          const depTask = allTasks.find((t) => t.id === dep.dependsOnTaskId);
-          // 簡易的にcancelledAtで判定
-          return {
-            dependsOnTaskId: dep.dependsOnTaskId,
-            status: depTask?.cancelledAt ? "cancelled" : "open",
-          };
-        })
-      );
-
-      const { status, reasons } = await deriveTaskStatusWithReasons(
-        task,
-        taskRuns,
-        depsWithStatus
-      );
-
       return {
         ...task,
         status,
         reasons,
-        runs: taskRuns,
+        runs: filteredRuns,
       };
-    })
-  );
+    });
 
   // taskフィルタ適用（task_id または title検索）
   let filteredTasks = tasksWithStatus;
@@ -279,39 +221,14 @@ monitorRouter.get("/", async (c) => {
     }
   });
 
-  // 集計情報を計算
-  const allTasksForSummary = await Promise.all(
-    allTasks.map(async (task) => {
-      const taskRuns = allRuns.filter((r) => r.taskId === task.id);
-      const deps = await db
-        .select()
-        .from(taskDependencies)
-        .where(eq(taskDependencies.taskId, task.id));
-      const depsWithStatus = await Promise.all(
-        deps.map(async (dep) => {
-          const depTask = allTasks.find((t) => t.id === dep.dependsOnTaskId);
-          return {
-            dependsOnTaskId: dep.dependsOnTaskId,
-            status: depTask?.cancelledAt ? "cancelled" : "open",
-          };
-        })
-      );
-      const { status, reasons } = await deriveTaskStatusWithReasons(
-        task,
-        taskRuns,
-        depsWithStatus
-      );
-      return { status, reasons };
-    })
-  );
-
+  // 集計情報を計算（tasksWithStatusから再利用）
   const summary = {
     total_tasks: allTasks.length,
     running_runs: allRuns.filter((r) => r.status === "running").length,
-    needs_review_tasks: allTasksForSummary.filter(
+    needs_review_tasks: tasksWithStatus.filter(
       (t) => t.status === "needs_review"
     ).length,
-    failed_tasks: allTasksForSummary.filter((t) => t.status === "failed").length,
+    failed_tasks: tasksWithStatus.filter((t) => t.status === "failed").length,
   };
 
   // 時間分布（overview）を計算

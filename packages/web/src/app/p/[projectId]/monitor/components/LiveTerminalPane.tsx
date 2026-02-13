@@ -1,6 +1,7 @@
 import { useRef, useEffect } from "react";
 import { type OutputLine } from "@/lib/store";
-import { formatDuration, parseStreamJsonLine } from "../utils";
+import { formatDuration } from "../utils";
+import { parseStreamJsonLine } from "@/components/TerminalOutput";
 
 type ExtendedRun = {
   id: number;

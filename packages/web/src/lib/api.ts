@@ -126,8 +126,8 @@ export const monitorApi = {
     params?: {
       status?: string;
       reason_codes?: string;
-      task?: string;
-      agent_profile?: string;
+      task_id?: string;
+      agent_profile_id?: string;
       since?: string;
     }
   ) => {

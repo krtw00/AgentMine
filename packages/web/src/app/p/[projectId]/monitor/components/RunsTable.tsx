@@ -1,6 +1,7 @@
 import { type ExtendedRun } from "../page";
-import { Badge } from "./Badge";
-import { formatDuration, formatTime, STATUS_COLORS } from "../utils";
+import { StatusBadge } from "@/components/StatusBadge";
+import { formatDuration, formatTime } from "../utils";
+import { STATUS_COLORS } from "@/components/design-tokens";
 
 interface RunsTableProps {
   runs: ExtendedRun[];
@@ -99,7 +100,7 @@ export function RunsTable({
                   onClick={() => onRunSelect(run)}
                 >
                   <td className="px-2.5 py-1.5 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
-                    <Badge status={run.status} />
+                    <StatusBadge status={run.status} />
                   </td>
                   <td className="px-2.5 py-1.5 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
                     <span className="text-[#d4d4d4]">タスク #{run.taskId}: {run.taskTitle}</span>
@@ -117,7 +118,7 @@ export function RunsTable({
                     {formatDuration(run.startedAt, run.finishedAt)}
                   </td>
                   <td className="px-2.5 py-1.5 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
-                    <Badge status={run.dodStatus || "pending"} type="dod" />
+                    <StatusBadge status={run.dodStatus || "pending"} />
                   </td>
                   <td className="px-2.5 py-1.5 border-b font-mono text-center" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
                     {run.scopeViolationCount || 0}

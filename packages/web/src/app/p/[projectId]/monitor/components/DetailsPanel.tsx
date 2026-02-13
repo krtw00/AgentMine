@@ -1,7 +1,7 @@
 import { type ExtendedRun } from "../page";
 import { type OutputLine } from "@/lib/store";
-import { TerminalOutput } from "./TerminalOutput";
-import { Badge } from "./Badge";
+import { TerminalOutput } from "@/components/TerminalOutput";
+import { StatusBadge } from "@/components/StatusBadge";
 import { formatDuration, formatTime } from "../utils";
 
 interface DetailsPanelProps {
@@ -82,20 +82,20 @@ export function DetailsPanel({
             <div className="text-[#a0a0a0]">タスクID</div><div className="font-mono">{run.taskId}</div>
             <div className="text-[#a0a0a0]">実行ID</div><div className="font-mono">{run.id}</div>
             <div className="text-[#a0a0a0]">プロファイル</div><div>{run.agentProfileName}</div>
-            <div className="text-[#a0a0a0]">ステータス</div><div><Badge status={run.status} /></div>
+            <div className="text-[#a0a0a0]">ステータス</div><div><StatusBadge status={run.status} /></div>
           </div>
         )}
         {activeTab === "timing" && (
           <div className="grid gap-2 text-xs" style={{ gridTemplateColumns: "140px 1fr" }}>
-            <div className="text-[#a0a0a0]">スコープ適用</div><div className="font-mono">120ms</div>
+            <div className="text-[#a0a0a0]">スコープ適用</div><div className="font-mono text-[#a0a0a0]">未実装</div>
             <div className="text-[#a0a0a0]">ランナー実行</div><div className="font-mono">{formatDuration(run.startedAt, run.finishedAt)}</div>
-            <div className="text-[#a0a0a0]">後処理チェック</div><div className="font-mono">1.2s</div>
-            <div className="text-[#a0a0a0]">完了定義チェック</div><div className="font-mono">3.8s</div>
+            <div className="text-[#a0a0a0]">後処理チェック</div><div className="font-mono text-[#a0a0a0]">未実装</div>
+            <div className="text-[#a0a0a0]">完了定義チェック</div><div className="font-mono text-[#a0a0a0]">未実装</div>
           </div>
         )}
         {activeTab === "checks" && (
           <div className="grid gap-2 text-xs" style={{ gridTemplateColumns: "140px 1fr" }}>
-            <div className="text-[#a0a0a0]">完了定義</div><div><Badge status={run.dodStatus || "pending"} type="dod" /></div>
+            <div className="text-[#a0a0a0]">完了定義</div><div><StatusBadge status={run.dodStatus || "pending"} /></div>
             <div className="text-[#a0a0a0]">チェック項目</div><div className="font-mono">lint: pending / test: pending</div>
           </div>
         )}
@@ -104,8 +104,22 @@ export function DetailsPanel({
             <div className="text-[#a0a0a0]">件数</div><div className="font-mono">{run.scopeViolationCount || 0}</div>
             <div className="text-[#a0a0a0]">操作</div>
             <div className="flex gap-2">
-              <button className="px-2 py-1 text-xs rounded border cursor-pointer" style={{ background: "#2d2d2d", borderColor: "#3c3c3c", color: "#d4d4d4" }}>承認</button>
-              <button className="px-2 py-1 text-xs rounded border cursor-pointer" style={{ background: "#2d2d2d", borderColor: "#3c3c3c", color: "#d4d4d4" }}>却下</button>
+              <button 
+                disabled
+                className="px-2 py-1 text-xs rounded border cursor-not-allowed opacity-50" 
+                style={{ background: "#2d2d2d", borderColor: "#3c3c3c", color: "#a0a0a0" }}
+                title="未実装"
+              >
+                承認
+              </button>
+              <button 
+                disabled
+                className="px-2 py-1 text-xs rounded border cursor-not-allowed opacity-50" 
+                style={{ background: "#2d2d2d", borderColor: "#3c3c3c", color: "#a0a0a0" }}
+                title="未実装"
+              >
+                却下
+              </button>
             </div>
           </div>
         )}
