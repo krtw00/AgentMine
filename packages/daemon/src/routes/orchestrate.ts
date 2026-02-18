@@ -150,10 +150,7 @@ ${command}`;
       profile[0]!.config || undefined
     )
     .catch(async (err) => {
-      console.error(
-        `Failed to start coordinator run ${coordinatorRunId}:`,
-        err
-      );
+      console.error(`Failed to start coordinator run ${coordinatorRunId}:`, err);
       await db
         .update(runs)
         .set({ status: "failed", finishedAt: new Date().toISOString() })

@@ -53,7 +53,10 @@ export function FilterBar({
   };
 
   return (
-    <div className="px-3 py-2 border-b flex items-center gap-3 flex-wrap" style={{ background: "#252526", borderColor: "#3c3c3c" }}>
+    <div
+      className="px-3 py-2 border-b flex items-center gap-3 flex-wrap"
+      style={{ background: "#252526", borderColor: "#3c3c3c" }}
+    >
       {/* Status Filter */}
       <div className="flex items-center gap-2">
         <span className="text-[11px] text-[#a0a0a0]">ステータス:</span>
@@ -128,7 +131,10 @@ export function FilterBar({
       </div>
 
       {/* Clear All */}
-      {(statusFilters.size > 0 || reasonCodeFilters.size > 0 || taskFilter || agentProfileFilters.size > 0) && (
+      {(statusFilters.size > 0 ||
+        reasonCodeFilters.size > 0 ||
+        taskFilter ||
+        agentProfileFilters.size > 0) && (
         <button
           onClick={() => {
             setStatusFilters(new Set());
@@ -144,4 +150,3 @@ export function FilterBar({
     </div>
   );
 }
-

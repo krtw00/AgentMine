@@ -124,9 +124,7 @@ class RunnerManager {
 
     // logRefをDBに記録
     const logRef = join(LOG_DIR, `${runId}.jsonl`);
-    await db.update(runs)
-      .set({ logRef })
-      .where(eq(runs.id, runId));
+    await db.update(runs).set({ logRef }).where(eq(runs.id, runId));
 
     eventEmitter.emitRunEvent("run.started", { runId });
 

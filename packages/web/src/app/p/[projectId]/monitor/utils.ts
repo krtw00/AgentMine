@@ -10,4 +10,3 @@ export const formatTime = (dateStr: string) => {
   const d = new Date(dateStr);
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 };
-

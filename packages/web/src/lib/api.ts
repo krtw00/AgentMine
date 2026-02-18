@@ -110,8 +110,7 @@ export const orchestrateApi = {
 
 // Settings
 export const settingsApi = {
-  get: (projectId: number) =>
-    fetchApi<Setting[]>(`/projects/${projectId}/settings`),
+  get: (projectId: number) => fetchApi<Setting[]>(`/projects/${projectId}/settings`),
   update: (projectId: number, key: string, value: unknown) =>
     fetchApi<Setting>(`/projects/${projectId}/settings`, {
       method: "PATCH",

@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 import { type OutputLine } from "@/lib/store";
 import { LiveTerminalPane } from "./LiveTerminalPane";
-import { formatDuration } from "../utils";
 
 type ExtendedRun = {
   id: number;
@@ -51,14 +50,9 @@ export function LiveTerminalGrid({ runs, runOutputs }: LiveTerminalGridProps) {
       </div>
       <div className={`grid ${gridCols} gap-2`} style={{ maxHeight: 320 }}>
         {liveRuns.map((run) => (
-          <LiveTerminalPane
-            key={run.id}
-            run={run}
-            lines={runOutputs.get(run.id) ?? []}
-          />
+          <LiveTerminalPane key={run.id} run={run} lines={runOutputs.get(run.id) ?? []} />
         ))}
       </div>
     </div>
   );
 }
-

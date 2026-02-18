@@ -46,10 +46,7 @@ projectsRouter.post("/", async (c) => {
 
   const pathCheck = validateRepoPath(repoPath);
   if (!pathCheck.ok) {
-    return c.json(
-      { error: { code: "INVALID_REPO_PATH", message: pathCheck.message } },
-      400
-    );
+    return c.json({ error: { code: "INVALID_REPO_PATH", message: pathCheck.message } }, 400);
   }
 
   const now = new Date().toISOString();
@@ -100,10 +97,7 @@ projectsRouter.patch("/:id", async (c) => {
   if (body.repoPath !== undefined) {
     const pathCheck = validateRepoPath(body.repoPath);
     if (!pathCheck.ok) {
-      return c.json(
-        { error: { code: "INVALID_REPO_PATH", message: pathCheck.message } },
-        400
-      );
+      return c.json({ error: { code: "INVALID_REPO_PATH", message: pathCheck.message } }, 400);
     }
     updateData.repoPath = body.repoPath;
   }

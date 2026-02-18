@@ -28,11 +28,7 @@ monitorRouter.get("/", async (c) => {
   const sinceFilter = c.req.query("since"); // ISO timestamp
 
   // プロジェクト情報取得（repoPath, baseBranch）
-  const projectResult = await db
-    .select()
-    .from(projects)
-    .where(eq(projects.id, projectId))
-    .limit(1);
+  const projectResult = await db.select().from(projects).where(eq(projects.id, projectId)).limit(1);
 
   if (projectResult.length === 0) {
     return c.json({ error: "Project not found" }, 404);
@@ -42,17 +38,13 @@ monitorRouter.get("/", async (c) => {
   const { repoPath, baseBranch } = project;
 
   // 全タスク取得
-  const allTasks = await db
-    .select()
-    .from(tasks)
-    .where(eq(tasks.projectId, projectId));
+  const allTasks = await db.select().from(tasks).where(eq(tasks.projectId, projectId));
 
   // taskIdでフィルタしてruns取得
   const taskIds = allTasks.map((t) => t.id);
-  let allRuns = taskIds.length > 0
-    ? await db.select().from(runs).where(inArray(runs.taskId, taskIds))
-    : [];
-  
+  let allRuns =
+    taskIds.length > 0 ? await db.select().from(runs).where(inArray(runs.taskId, taskIds)) : [];
+
   // sinceフィルタ適用
   if (sinceFilter) {
     allRuns = allRuns.filter((r) => r.startedAt >= sinceFilter);
@@ -65,20 +57,18 @@ monitorRouter.get("/", async (c) => {
       .select()
       .from(agentProfiles)
       .where(eq(agentProfiles.projectId, projectId));
-    
+
     profiles.forEach((p) => {
       profileNameMap.set(p.id, p.name);
     });
   }
 
   // 一括取得: taskDependencies
-  const allTaskDependencies = taskIds.length > 0
-    ? await db
-        .select()
-        .from(taskDependencies)
-        .where(inArray(taskDependencies.taskId, taskIds))
-    : [];
-  
+  const allTaskDependencies =
+    taskIds.length > 0
+      ? await db.select().from(taskDependencies).where(inArray(taskDependencies.taskId, taskIds))
+      : [];
+
   // taskId -> taskDependencies[] のMapを作成
   const taskDependenciesMap = new Map<number, (typeof taskDependencies.$inferSelect)[]>();
   allTaskDependencies.forEach((dep) => {
@@ -91,16 +81,10 @@ monitorRouter.get("/", async (c) => {
   const runIds = allRuns.map((r) => r.id);
   const [allScopeViolations, allChecks] = await Promise.all([
     runIds.length > 0
-      ? db
-          .select()
-          .from(scopeViolations)
-          .where(inArray(scopeViolations.runId, runIds))
+      ? db.select().from(scopeViolations).where(inArray(scopeViolations.runId, runIds))
       : Promise.resolve([]),
     runIds.length > 0
-      ? db
-          .select()
-          .from(checks)
-          .where(inArray(checks.runId, runIds))
+      ? db.select().from(checks).where(inArray(checks.runId, runIds))
       : Promise.resolve([]),
   ]);
 
@@ -137,41 +121,36 @@ monitorRouter.get("/", async (c) => {
       };
     });
 
-    const { status, reasons } = deriveTaskStatus(
-      task,
-      taskRuns,
-      depsWithStatus,
-      {
-        repoPath,
-        baseBranch,
-        scopeViolationsMap,
-        checksMap,
-      }
-    );
-
-      // フィルタ適用前の全runsを保持
-      let filteredRuns = taskRuns;
-
-      // statusフィルタ適用（run status）
-      if (statusFilter) {
-        filteredRuns = filteredRuns.filter((r) => r.status === statusFilter);
-      }
-
-      // agent_profileフィルタ適用
-      if (agentProfileFilter && filteredRuns.length > 0) {
-        filteredRuns = filteredRuns.filter((r) => {
-          const profileName = profileNameMap.get(r.agentProfileId);
-          return profileName === agentProfileFilter;
-        });
-      }
-
-      return {
-        ...task,
-        status,
-        reasons,
-        runs: filteredRuns,
-      };
+    const { status, reasons } = deriveTaskStatus(task, taskRuns, depsWithStatus, {
+      repoPath,
+      baseBranch,
+      scopeViolationsMap,
+      checksMap,
     });
+
+    // フィルタ適用前の全runsを保持
+    let filteredRuns = taskRuns;
+
+    // statusフィルタ適用（run status）
+    if (statusFilter) {
+      filteredRuns = filteredRuns.filter((r) => r.status === statusFilter);
+    }
+
+    // agent_profileフィルタ適用
+    if (agentProfileFilter && filteredRuns.length > 0) {
+      filteredRuns = filteredRuns.filter((r) => {
+        const profileName = profileNameMap.get(r.agentProfileId);
+        return profileName === agentProfileFilter;
+      });
+    }
+
+    return {
+      ...task,
+      status,
+      reasons,
+      runs: filteredRuns,
+    };
+  });
 
   // taskフィルタ適用（task_id または title検索）
   let filteredTasks = tasksWithStatus;
@@ -197,9 +176,9 @@ monitorRouter.get("/", async (c) => {
   }
 
   // 子タスクを含む階層構造を構築
-  type TaskWithChildren = (typeof filteredTasks[0]) & { children: TaskWithChildren[] };
+  type TaskWithChildren = (typeof filteredTasks)[0] & { children: TaskWithChildren[] };
   const taskMap = new Map<number, TaskWithChildren>();
-  
+
   filteredTasks.forEach((task) => {
     taskMap.set(task.id, { ...task, children: [] });
   });
@@ -225,9 +204,7 @@ monitorRouter.get("/", async (c) => {
   const summary = {
     total_tasks: allTasks.length,
     running_runs: allRuns.filter((r) => r.status === "running").length,
-    needs_review_tasks: tasksWithStatus.filter(
-      (t) => t.status === "needs_review"
-    ).length,
+    needs_review_tasks: tasksWithStatus.filter((t) => t.status === "needs_review").length,
     failed_tasks: tasksWithStatus.filter((t) => t.status === "failed").length,
   };
 
@@ -264,4 +241,3 @@ monitorRouter.get("/", async (c) => {
     },
   });
 });
-

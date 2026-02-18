@@ -13,4 +13,3 @@ export function useSettings(projectId: number): UseQueryResult<Setting[], Error>
     },
   });
 }
-

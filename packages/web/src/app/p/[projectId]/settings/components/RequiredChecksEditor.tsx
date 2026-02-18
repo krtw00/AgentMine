@@ -72,7 +72,10 @@ export function RequiredChecksEditor({ projectId }: { projectId: number }) {
   };
 
   // ヘルパー関数: チェック項目の更新
-  const updateCheck = (checkKey: string, updater: (check: DodRequiredCheck) => DodRequiredCheck) => {
+  const updateCheck = (
+    checkKey: string,
+    updater: (check: DodRequiredCheck) => DodRequiredCheck
+  ) => {
     setChecks(checks.map((c) => (c.check_key === checkKey ? updater(c) : c)));
   };
 
@@ -94,17 +97,19 @@ export function RequiredChecksEditor({ projectId }: { projectId: number }) {
   const handleAdd = () => {
     const trimmedLabel = newLabel.trim();
     const trimmedCommand = newCommand.trim();
-    
+
     if (trimmedLabel && trimmedCommand) {
       const checkKey = slugify(trimmedLabel);
       const error = validateCheckKey(checkKey);
       if (error) {
-        setDuplicateError(`同じラベル "${trimmedLabel}" から生成されるcheck_key "${checkKey}" が既に存在します。`);
+        setDuplicateError(
+          `同じラベル "${trimmedLabel}" から生成されるcheck_key "${checkKey}" が既に存在します。`
+        );
         return;
       }
-      
+
       const timeoutSec = parseTimeout(newTimeoutSec);
-      
+
       const newCheck: DodRequiredCheck = {
         check_key: checkKey,
         label: trimmedLabel,
@@ -112,7 +117,7 @@ export function RequiredChecksEditor({ projectId }: { projectId: number }) {
         required: newRequired,
         ...(timeoutSec && { timeout_sec: timeoutSec }),
       };
-      
+
       setChecks([...checks, newCheck]);
       setNewLabel("");
       setNewCommand("");
@@ -128,14 +133,16 @@ export function RequiredChecksEditor({ projectId }: { projectId: number }) {
   const handleUpdateLabel = (checkKey: string, newLabel: string) => {
     const trimmedLabel = newLabel.trim();
     if (!trimmedLabel) return;
-    
+
     const newCheckKey = slugify(trimmedLabel);
     const error = validateCheckKey(newCheckKey, checkKey);
     if (error) {
-      setDuplicateError(`同じラベル "${trimmedLabel}" から生成されるcheck_key "${newCheckKey}" が既に存在します。`);
+      setDuplicateError(
+        `同じラベル "${trimmedLabel}" から生成されるcheck_key "${newCheckKey}" が既に存在します。`
+      );
       return;
     }
-    
+
     updateCheck(checkKey, (c) => ({ ...c, label: trimmedLabel, check_key: newCheckKey }));
   };
 
@@ -151,7 +158,7 @@ export function RequiredChecksEditor({ projectId }: { projectId: number }) {
     const parsedTimeout = parseTimeout(timeoutSec);
     updateCheck(checkKey, (c) => {
       if (parsedTimeout === undefined) {
-        const { timeout_sec, ...rest } = c;
+        const { timeout_sec: _timeout_sec, ...rest } = c;
         return rest;
       }
       return { ...c, timeout_sec: parsedTimeout };
@@ -166,7 +173,7 @@ export function RequiredChecksEditor({ projectId }: { projectId: number }) {
       setDuplicateError(`check_key "${duplicates[0]}" が重複しています。`);
       return;
     }
-    
+
     updateMutation.mutate(checks);
   };
 
@@ -241,12 +248,7 @@ export function RequiredChecksEditor({ projectId }: { projectId: number }) {
                 className="flex-shrink-0 text-zinc-400 hover:text-zinc-200 transition-colors"
                 aria-label={`${check.label} を削除`}
               >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -333,7 +335,9 @@ export function RequiredChecksEditor({ projectId }: { projectId: number }) {
       <div className="flex justify-end">
         <button
           onClick={handleSave}
-          disabled={updateMutation.isPending || JSON.stringify(checks) === JSON.stringify(currentChecks)}
+          disabled={
+            updateMutation.isPending || JSON.stringify(checks) === JSON.stringify(currentChecks)
+          }
           className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {updateMutation.isPending ? "保存中..." : "保存"}

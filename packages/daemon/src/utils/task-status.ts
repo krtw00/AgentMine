@@ -2,20 +2,16 @@ import { tasks, runs, scopeViolations, checks } from "@agentmine/db";
 import { execSync } from "child_process";
 
 // Gitでコミットがブランチに含まれているかを判定するヘルパー関数
-function isCommitInBranch(
-  commitSha: string | null,
-  branchName: string,
-  repoPath: string
-): boolean {
+function isCommitInBranch(commitSha: string | null, branchName: string, repoPath: string): boolean {
   if (!commitSha) {
     return false;
   }
   try {
     // git merge-base --is-ancestor でコミットがブランチの祖先か確認
-    execSync(
-      `git merge-base --is-ancestor "${commitSha}" "${branchName}"`,
-      { cwd: repoPath, stdio: "pipe" }
-    );
+    execSync(`git merge-base --is-ancestor "${commitSha}" "${branchName}"`, {
+      cwd: repoPath,
+      stdio: "pipe",
+    });
     return true;
   } catch {
     // エラー時は含まれていないと判定
@@ -47,13 +43,9 @@ function isDoDPassed(
     return true; // 必須チェックがない場合はpassedとみなす
   }
 
-  const completedCheckKeys = runChecks
-    .filter((c) => c.status !== "pending")
-    .map((c) => c.checkKey);
+  const completedCheckKeys = runChecks.filter((c) => c.status !== "pending").map((c) => c.checkKey);
 
-  const missingChecks = requiredCheckKeys.filter(
-    (key) => !completedCheckKeys.includes(key)
-  );
+  const missingChecks = requiredCheckKeys.filter((key) => !completedCheckKeys.includes(key));
   if (missingChecks.length > 0) {
     return false; // 必須チェックが未完了
   }
@@ -77,7 +69,7 @@ export interface DeriveTaskStatusOptions {
 
 /**
  * Task状態を導出する共通関数
- * 
+ *
  * @param task - タスク
  * @param taskRuns - タスクに関連するruns
  * @param dependencies - 依存タスクの状態配列
@@ -90,12 +82,7 @@ export function deriveTaskStatus(
   dependencies: { dependsOnTaskId: number; status: string }[],
   options: DeriveTaskStatusOptions = {}
 ): { status: string; reasons: string[] } {
-  const {
-    repoPath,
-    baseBranch,
-    scopeViolationsMap,
-    checksMap,
-  } = options;
+  const { repoPath, baseBranch, scopeViolationsMap, checksMap } = options;
 
   const reasons: string[] = [];
 
@@ -129,27 +116,24 @@ export function deriveTaskStatus(
   // 詳細な判定が可能な場合（monitor.ts用）
   if (repoPath && baseBranch && scopeViolationsMap && checksMap) {
     // 最新のrunを取得
-    const latestRun = taskRuns.length > 0
-      ? taskRuns.sort((a, b) => 
-          new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()
-        )[0]
-      : null;
+    const latestRun =
+      taskRuns.length > 0
+        ? taskRuns.sort(
+            (a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()
+          )[0]
+        : null;
 
     // scope violationsをチェック
     if (latestRun) {
       const allViolations = scopeViolationsMap.get(latestRun.id) || [];
-      const pendingViolations = allViolations.filter(
-        (v) => v.approvedStatus === "pending"
-      );
-      
+      const pendingViolations = allViolations.filter((v) => v.approvedStatus === "pending");
+
       if (pendingViolations.length > 0) {
         reasons.push("scope_violation_pending");
       }
 
-      const rejectedViolations = allViolations.filter(
-        (v) => v.approvedStatus === "rejected"
-      );
-      
+      const rejectedViolations = allViolations.filter((v) => v.approvedStatus === "rejected");
+
       if (rejectedViolations.length > 0) {
         reasons.push("scope_violation_rejected");
       }
@@ -172,9 +156,7 @@ export function deriveTaskStatus(
           .filter((c) => c.status !== "pending")
           .map((c) => c.checkKey);
 
-        const missingChecks = requiredCheckKeys.filter(
-          (key) => !completedCheckKeys.includes(key)
-        );
+        const missingChecks = requiredCheckKeys.filter((key) => !completedCheckKeys.includes(key));
         if (missingChecks.length > 0) {
           reasons.push("dod_pending");
         }
@@ -221,4 +203,3 @@ export function deriveTaskStatus(
 
   return { status: "open", reasons: [] };
 }
-

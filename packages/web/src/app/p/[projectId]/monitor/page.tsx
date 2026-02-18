@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
 import { tasksApi, agentProfilesApi, monitorApi, type Run, type MonitorTask } from "@/lib/api";
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
-import { useAppStore, type OutputLine } from "@/lib/store";
+import { useAppStore } from "@/lib/store";
 import { FilterBar } from "./components/FilterBar";
 import { LiveTerminalGrid } from "./components/LiveTerminalGrid";
 import { OverviewChart } from "./components/OverviewChart";
@@ -24,7 +24,9 @@ export default function MonitorPage() {
   const [selectedRunId, setSelectedRunId] = useState<number | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [detailsHidden, setDetailsHidden] = useState(true);
-  const [activeTab, setActiveTab] = useState<"output" | "meta" | "timing" | "checks" | "violations" | "git">("output");
+  const [activeTab, setActiveTab] = useState<
+    "output" | "meta" | "timing" | "checks" | "violations" | "git"
+  >("output");
   const [collapsedTasks, setCollapsedTasks] = useState<Set<number>>(new Set());
   const [taskForm, setTaskForm] = useState({ title: "", description: "", writeScope: "src/**" });
   const terminalRef = useRef<HTMLDivElement>(null);
@@ -115,7 +117,6 @@ export default function MonitorPage() {
     return allRuns.filter((run) => run.taskId === selectedTaskId);
   }, [allRuns, selectedTaskId]);
 
-
   // タイムライン計算（overviewから取得）
   const timelineData = useMemo(() => {
     if (!monitorData?.overview) return null;
@@ -168,7 +169,9 @@ export default function MonitorPage() {
   }, [monitorData]);
 
   const countRunsForTask = useCallback((task: MonitorTask): number => {
-    return task.runs.length + task.children.reduce((sum, child) => sum + countRunsForTask(child), 0);
+    return (
+      task.runs.length + task.children.reduce((sum, child) => sum + countRunsForTask(child), 0)
+    );
   }, []);
 
   if (monitorLoading) {
@@ -196,7 +199,6 @@ export default function MonitorPage() {
     );
   }
 
-
   return (
     <div
       className="h-full flex flex-col"
@@ -214,10 +216,20 @@ export default function MonitorPage() {
         <h2 className="text-[13px] font-semibold m-0">モニター（タスクツリー + テーブル）</h2>
         {monitorData && (
           <div className="flex items-center gap-3 text-[11px]">
-            <span className="text-[#a0a0a0]">総タスク: <strong className="text-[#d4d4d4]">{monitorData.summary.total_tasks}</strong></span>
-            <span className="text-[#a0a0a0]">実行中: <strong className="text-[#cca700]">{monitorData.summary.running_runs}</strong></span>
-            <span className="text-[#a0a0a0]">レビュー待ち: <strong className="text-[#cca700]">{monitorData.summary.needs_review_tasks}</strong></span>
-            <span className="text-[#a0a0a0]">失敗: <strong className="text-[#f14c4c]">{monitorData.summary.failed_tasks}</strong></span>
+            <span className="text-[#a0a0a0]">
+              総タスク:{" "}
+              <strong className="text-[#d4d4d4]">{monitorData.summary.total_tasks}</strong>
+            </span>
+            <span className="text-[#a0a0a0]">
+              実行中: <strong className="text-[#cca700]">{monitorData.summary.running_runs}</strong>
+            </span>
+            <span className="text-[#a0a0a0]">
+              レビュー待ち:{" "}
+              <strong className="text-[#cca700]">{monitorData.summary.needs_review_tasks}</strong>
+            </span>
+            <span className="text-[#a0a0a0]">
+              失敗: <strong className="text-[#f14c4c]">{monitorData.summary.failed_tasks}</strong>
+            </span>
           </div>
         )}
         <div className="flex-1" />

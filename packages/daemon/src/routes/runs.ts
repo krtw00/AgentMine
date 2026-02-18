@@ -310,7 +310,11 @@ runsRouter.get("/:id/logs", async (c) => {
       .split("\n")
       .filter((l) => l.trim())
       .flatMap((l) => {
-        try { return [JSON.parse(l)]; } catch { return []; }
+        try {
+          return [JSON.parse(l)];
+        } catch {
+          return [];
+        }
       });
     return c.json({ data: lines });
   } catch {

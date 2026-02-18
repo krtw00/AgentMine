@@ -1,10 +1,5 @@
 import { spawn, ChildProcess } from "child_process";
-import type {
-  RunnerAdapter,
-  RunStartOptions,
-  RunHandle,
-  RunOutputHandler,
-} from "./types";
+import type { RunnerAdapter, RunStartOptions, RunHandle, RunOutputHandler } from "./types";
 import { killProcess } from "./process-utils";
 
 export class CodexAdapter implements RunnerAdapter {

@@ -34,30 +34,45 @@ export function TaskTree({
         >
           <span
             className="w-3.5 text-center text-white/50 cursor-pointer"
-            onClick={(e) => { e.stopPropagation(); if (hasChildren) onToggleCollapse(task.id); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (hasChildren) onToggleCollapse(task.id);
+            }}
           >
             {hasChildren ? (isCollapsed ? "▸" : "▾") : "•"}
           </span>
-          <span className="text-[#d4d4d4]">タスク #{task.id}: {task.title}</span>
+          <span className="text-[#d4d4d4]">
+            タスク #{task.id}: {task.title}
+          </span>
           {task.status && (
-            <span className={`px-1.5 py-0.5 text-[10px] rounded border ${
-              task.status === "running" ? "text-[#cca700] border-[#cca700]/30"
-              : task.status === "completed" || task.status === "done" ? "text-[#89d185] border-[#89d185]/30"
-              : task.status === "failed" ? "text-[#f14c4c] border-[#f14c4c]/30"
-              : "text-[#a0a0a0] border-[#a0a0a0]/30"
-            }`}>
+            <span
+              className={`px-1.5 py-0.5 text-[10px] rounded border ${
+                task.status === "running"
+                  ? "text-[#cca700] border-[#cca700]/30"
+                  : task.status === "completed" || task.status === "done"
+                    ? "text-[#89d185] border-[#89d185]/30"
+                    : task.status === "failed"
+                      ? "text-[#f14c4c] border-[#f14c4c]/30"
+                      : "text-[#a0a0a0] border-[#a0a0a0]/30"
+              }`}
+            >
               {task.status}
             </span>
           )}
           <span className="ml-auto text-[10px] text-[#a0a0a0] font-mono">{runCount} 件</span>
         </div>
-        {hasChildren && !isCollapsed && task.children.map((child) => renderTaskNode(child, depth + 1))}
+        {hasChildren &&
+          !isCollapsed &&
+          task.children.map((child) => renderTaskNode(child, depth + 1))}
       </div>
     );
   };
 
   return (
-    <div className="w-64 overflow-auto p-2.5 border-r" style={{ background: "#1b1b1b", borderColor: "#3c3c3c" }}>
+    <div
+      className="w-64 overflow-auto p-2.5 border-r"
+      style={{ background: "#1b1b1b", borderColor: "#3c3c3c" }}
+    >
       <div
         className={`flex items-center gap-1.5 px-1.5 py-1 rounded cursor-pointer text-xs select-none ${selectedTaskId === null ? "bg-[rgba(14,99,156,0.22)]" : "hover:bg-white/[0.04]"}`}
         onClick={() => onTaskSelect(null)}
@@ -70,4 +85,3 @@ export function TaskTree({
     </div>
   );
 }
-
