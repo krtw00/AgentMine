@@ -15,6 +15,7 @@ import {
   desc,
 } from "@agentmine/db";
 import { runnerManager } from "../runner/manager";
+import { runDodChecks } from "../runner/dod-check";
 
 // --- 共通ヘルパー: Run作成（worktree作成 → DB insert → ランナー起動） ---
 
@@ -437,6 +438,33 @@ runsRouter.post("/:id/retry", async (c) => {
   }
 
   return c.json({ data: retryResult.run }, 201);
+});
+
+// POST /api/runs/:id/checks/rerun - DoDチェック再実行
+runsRouter.post("/:id/checks/rerun", async (c) => {
+  const id = Number(c.req.param("id"));
+
+  const result = await db.select().from(runs).where(eq(runs.id, id));
+  if (result.length === 0) {
+    return c.json({ error: { code: "NOT_FOUND", message: "Run not found" } }, 404);
+  }
+
+  if (result[0]!.status !== "completed") {
+    return c.json(
+      { error: { code: "BAD_REQUEST", message: "Only completed runs can rerun checks" } },
+      400
+    );
+  }
+
+  // 既存checksを削除
+  await db.delete(checks).where(eq(checks.runId, id));
+
+  // DoDチェック再実行
+  await runDodChecks(id);
+
+  // 新しいchecksを返却
+  const newChecks = await db.select().from(checks).where(eq(checks.runId, id));
+  return c.json({ data: newChecks });
 });
 
 // POST /api/runs/:id/continue - 追加入力で継続（新run作成）

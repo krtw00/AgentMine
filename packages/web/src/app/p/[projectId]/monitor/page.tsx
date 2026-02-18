@@ -224,6 +224,7 @@ export default function MonitorPage() {
   const [includeDescendants, setIncludeDescendants] = useState(true);
   const [collapsedTasks, setCollapsedTasks] = useState<Set<number>>(new Set());
   const [taskForm, setTaskForm] = useState({ title: "", description: "", writeScope: "src/**" });
+  const [selectedProfileId, setSelectedProfileId] = useState<number | null>(null);
   const terminalRef = useRef<HTMLDivElement>(null);
   const runOutputs = useAppStore((s) => s.runOutputs);
   const selectedOutputs = selectedRunId ? (runOutputs.get(selectedRunId) ?? []) : [];
@@ -277,6 +278,16 @@ export default function MonitorPage() {
       return runs.sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
     },
     enabled: !!tasks && !!profiles,
+  });
+
+  const { data: selectedRunDetail } = useQuery({
+    queryKey: ["runDetail", selectedRunId],
+    queryFn: async () => {
+      const res = await runsApi.get(selectedRunId!);
+      if ("error" in res) throw new Error(res.error.message);
+      return res.data;
+    },
+    enabled: selectedRunId !== null,
   });
 
   // フィルタリング
@@ -337,6 +348,41 @@ export default function MonitorPage() {
     },
   });
 
+  const stopRunMutation = useMutation({
+    mutationFn: (runId: number) => runsApi.stop(runId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["allRuns", projectId] });
+    },
+    onError: (err) => {
+      console.error("Run stop failed:", err);
+      alert(err.message);
+    },
+  });
+
+  const retryRunMutation = useMutation({
+    mutationFn: (runId: number) => runsApi.retry(runId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["allRuns", projectId] });
+    },
+    onError: (err) => {
+      console.error("Run retry failed:", err);
+      alert(err.message);
+    },
+  });
+
+  const rerunChecksMutation = useMutation({
+    mutationFn: (runId: number) => runsApi.rerunChecks(runId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["allRuns", projectId] });
+    },
+    onError: (err) => {
+      console.error("Checks rerun failed:", err);
+      alert(err.message);
+    },
+  });
+
   const handleCreateTask = (e: React.FormEvent) => {
     e.preventDefault();
     createTaskMutation.mutate({
@@ -346,13 +392,21 @@ export default function MonitorPage() {
     });
   };
 
-  const _handleStartRun = (task: Task) => {
-    const firstProfile = profiles?.[0];
-    if (!firstProfile) {
+  const handleStartRun = (task: Task) => {
+    if (!profiles?.length) {
       alert("先にエージェントプロファイルを作成してください");
       return;
     }
-    startRunMutation.mutate({ taskId: task.id, agentProfileId: firstProfile.id });
+    const profileId = selectedProfileId ?? profiles[0]!.id;
+    startRunMutation.mutate(
+      { taskId: task.id, agentProfileId: profileId },
+      {
+        onError: (err) => {
+          console.error("Run start failed:", err);
+          alert(err.message);
+        },
+      }
+    );
   };
 
   const selectRun = (run: ExtendedRun) => {
@@ -538,8 +592,21 @@ export default function MonitorPage() {
             </span>
           )}
           <span className="shrink-0 text-[10px] text-[#a0a0a0] font-mono">{runCount} 件</span>
+          <StatusBadge status={task.status} />
           <button
-            className="shrink-0 ml-auto px-1.5 py-0.5 text-[10px] rounded border cursor-pointer hover:bg-white/10"
+            className="shrink-0 ml-auto px-1.5 py-0.5 text-[10px] rounded border cursor-pointer hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ borderColor: "#3c3c3c", color: "#89d185" }}
+            disabled={task.status === "running" || task.status === "cancelled" || !profiles?.length}
+            title={!profiles?.length ? "プロファイルを先に作成" : undefined}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleStartRun(task);
+            }}
+          >
+            実行
+          </button>
+          <button
+            className="shrink-0 px-1.5 py-0.5 text-[10px] rounded border cursor-pointer hover:bg-white/10"
             style={{ borderColor: "#3c3c3c", color: "#4fc1ff" }}
             onClick={(e) => {
               e.stopPropagation();
@@ -586,6 +653,20 @@ export default function MonitorPage() {
           />
           子孫を含む
         </label>
+        {profiles && profiles.length > 1 && (
+          <select
+            value={selectedProfileId ?? profiles[0]!.id}
+            onChange={(e) => setSelectedProfileId(Number(e.target.value))}
+            className="px-2 py-1.5 text-[13px] rounded-md border outline-none"
+            style={{ background: "#1b1b1b", borderColor: "#3c3c3c", color: "#d4d4d4" }}
+          >
+            {profiles.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        )}
         <button
           onClick={() => setShowDrawer(true)}
           className="px-2.5 py-1.5 text-[13px] rounded-md cursor-pointer border"
@@ -782,6 +863,17 @@ export default function MonitorPage() {
                     }}
                   >
                     <div>タイムライン</div>
+                  </th>
+                  <th
+                    className="sticky top-0 z-10 text-center px-2.5 py-2 font-medium border-b whitespace-nowrap"
+                    style={{
+                      color: "#a0a0a0",
+                      borderColor: "#3c3c3c",
+                      background: "#202020",
+                      width: 80,
+                    }}
+                  >
+                    <div>操作</div>
                     {timelineData && (
                       <div
                         className="flex justify-between text-[10px] font-normal mt-1"
@@ -803,7 +895,7 @@ export default function MonitorPage() {
                 {filteredRuns.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={8}
+                      colSpan={9}
                       className="px-2.5 py-4 text-center"
                       style={{ color: "#a0a0a0" }}
                     >
@@ -906,6 +998,37 @@ export default function MonitorPage() {
                             />
                           </div>
                         </td>
+                        <td
+                          className="px-2.5 py-1.5 border-b text-center"
+                          style={{ borderColor: "rgba(255,255,255,0.06)" }}
+                        >
+                          {run.status === "running" && (
+                            <button
+                              className="px-2 py-0.5 text-[11px] rounded border cursor-pointer hover:bg-white/10 disabled:opacity-40"
+                              style={{ borderColor: "#3c3c3c", color: "#f14c4c" }}
+                              disabled={stopRunMutation.isPending}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                stopRunMutation.mutate(run.id);
+                              }}
+                            >
+                              停止
+                            </button>
+                          )}
+                          {(run.status === "failed" || run.status === "completed") && (
+                            <button
+                              className="px-2 py-0.5 text-[11px] rounded border cursor-pointer hover:bg-white/10 disabled:opacity-40"
+                              style={{ borderColor: "#3c3c3c", color: "#cca700" }}
+                              disabled={retryRunMutation.isPending}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                retryRunMutation.mutate(run.id);
+                              }}
+                            >
+                              リトライ
+                            </button>
+                          )}
+                        </td>
                       </tr>
                     );
                   })
@@ -992,25 +1115,54 @@ export default function MonitorPage() {
               {activeTab === "timing" && (
                 <div className="grid gap-2 text-xs" style={{ gridTemplateColumns: "140px 1fr" }}>
                   <div className="text-[#a0a0a0]">スコープ適用</div>
-                  <div className="font-mono">120ms</div>
+                  <div className="font-mono text-[#a0a0a0]">未実装</div>
                   <div className="text-[#a0a0a0]">ランナー実行</div>
                   <div className="font-mono">
                     {formatDuration(selectedRun.startedAt, selectedRun.finishedAt)}
                   </div>
                   <div className="text-[#a0a0a0]">後処理チェック</div>
-                  <div className="font-mono">1.2s</div>
+                  <div className="font-mono text-[#a0a0a0]">未実装</div>
                   <div className="text-[#a0a0a0]">完了定義チェック</div>
-                  <div className="font-mono">3.8s</div>
+                  <div className="font-mono text-[#a0a0a0]">未実装</div>
                 </div>
               )}
               {activeTab === "checks" && (
-                <div className="grid gap-2 text-xs" style={{ gridTemplateColumns: "140px 1fr" }}>
-                  <div className="text-[#a0a0a0]">完了定義</div>
-                  <div>
+                <div className="text-xs space-y-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[#a0a0a0]">完了定義:</span>
                     <StatusBadge status={selectedRun.dodStatus || "pending"} />
+                    {selectedRun.status === "completed" && (
+                      <button
+                        className="ml-auto px-2 py-1 text-[11px] rounded border cursor-pointer hover:bg-white/10 disabled:opacity-40"
+                        style={{ borderColor: "#3c3c3c", color: "#4fc1ff" }}
+                        disabled={rerunChecksMutation.isPending}
+                        onClick={() => rerunChecksMutation.mutate(selectedRun.id)}
+                      >
+                        {rerunChecksMutation.isPending ? "実行中..." : "チェック再実行"}
+                      </button>
+                    )}
                   </div>
-                  <div className="text-[#a0a0a0]">チェック項目</div>
-                  <div className="font-mono">lint: pending / test: pending</div>
+                  {selectedRunDetail?.checks && selectedRunDetail.checks.length > 0 ? (
+                    <div className="space-y-1.5">
+                      {selectedRunDetail.checks.map((check) => (
+                        <div
+                          key={check.id}
+                          className="flex items-center gap-2 px-2 py-1.5 rounded"
+                          style={{ background: "#202020" }}
+                        >
+                          <StatusBadge status={check.status} />
+                          <span className="font-mono">{check.label}</span>
+                          {check.exitCode !== null && (
+                            <span className="text-[#a0a0a0] font-mono ml-auto">
+                              exit={check.exitCode}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-[#a0a0a0]">チェック未実行</span>
+                  )}
                 </div>
               )}
               {activeTab === "violations" && (
