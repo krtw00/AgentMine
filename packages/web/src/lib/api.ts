@@ -87,6 +87,7 @@ export const runsApi = {
   stop: (id: number) => fetchApi<Run>(`/runs/${id}/stop`, { method: "POST" }),
   getLogs: (id: number) => fetchApi<RunLogLine[]>(`/runs/${id}/logs`),
   retry: (id: number) => fetchApi<Run>(`/runs/${id}/retry`, { method: "POST" }),
+  rerunChecks: (id: number) => fetchApi<Check[]>(`/runs/${id}/checks/rerun`, { method: "POST" }),
   continue: (id: number, additionalInput: string) =>
     fetchApi<Run>(`/runs/${id}/continue`, {
       method: "POST",
