@@ -2,6 +2,7 @@ import { EventEmitter } from "events";
 
 export interface RunEvent {
   runId: number;
+  projectId?: number;
   [key: string]: unknown;
 }
 
