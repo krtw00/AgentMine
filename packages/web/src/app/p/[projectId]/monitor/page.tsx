@@ -4,9 +4,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
 import { tasksApi, agentProfilesApi, runsApi, type Task, type Run } from "@/lib/api";
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
-import { useAppStore, type OutputLine } from "@/lib/store";
+import { useAppStore } from "@/lib/store";
 import { StatusBadge } from "@/components/StatusBadge";
-import { TerminalOutput, parseStreamJsonLine } from "@/components/TerminalOutput";
+import { TerminalOutput } from "@/components/TerminalOutput";
 
 type ExtendedRun = Run & { taskTitle: string; taskId: number; agentProfileName?: string };
 
@@ -32,180 +32,6 @@ const formatTime = (dateStr: string) => {
   const d = new Date(dateStr);
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 };
-
-// ライブターミナルグリッド: 実行中のRunをShogun風に並べて表示
-function LiveTerminalGrid({
-  runs,
-  runOutputs,
-}: {
-  runs: ExtendedRun[];
-  runOutputs: Map<number, OutputLine[]>;
-}) {
-  // 実行中 + 最近出力があったRunを表示
-  const liveRuns = useMemo(() => {
-    const running = runs.filter((r) => r.status === "running");
-    // 実行中がなければ、出力バッファがあるRunのうち最新のものを表示
-    if (running.length === 0) {
-      const withOutput = runs
-        .filter((r) => runOutputs.has(r.id) && (runOutputs.get(r.id)?.length ?? 0) > 0)
-        .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())
-        .slice(0, 4);
-      return withOutput;
-    }
-    return running;
-  }, [runs, runOutputs]);
-
-  if (liveRuns.length === 0) return null;
-
-  const gridCols = liveRuns.length === 1 ? "grid-cols-1" : "grid-cols-2";
-
-  return (
-    <div className="mx-3 mt-2">
-      <div className="flex items-center gap-2 mb-1.5">
-        <span className="text-[11px] font-semibold" style={{ color: "#d4d4d4" }}>
-          ライブ実行
-        </span>
-        {liveRuns.some((r) => r.status === "running") && (
-          <span className="flex items-center gap-1.5 text-[11px]" style={{ color: "#cca700" }}>
-            <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-pulse" />
-            {liveRuns.filter((r) => r.status === "running").length} 件実行中
-          </span>
-        )}
-      </div>
-      <div className={`grid ${gridCols} gap-2`} style={{ maxHeight: 320 }}>
-        {liveRuns.map((run) => (
-          <LiveTerminalPane key={run.id} run={run} lines={runOutputs.get(run.id) ?? []} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function LiveTerminalPane({ run, lines }: { run: ExtendedRun; lines: OutputLine[] }) {
-  const paneRef = useRef<HTMLDivElement>(null);
-  const isRunning = run.status === "running";
-
-  useEffect(() => {
-    if (paneRef.current) {
-      paneRef.current.scrollTop = paneRef.current.scrollHeight;
-    }
-  }, [lines.length]);
-
-  const statusColor = isRunning
-    ? "#cca700"
-    : run.status === "completed"
-      ? "#89d185"
-      : run.status === "failed"
-        ? "#f14c4c"
-        : "#a0a0a0";
-
-  return (
-    <div
-      className="rounded-lg border overflow-hidden flex flex-col"
-      style={{ background: "#0d1117", borderColor: "#30363d", maxHeight: 320 }}
-    >
-      {/* ペインヘッダー */}
-      <div
-        className="flex items-center gap-2 px-2.5 py-1.5 border-b"
-        style={{ background: "#161b22", borderColor: "#30363d" }}
-      >
-        <span
-          className="w-2 h-2 rounded-full"
-          style={{
-            background: statusColor,
-            boxShadow: isRunning ? `0 0 6px ${statusColor}` : "none",
-          }}
-        />
-        <span className="text-[11px] font-semibold" style={{ color: "#c9d1d9" }}>
-          実行 #{run.id}
-        </span>
-        <span
-          className="text-[10px] px-1.5 py-0.5 rounded border"
-          style={{ color: "#8b949e", background: "#21262d", borderColor: "#30363d" }}
-        >
-          {run.taskTitle}
-        </span>
-        <span className="text-[10px] font-mono ml-auto" style={{ color: "#8b949e" }}>
-          {run.agentProfileName}
-        </span>
-        <span className="text-[10px] font-mono" style={{ color: "#8b949e" }}>
-          {formatDuration(run.startedAt, run.finishedAt)}
-        </span>
-      </div>
-      {/* ターミナル本体 */}
-      <div
-        ref={paneRef}
-        className="flex-1 overflow-auto px-2 py-1.5 font-mono text-[10px] leading-[1.5]"
-        style={{ minHeight: 80 }}
-      >
-        {lines.length === 0 ? (
-          <div className="flex items-center justify-center h-full" style={{ color: "#484f58" }}>
-            {isRunning ? (
-              <span className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-pulse" />
-                出力を待機中...
-              </span>
-            ) : (
-              "出力なし"
-            )}
-          </div>
-        ) : (
-          lines.slice(-100).map((line, i) => {
-            if (line.type === "system") {
-              return (
-                <div key={i} style={{ color: "#58a6ff" }}>
-                  --- {line.data}
-                </div>
-              );
-            }
-            if (line.type === "stderr") {
-              return (
-                <div key={i} style={{ color: "#f85149" }}>
-                  {line.data}
-                </div>
-              );
-            }
-            if (line.type === "exit") {
-              const c = line.exitCode === 0 ? "#7ee787" : "#f85149";
-              return (
-                <div key={i} style={{ color: c }}>
-                  EXIT code={line.exitCode}
-                </div>
-              );
-            }
-            // stdout: stream-jsonパース
-            const raw = line.data ?? "";
-            const jsonLines = raw.split("\n").filter((l) => l.trim());
-            return (
-              <div key={i}>
-                {jsonLines.map((jl, j) => {
-                  const parsed = parseStreamJsonLine(jl);
-                  if (parsed) {
-                    return (
-                      <div key={j} className="flex gap-1">
-                        <span className="shrink-0" style={{ color: parsed.color, opacity: 0.6 }}>
-                          {parsed.label}
-                        </span>
-                        <span style={{ color: parsed.color, wordBreak: "break-all" }}>
-                          {parsed.text.slice(0, 300)}
-                        </span>
-                      </div>
-                    );
-                  }
-                  return jl.trim() ? (
-                    <div key={j} style={{ color: "#c9d1d9" }}>
-                      {jl.slice(0, 300)}
-                    </div>
-                  ) : null;
-                })}
-              </div>
-            );
-          })
-        )}
-      </div>
-    </div>
-  );
-}
 
 export default function MonitorPage() {
   const params = useParams();
@@ -739,9 +565,6 @@ export default function MonitorPage() {
           </div>
         </div>
       )}
-
-      {/* Live Terminal Grid (Shogun-style multi-pane) */}
-      <LiveTerminalGrid runs={allRuns ?? []} runOutputs={runOutputs} />
 
       {/* Split: Tree + Table */}
       <div
