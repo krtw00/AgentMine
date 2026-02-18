@@ -9,7 +9,6 @@ import {
   scopeViolations,
   projects,
   eq,
-  and,
 } from "@agentmine/db";
 import { inArray } from "drizzle-orm";
 import { deriveTaskStatus } from "../utils/task-status";
