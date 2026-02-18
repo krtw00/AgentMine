@@ -20,12 +20,13 @@ ai_summary: "Task Monitor中心の監視・介入UI（ツリー+タイムライ�
 
 UIに関しては、以下を役割分担とする。
 
-| ドキュメント | 位置づけ |
-|--------------|----------|
-| `ui.md` | 方向性と全体像（将来像を含む） |
-| `ui-mvp.md` | MVPで実装する具体仕様（実装の正） |
+| ドキュメント | 位置づけ                          |
+| ------------ | --------------------------------- |
+| `ui.md`      | 方向性と全体像（将来像を含む）    |
+| `ui-mvp.md`  | MVPで実装する具体仕様（実装の正） |
 
 注:
+
 - MVP実装は `ui-mvp.md` を正とする。
 
 ---
@@ -41,14 +42,14 @@ UIに関しては、以下を役割分担とする。
 
 ## 画面一覧
 
-| 画面ID | 画面名 | 説明 | 状態 |
-|--------|--------|------|------|
-| S000 | Project Switcher | Project切替（グローバル） | MVP定義済み（`ui-mvp.md`） |
-| S001 | Task Monitor | 実行状況の監視（メイン） | MVP定義済み（`ui-mvp.md`） |
-| S002 | Task Queue | 待機中/依存関係/割り当て | MVP対象外（将来） |
-| S003 | Runs | 実行履歴・ログ・検証結果 | MVP定義済み（`ui-mvp.md`） |
-| S004 | Agent Profiles | runner/model/prompt/デフォルト制約 | MVP定義済み（`ui-mvp.md`） |
-| S005 | Settings | プロジェクト設定 | MVP定義済み（`ui-mvp.md`） |
+| 画面ID | 画面名           | 説明                               | 状態                       |
+| ------ | ---------------- | ---------------------------------- | -------------------------- |
+| S000   | Project Switcher | Project切替（グローバル）          | MVP定義済み（`ui-mvp.md`） |
+| S001   | Task Monitor     | 実行状況の監視（メイン）           | MVP定義済み（`ui-mvp.md`） |
+| S002   | Task Queue       | 待機中/依存関係/割り当て           | MVP対象外（将来）          |
+| S003   | Runs             | 実行履歴・ログ・検証結果           | MVP定義済み（`ui-mvp.md`） |
+| S004   | Agent Profiles   | runner/model/prompt/デフォルト制約 | MVP定義済み（`ui-mvp.md`） |
+| S005   | Settings         | プロジェクト設定                   | MVP定義済み（`ui-mvp.md`） |
 
 ---
 
@@ -68,11 +69,11 @@ flowchart TB
 
 ## UI原則
 
-| 原則 | 説明 |
-|------|------|
-| 監視優先 | 実行状態の把握を最優先にする |
-| 介入可能 | 停止/再実行/指示変更を明示する |
-| 事実ベース | AIの自己申告ではなく事実を表示する |
+| 原則                | 説明                               |
+| ------------------- | ---------------------------------- |
+| 監視優先            | 実行状態の把握を最優先にする       |
+| 介入可能            | 停止/再実行/指示変更を明示する     |
+| 事実ベース          | AIの自己申告ではなく事実を表示する |
 | ツリー+タイムライン | 親子関係と時間軸を同時に把握できる |
 
 ---
@@ -82,14 +83,14 @@ flowchart TB
 中心画面。MVPではChrome DevToolsのNetwork風に **Overview** + **Run一覧テーブル** + **ウォーターフォール** を並べる（→UI仕様）。
 既定表示は「Group by task」である（親子階層でtask単位にrunを束ねて表示する）。
 
-| 要素 | 内容 |
-|---|---|
-| Overview | 実行の時間分布を一目で把握する（NetworkのOverview風）。現在の選択/フィルタ後の一覧に追従する |
-| テーブル | runsの一覧を表示し、status/reasonでトリアージできる |
-| タイムライン | runsの開始/終了から実行時間を可視化 |
-| ステータス | task.status（観測事実から導出）を色で表現 |
-| 詳細パネル | 選択task/runのfacts（diff/DoD/violations/log参照）。未選択時は閉じる |
-| Actions | stop/retry/continue/approve/reject 等（MVPは最小） |
+| 要素         | 内容                                                                                         |
+| ------------ | -------------------------------------------------------------------------------------------- |
+| Overview     | 実行の時間分布を一目で把握する（NetworkのOverview風）。現在の選択/フィルタ後の一覧に追従する |
+| テーブル     | runsの一覧を表示し、status/reasonでトリアージできる                                          |
+| タイムライン | runsの開始/終了から実行時間を可視化                                                          |
+| ステータス   | task.status（観測事実から導出）を色で表現                                                    |
+| 詳細パネル   | 選択task/runのfacts（diff/DoD/violations/log参照）。未選択時は閉じる                         |
+| Actions      | stop/retry/continue/approve/reject 等（MVPは最小）                                           |
 
 注: 表示の事実ソースは `runs/checks/scope_violations` 等であり、自由記述の「完了」ボタンは置かない。
 注: `needs_review` は「理由」を分けて表示する。理由は保存せず、事実から導出する（例: `scope_violation_pending`, `scope_violation_rejected`, `dod_pending` 等）。

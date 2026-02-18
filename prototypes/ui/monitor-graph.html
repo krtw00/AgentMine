@@ -11,7 +11,9 @@
       <div class="topbar">
         <div class="brand">AgentMine</div>
         <div class="pill"><span class="muted">Project</span> <strong>AgentMine</strong></div>
-        <div class="pill"><span class="muted">SSE</span> <strong id="sseState">connected</strong></div>
+        <div class="pill">
+          <span class="muted">SSE</span> <strong id="sseState">connected</strong>
+        </div>
         <div class="spacer"></div>
         <a class="btn" href="./monitor.html">Monitor A（Outline）</a>
         <a class="btn" href="./monitor-split.html">Monitor B（Split）</a>
@@ -41,7 +43,12 @@
                 <span>Overview（アクティビティ）</span>
                 <span class="mono" id="rangeLabel">-</span>
               </div>
-              <svg class="overviewSvg" id="overview" viewBox="0 0 1000 64" preserveAspectRatio="none"></svg>
+              <svg
+                class="overviewSvg"
+                id="overview"
+                viewBox="0 0 1000 64"
+                preserveAspectRatio="none"
+              ></svg>
             </div>
           </div>
 
@@ -72,9 +79,12 @@
           <div class="section">
             <h2>Details</h2>
             <div class="row">
-              <span class="pill"><span class="muted">Selected</span> <strong id="selLabel">none</strong></span>
               <span class="pill"
-                ><span class="muted">head_sha</span> <strong class="mono" id="selSha">-</strong></span
+                ><span class="muted">Selected</span> <strong id="selLabel">none</strong></span
+              >
+              <span class="pill"
+                ><span class="muted">head_sha</span>
+                <strong class="mono" id="selSha">-</strong></span
               >
               <div class="spacer"></div>
               <button class="btn" id="btnHideDetails">Hide</button>
@@ -89,7 +99,7 @@
 
     <script>
       const baseTimeSec = 11 * 3600;
-      const t = (hh, mm) => (hh * 3600 + mm * 60) - baseTimeSec;
+      const t = (hh, mm) => hh * 3600 + mm * 60 - baseTimeSec;
 
       const data = [
         {
@@ -464,7 +474,8 @@
       }
 
       function clearSelection() {
-        for (const tr of document.querySelectorAll('tbody tr[data-kind="run"]')) tr.classList.remove("selected");
+        for (const tr of document.querySelectorAll('tbody tr[data-kind="run"]'))
+          tr.classList.remove("selected");
       }
 
       function selectRun(task, run, tr) {
@@ -519,15 +530,18 @@
           const bar =
             span == null
               ? `<div class="wf"><span style="width:0%"></span></div>`
-              : `<div class="wf"><div class="wfBar group" style="left:${Math.max(0, pct(span.start)).toFixed(
+              : `<div class="wf"><div class="wfBar group" style="left:${Math.max(
+                  0,
+                  pct(span.start)
+                ).toFixed(
                   2
                 )}%; width:${Math.max(0, pct(span.end) - pct(span.start)).toFixed(2)}%"></div></div>`;
 
           tr.innerHTML = `
             <td class="muted">-</td>
             <td>${indentPad(depth)}<span class="twisty">${twisty}</span> Task #${task.taskId}: ${
-            task.taskTitle
-          } <span class="muted">(${runCount} runs${subtaskCount > 0 ? `, ${subtaskCount} subtasks` : ""})</span></td>
+              task.taskTitle
+            } <span class="muted">(${runCount} runs${subtaskCount > 0 ? `, ${subtaskCount} subtasks` : ""})</span></td>
             <td class="muted">-</td>
             <td class="muted">-</td>
             <td class="muted">-</td>
@@ -584,7 +598,8 @@
 
           if (collapsedTasks.has(task.taskId)) return;
           for (const c of task.children ?? []) renderTaskNode(c, depth + 1);
-          for (const r of (task.runs ?? []).filter((x) => runMatches(task, x))) elRows.appendChild(runRow(task, r, depth + 1));
+          for (const r of (task.runs ?? []).filter((x) => runMatches(task, x)))
+            elRows.appendChild(runRow(task, r, depth + 1));
         }
 
         if (group) {

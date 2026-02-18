@@ -9,10 +9,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const port = Number(process.env.PORT) || 3001;
 
 async function cleanupStaleRuns() {
-  const staleRuns = await db
-    .select()
-    .from(runs)
-    .where(eq(runs.status, "running"));
+  const staleRuns = await db.select().from(runs).where(eq(runs.status, "running"));
 
   if (staleRuns.length === 0) return;
 

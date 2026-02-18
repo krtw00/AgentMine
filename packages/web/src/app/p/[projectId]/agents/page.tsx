@@ -140,8 +140,13 @@ export default function AgentProfilesPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Parameters<typeof agentProfilesApi.update>[1] }) =>
-      agentProfilesApi.update(id, data),
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: number;
+      data: Parameters<typeof agentProfilesApi.update>[1];
+    }) => agentProfilesApi.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["agentProfiles", projectId] });
       closeForm();
@@ -209,8 +214,19 @@ export default function AgentProfilesPage() {
       <div className="flex items-center justify-center h-full">
         <div className="flex items-center gap-3 text-zinc-400">
           <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            />
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+            />
           </svg>
           読み込み中...
         </div>
@@ -293,10 +309,14 @@ export default function AgentProfilesPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-zinc-400 mb-1.5">ランナー</label>
+                    <label className="block text-xs font-medium text-zinc-400 mb-1.5">
+                      ランナー
+                    </label>
                     <select
                       value={formData.runner}
-                      onChange={(e) => setFormData({ ...formData, runner: e.target.value, model: "" })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, runner: e.target.value, model: "" })
+                      }
                       className="w-full px-3 py-1.5 text-sm bg-zinc-700 border border-zinc-600 rounded text-zinc-100 focus:border-blue-500 focus:outline-none"
                     >
                       {runners?.map((runner) => (
@@ -308,7 +328,9 @@ export default function AgentProfilesPage() {
                   </div>
                   {selectedRunner?.capabilities.supportsModel && (
                     <div>
-                      <label className="block text-xs font-medium text-zinc-400 mb-1.5">モデル</label>
+                      <label className="block text-xs font-medium text-zinc-400 mb-1.5">
+                        モデル
+                      </label>
                       <select
                         value={formData.model}
                         onChange={(e) => setFormData({ ...formData, model: e.target.value })}
@@ -448,7 +470,9 @@ export default function AgentProfilesPage() {
                         </label>
                         <select
                           value={formData.approvalPolicy}
-                          onChange={(e) => setFormData({ ...formData, approvalPolicy: e.target.value })}
+                          onChange={(e) =>
+                            setFormData({ ...formData, approvalPolicy: e.target.value })
+                          }
                           className="w-full px-3 py-1.5 text-sm bg-zinc-700 border border-zinc-600 rounded text-zinc-100 focus:border-blue-500 focus:outline-none"
                         >
                           <option value="never">never（全自動）</option>
@@ -466,7 +490,9 @@ export default function AgentProfilesPage() {
                           onChange={(e) => setFormData({ ...formData, sandbox: e.target.value })}
                           className="w-full px-3 py-1.5 text-sm bg-zinc-700 border border-zinc-600 rounded text-zinc-100 focus:border-blue-500 focus:outline-none"
                         >
-                          <option value="danger-full-access">danger-full-access（全アクセス）</option>
+                          <option value="danger-full-access">
+                            danger-full-access（全アクセス）
+                          </option>
                           <option value="workspace-write">workspace-write</option>
                           <option value="read-only">read-only</option>
                         </select>
@@ -500,8 +526,8 @@ export default function AgentProfilesPage() {
                 {createMutation.isPending || updateMutation.isPending
                   ? "保存中..."
                   : formData.id
-                  ? "更新"
-                  : "作成"}
+                    ? "更新"
+                    : "作成"}
               </button>
             </div>
           </form>
@@ -509,144 +535,160 @@ export default function AgentProfilesPage() {
       )}
 
       {/* List (hidden when form is open) */}
-      {!showForm && <div className="flex-1 overflow-auto p-4">
-        {profiles && profiles.length > 0 ? (
-          <div className="space-y-2">
-            {profiles.map((profile) => {
-              const cfg = (profile.config ?? {}) as Record<string, unknown>;
-              const toolCount = Array.isArray(cfg.tools) ? cfg.tools.length : 0;
-              const disallowCount = Array.isArray(cfg.disallowedTools) ? cfg.disallowedTools.length : 0;
-              const isExpanded = expandedIds.has(profile.id);
+      {!showForm && (
+        <div className="flex-1 overflow-auto p-4">
+          {profiles && profiles.length > 0 ? (
+            <div className="space-y-2">
+              {profiles.map((profile) => {
+                const cfg = (profile.config ?? {}) as Record<string, unknown>;
+                const toolCount = Array.isArray(cfg.tools) ? cfg.tools.length : 0;
+                const disallowCount = Array.isArray(cfg.disallowedTools)
+                  ? cfg.disallowedTools.length
+                  : 0;
+                const isExpanded = expandedIds.has(profile.id);
 
-              return (
-                <div
-                  key={profile.id}
-                  className="bg-zinc-800 border border-zinc-700 rounded-lg hover:border-zinc-600 transition"
-                >
-                  <div className="p-4 flex justify-between items-start">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-zinc-100">{profile.name}</span>
-                        {profile.description && (
-                          <span className="text-xs text-zinc-500 truncate">
-                            {profile.description}
+                return (
+                  <div
+                    key={profile.id}
+                    className="bg-zinc-800 border border-zinc-700 rounded-lg hover:border-zinc-600 transition"
+                  >
+                    <div className="p-4 flex justify-between items-start">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-zinc-100">{profile.name}</span>
+                          {profile.description && (
+                            <span className="text-xs text-zinc-500 truncate">
+                              {profile.description}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                          <span className="text-xs px-2 py-0.5 bg-blue-600/20 text-blue-400 rounded border border-blue-600/40">
+                            {profile.runner}
                           </span>
-                        )}
+                          {profile.model && (
+                            <span className="text-xs px-2 py-0.5 bg-purple-600/20 text-purple-400 rounded border border-purple-600/40">
+                              {profile.model}
+                            </span>
+                          )}
+                          {profile.promptTemplate && (
+                            <span className="text-xs px-2 py-0.5 bg-amber-600/20 text-amber-400 rounded border border-amber-600/40">
+                              prompt
+                            </span>
+                          )}
+                          {toolCount > 0 && (
+                            <span className="text-xs px-2 py-0.5 bg-emerald-600/20 text-emerald-400 rounded border border-emerald-600/40">
+                              tools: {toolCount}
+                            </span>
+                          )}
+                          {disallowCount > 0 && (
+                            <span className="text-xs px-2 py-0.5 bg-red-600/20 text-red-400 rounded border border-red-600/40">
+                              blocked: {disallowCount}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex flex-wrap items-center gap-1.5 mt-2">
-                        <span className="text-xs px-2 py-0.5 bg-blue-600/20 text-blue-400 rounded border border-blue-600/40">
-                          {profile.runner}
-                        </span>
-                        {profile.model && (
-                          <span className="text-xs px-2 py-0.5 bg-purple-600/20 text-purple-400 rounded border border-purple-600/40">
-                            {profile.model}
-                          </span>
-                        )}
+                      <div className="flex items-center gap-1 ml-2 shrink-0">
+                        <button
+                          onClick={() => toggleExpand(profile.id)}
+                          className="px-2 py-1 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700 rounded transition"
+                        >
+                          {isExpanded ? "閉じる" : "詳細"}
+                        </button>
+                        <button
+                          onClick={() => openEdit(profile)}
+                          className="px-2 py-1 text-xs text-blue-400 hover:bg-blue-600/10 rounded transition"
+                        >
+                          編集
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (confirm("このプロファイルを削除しますか？")) {
+                              deleteMutation.mutate(profile.id);
+                            }
+                          }}
+                          className="px-2 py-1 text-xs text-red-400 hover:bg-red-600/10 rounded transition"
+                        >
+                          削除
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Expanded details */}
+                    {isExpanded && (
+                      <div className="px-4 pb-4 border-t border-zinc-700/50 pt-3 space-y-2">
                         {profile.promptTemplate && (
-                          <span className="text-xs px-2 py-0.5 bg-amber-600/20 text-amber-400 rounded border border-amber-600/40">
-                            prompt
-                          </span>
+                          <div>
+                            <div className="text-xs font-medium text-zinc-500 mb-1">プロンプト</div>
+                            <div
+                              data-color-mode="dark"
+                              className="text-xs bg-zinc-900/50 rounded max-h-48 overflow-auto"
+                            >
+                              <MDPreview
+                                source={profile.promptTemplate}
+                                style={{
+                                  background: "transparent",
+                                  fontSize: "12px",
+                                  padding: "8px 12px",
+                                }}
+                              />
+                            </div>
+                          </div>
                         )}
-                        {toolCount > 0 && (
-                          <span className="text-xs px-2 py-0.5 bg-emerald-600/20 text-emerald-400 rounded border border-emerald-600/40">
-                            tools: {toolCount}
-                          </span>
+                        {(toolCount > 0 || disallowCount > 0) && (
+                          <div>
+                            <div className="text-xs font-medium text-zinc-500 mb-1">ツール設定</div>
+                            <div className="flex flex-wrap gap-1">
+                              {Array.isArray(cfg.tools) &&
+                                (cfg.tools as string[]).map((t) => (
+                                  <span
+                                    key={`t-${t}`}
+                                    className="text-xs px-1.5 py-0.5 bg-emerald-600/10 text-emerald-400 rounded font-mono"
+                                  >
+                                    {t}
+                                  </span>
+                                ))}
+                              {Array.isArray(cfg.disallowedTools) &&
+                                (cfg.disallowedTools as string[]).map((t) => (
+                                  <span
+                                    key={`d-${t}`}
+                                    className="text-xs px-1.5 py-0.5 bg-red-600/10 text-red-400 rounded font-mono line-through"
+                                  >
+                                    {t}
+                                  </span>
+                                ))}
+                            </div>
+                          </div>
                         )}
-                        {disallowCount > 0 && (
-                          <span className="text-xs px-2 py-0.5 bg-red-600/20 text-red-400 rounded border border-red-600/40">
-                            blocked: {disallowCount}
-                          </span>
-                        )}
+                        <div className="text-xs text-zinc-500">
+                          除外: {profile.defaultExclude.join(", ") || "なし"}
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-1 ml-2 shrink-0">
-                      <button
-                        onClick={() => toggleExpand(profile.id)}
-                        className="px-2 py-1 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700 rounded transition"
-                      >
-                        {isExpanded ? "閉じる" : "詳細"}
-                      </button>
-                      <button
-                        onClick={() => openEdit(profile)}
-                        className="px-2 py-1 text-xs text-blue-400 hover:bg-blue-600/10 rounded transition"
-                      >
-                        編集
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (confirm("このプロファイルを削除しますか？")) {
-                            deleteMutation.mutate(profile.id);
-                          }
-                        }}
-                        className="px-2 py-1 text-xs text-red-400 hover:bg-red-600/10 rounded transition"
-                      >
-                        削除
-                      </button>
-                    </div>
+                    )}
                   </div>
-
-                  {/* Expanded details */}
-                  {isExpanded && (
-                    <div className="px-4 pb-4 border-t border-zinc-700/50 pt-3 space-y-2">
-                      {profile.promptTemplate && (
-                        <div>
-                          <div className="text-xs font-medium text-zinc-500 mb-1">プロンプト</div>
-                          <div data-color-mode="dark" className="text-xs bg-zinc-900/50 rounded max-h-48 overflow-auto">
-                            <MDPreview source={profile.promptTemplate} style={{ background: "transparent", fontSize: "12px", padding: "8px 12px" }} />
-                          </div>
-                        </div>
-                      )}
-                      {(toolCount > 0 || disallowCount > 0) && (
-                        <div>
-                          <div className="text-xs font-medium text-zinc-500 mb-1">ツール設定</div>
-                          <div className="flex flex-wrap gap-1">
-                            {Array.isArray(cfg.tools) &&
-                              (cfg.tools as string[]).map((t) => (
-                                <span
-                                  key={`t-${t}`}
-                                  className="text-xs px-1.5 py-0.5 bg-emerald-600/10 text-emerald-400 rounded font-mono"
-                                >
-                                  {t}
-                                </span>
-                              ))}
-                            {Array.isArray(cfg.disallowedTools) &&
-                              (cfg.disallowedTools as string[]).map((t) => (
-                                <span
-                                  key={`d-${t}`}
-                                  className="text-xs px-1.5 py-0.5 bg-red-600/10 text-red-400 rounded font-mono line-through"
-                                >
-                                  {t}
-                                </span>
-                              ))}
-                          </div>
-                        </div>
-                      )}
-                      <div className="text-xs text-zinc-500">
-                        除外: {profile.defaultExclude.join(", ") || "なし"}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center h-full text-zinc-500">
-            <div className="w-16 h-16 mb-4 bg-zinc-800 rounded-lg flex items-center justify-center">
-              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1}
-                  d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"
-                />
-              </svg>
+                );
+              })}
             </div>
-            <p>プロファイルがありません</p>
-            <p className="text-sm mt-1 text-zinc-600">新規プロファイルを作成してエージェントを設定</p>
-          </div>
-        )}
-      </div>}
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full text-zinc-500">
+              <div className="w-16 h-16 mb-4 bg-zinc-800 rounded-lg flex items-center justify-center">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1}
+                    d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"
+                  />
+                </svg>
+              </div>
+              <p>プロファイルがありません</p>
+              <p className="text-sm mt-1 text-zinc-600">
+                新規プロファイルを作成してエージェントを設定
+              </p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

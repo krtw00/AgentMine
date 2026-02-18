@@ -9,9 +9,11 @@
   --danger: #f14c4c;
   --warn: #cca700;
   --ok: #89d185;
-  --font: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans JP", Arial,
+  --font:
+    ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans JP", Arial,
     "Apple Color Emoji", "Segoe UI Emoji";
-  --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
+  --mono:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
     monospace;
 }
 
@@ -299,7 +301,7 @@ tbody tr.selected {
 .bar {
   height: 10px;
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.1);
   overflow: hidden;
 }
 
@@ -339,11 +341,8 @@ tbody tr.selected {
   width: 100%;
   height: 14px;
   border-radius: 4px;
-  background: linear-gradient(
-      to right,
-      rgba(255, 255, 255, 0.06) 1px,
-      transparent 1px
-    ),
+  background:
+    linear-gradient(to right, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
     rgba(255, 255, 255, 0.04);
   background-size: 25% 100%;
   overflow: hidden;
@@ -371,8 +370,8 @@ tbody tr.selected {
 }
 
 .wfBar.group {
-  background: rgba(255, 255, 255, 0.10);
-  border-color: rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
 .wfTicks {

@@ -57,4 +57,3 @@ AgentMineが管理するデータ（DB、ログ、worktrees等）の置き場所
 ## 関連ADR
 
 - [ADR-0003](./0003-local-daemon-and-web-ui.md) - Web UI + Local Daemon
-

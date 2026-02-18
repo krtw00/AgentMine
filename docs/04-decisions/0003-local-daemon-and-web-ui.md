@@ -62,4 +62,3 @@ DaemonはHTTP APIとイベント配信を提供し、worktree作成、スコー�
 
 - [ADR-0004](./0004-agentmine-home-dir.md) - AgentMine Homeの決定
 - [ADR-0005](./0005-continue-adds-new-run.md) - continueの扱い
-

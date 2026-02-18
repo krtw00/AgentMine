@@ -58,4 +58,3 @@ DBは参照（log_ref/output_ref）を保持する。
 
 - [ADR-0004](./0004-agentmine-home-dir.md) - `~/.agentmine`
 - [ログ保存](../03-details/log-storage.md) - 保存場所と参照
-

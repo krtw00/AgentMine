@@ -23,70 +23,70 @@ ai_summary: "ドメイン用語・技術用語・システム固有用語の定�
 
 ## ドメイン用語
 
-| 用語 | 読み | 定義 |
-|------|------|------|
-| AgentMine | えーじぇんとまいん | AI並列開発の実行基盤と判断材料を提供するプロジェクト管理基盤 |
-| Project | ぷろじぇくと | 1つのGitリポジトリを管理単位として登録したもの |
-| Orchestrator | おーけすとれーたー | 人間とAIの境界で要件整理と判断を行うインターフェース |
-| Planner | ぷらんなー | タスク分解と依存設計を担う役割 |
-| Supervisor | すーぱーばいざー | 実行管理（起動/停止/並列度）を担う役割 |
-| タスク | たすく | 開発作業の単位。親子と依存を持つ |
-| Run | らん | タスクに対する1回の実行記録。終了コードやログ等の事実を持つ |
-| Agent Profile | えーじぇんとぷろふぁいる | runner/model/デフォルト除外/DoD等の実行設定 |
-| Memory Bank | めもりーばんく | 判断材料として蓄積するプロジェクト知識 |
+| 用語          | 読み                     | 定義                                                         |
+| ------------- | ------------------------ | ------------------------------------------------------------ |
+| AgentMine     | えーじぇんとまいん       | AI並列開発の実行基盤と判断材料を提供するプロジェクト管理基盤 |
+| Project       | ぷろじぇくと             | 1つのGitリポジトリを管理単位として登録したもの               |
+| Orchestrator  | おーけすとれーたー       | 人間とAIの境界で要件整理と判断を行うインターフェース         |
+| Planner       | ぷらんなー               | タスク分解と依存設計を担う役割                               |
+| Supervisor    | すーぱーばいざー         | 実行管理（起動/停止/並列度）を担う役割                       |
+| タスク        | たすく                   | 開発作業の単位。親子と依存を持つ                             |
+| Run           | らん                     | タスクに対する1回の実行記録。終了コードやログ等の事実を持つ  |
+| Agent Profile | えーじぇんとぷろふぁいる | runner/model/デフォルト除外/DoD等の実行設定                  |
+| Memory Bank   | めもりーばんく           | 判断材料として蓄積するプロジェクト知識                       |
 
 ---
 
 ## 技術用語
 
-| 用語 | 正式名称 | 定義 |
-|------|----------|------|
-| ADR | Architecture Decision Record | 重要な設計判断と理由を記録する文書 |
-| API | Application Programming Interface | アプリケーション間のインターフェース |
-| Authentication | Authentication | 利用者を識別する仕組み（MVPでは対象外） |
-| Authorization | Authorization | 利用者が実行できる操作を制御する仕組み |
-| C4 | C4 Model | ソフトウェア構造を表現する図法 |
-| DoD | Definition of Done | 完了条件の検証基準 |
-| MCP | Model Context Protocol | AIクライアント向けツール連携規格 |
-| NFR | Non-Functional Requirements | 非機能要件（性能/信頼性/運用性等） |
-| SSoT | Single Source of Truth | 正しい情報源を1つに定める設計原則 |
-| Worktree | Git Worktree | 同一リポジトリの隔離作業領域 |
-| SSE | Server-Sent Events | サーバ→クライアントの単方向イベント配信 |
+| 用語           | 正式名称                          | 定義                                    |
+| -------------- | --------------------------------- | --------------------------------------- |
+| ADR            | Architecture Decision Record      | 重要な設計判断と理由を記録する文書      |
+| API            | Application Programming Interface | アプリケーション間のインターフェース    |
+| Authentication | Authentication                    | 利用者を識別する仕組み（MVPでは対象外） |
+| Authorization  | Authorization                     | 利用者が実行できる操作を制御する仕組み  |
+| C4             | C4 Model                          | ソフトウェア構造を表現する図法          |
+| DoD            | Definition of Done                | 完了条件の検証基準                      |
+| MCP            | Model Context Protocol            | AIクライアント向けツール連携規格        |
+| NFR            | Non-Functional Requirements       | 非機能要件（性能/信頼性/運用性等）      |
+| SSoT           | Single Source of Truth            | 正しい情報源を1つに定める設計原則       |
+| Worktree       | Git Worktree                      | 同一リポジトリの隔離作業領域            |
+| SSE            | Server-Sent Events                | サーバ→クライアントの単方向イベント配信 |
 
 ---
 
 ## システム固有用語
 
-| 用語 | 定義 | 関連 |
-|------|------|------|
-| AgentMine Home | AgentMineが管理データを置くホームディレクトリ（`~/.agentmine`） | scope.md |
-| Local Daemon | ローカルで常駐し、API/イベント配信/実行基盤を提供するプロセス | structure.md |
-| DBマスター | 状態のSSoTをDBに置く設計原則 | principles.md |
-| 観測可能な事実 | AIの主観ではなく事実で状態を判定する原則 | principles.md |
-| スコープ制御 | 物理的制約でアクセス範囲を限定する仕組み | principles.md |
-| scope snapshot | run開始時点の有効スコープを保存したもの | data-model.md |
-| Runner | AIを実行する手段（CLI/API等）の総称 | runner-adapter.md |
-| RunnerAdapter | runner差を吸収するアダプタ | runner-adapter.md |
-| log_ref | runログの参照文字列 | log-storage.md |
-| output_ref | checkログの参照文字列 | log-storage.md |
-| Check | runに対する検証の実行結果（pending/passed/failed） | definition-of-done.md |
-| check_key | チェック識別子（Project内で一意） | definition-of-done.md |
-| DoD Runner | DoDの必須チェックを実行し結果を記録するDaemon内コンポーネント | structure.md |
-| head_sha | run終了時点のHEADコミット（監査とdone判定補助） | data-model.md |
-| worktree_dirty | run終了時点で未コミット変更があるか | worktree-management.md |
-| Settings | Projectごとの可変設定（key/value） | settings.md |
-| dod_snapshot | run開始時点のDoD定義スナップショット | settings.md |
-| Worker | 隔離worktreeで実装するAI | structure.md |
-| Planner | タスク分解と依存設計を担う役割 | task-decomposition.md |
-| Supervisor | runの起動/停止と並列度管理を担う役割 | role-model.md |
-| Reviewer | DoD検証を担うAI | flows.md |
+| 用語           | 定義                                                            | 関連                   |
+| -------------- | --------------------------------------------------------------- | ---------------------- |
+| AgentMine Home | AgentMineが管理データを置くホームディレクトリ（`~/.agentmine`） | scope.md               |
+| Local Daemon   | ローカルで常駐し、API/イベント配信/実行基盤を提供するプロセス   | structure.md           |
+| DBマスター     | 状態のSSoTをDBに置く設計原則                                    | principles.md          |
+| 観測可能な事実 | AIの主観ではなく事実で状態を判定する原則                        | principles.md          |
+| スコープ制御   | 物理的制約でアクセス範囲を限定する仕組み                        | principles.md          |
+| scope snapshot | run開始時点の有効スコープを保存したもの                         | data-model.md          |
+| Runner         | AIを実行する手段（CLI/API等）の総称                             | runner-adapter.md      |
+| RunnerAdapter  | runner差を吸収するアダプタ                                      | runner-adapter.md      |
+| log_ref        | runログの参照文字列                                             | log-storage.md         |
+| output_ref     | checkログの参照文字列                                           | log-storage.md         |
+| Check          | runに対する検証の実行結果（pending/passed/failed）              | definition-of-done.md  |
+| check_key      | チェック識別子（Project内で一意）                               | definition-of-done.md  |
+| DoD Runner     | DoDの必須チェックを実行し結果を記録するDaemon内コンポーネント   | structure.md           |
+| head_sha       | run終了時点のHEADコミット（監査とdone判定補助）                 | data-model.md          |
+| worktree_dirty | run終了時点で未コミット変更があるか                             | worktree-management.md |
+| Settings       | Projectごとの可変設定（key/value）                              | settings.md            |
+| dod_snapshot   | run開始時点のDoD定義スナップショット                            | settings.md            |
+| Worker         | 隔離worktreeで実装するAI                                        | structure.md           |
+| Planner        | タスク分解と依存設計を担う役割                                  | task-decomposition.md  |
+| Supervisor     | runの起動/停止と並列度管理を担う役割                            | role-model.md          |
+| Reviewer       | DoD検証を担うAI                                                 | flows.md               |
 
 ---
 
 ## 非推奨用語
 
-| 非推奨 | 推奨 | 理由 |
-|--------|------|------|
+| 非推奨         | 推奨             | 理由                           |
+| -------------- | ---------------- | ------------------------------ |
 | 完全自動AI開発 | 役割分離型AI開発 | 判断と実行の分離を明示するため |
 
 ---

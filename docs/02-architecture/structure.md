@@ -55,16 +55,16 @@ flowchart TB
 
 ## コンポーネント一覧
 
-| コンポーネント | 種別 | 責務 | 技術 |
-|----------------|------|------|------|
-| Web UI | Interface | 人間向け監視・介入 | ブラウザ |
-| Local Daemon | Core | API/イベント配信、実行基盤の統括 | Node.js/TypeScript |
-| Domain Services | Core | Project/Task/Run管理 | TypeScript |
-| Worktree Manager | Core | worktree作成/削除、Git事実取得 | Git/Filesystem |
-| Scope Enforcer | Core | exclude/read/writeの適用と違反検出 | Git/Filesystem |
-| Runner Manager | Core | AIプロセス起動/停止、ログ収集 | OSプロセス |
-| DoD Runner | Core | 検証実行と結果記録 | CLI/CI連携 |
-| DB Master | Data | 状態のSSoT | SQLite（MVP） |
+| コンポーネント   | 種別      | 責務                               | 技術               |
+| ---------------- | --------- | ---------------------------------- | ------------------ |
+| Web UI           | Interface | 人間向け監視・介入                 | ブラウザ           |
+| Local Daemon     | Core      | API/イベント配信、実行基盤の統括   | Node.js/TypeScript |
+| Domain Services  | Core      | Project/Task/Run管理               | TypeScript         |
+| Worktree Manager | Core      | worktree作成/削除、Git事実取得     | Git/Filesystem     |
+| Scope Enforcer   | Core      | exclude/read/writeの適用と違反検出 | Git/Filesystem     |
+| Runner Manager   | Core      | AIプロセス起動/停止、ログ収集      | OSプロセス         |
+| DoD Runner       | Core      | 検証実行と結果記録                 | CLI/CI連携         |
+| DB Master        | Data      | 状態のSSoT                         | SQLite（MVP）      |
 
 ---
 
@@ -72,41 +72,41 @@ flowchart TB
 
 ### Domain Services
 
-| 項目 | 内容 |
-|------|------|
-| 責務 | すべての状態をDBに集約し操作する |
-| 入力 | Web UI/APIからの操作 |
-| 出力 | DB更新、イベント、ログ |
+| 項目 | 内容                                                        |
+| ---- | ----------------------------------------------------------- |
+| 責務 | すべての状態をDBに集約し操作する                            |
+| 入力 | Web UI/APIからの操作                                        |
+| 出力 | DB更新、イベント、ログ                                      |
 | 依存 | DB Master, Runner Manager, Worktree Manager, Scope Enforcer |
 
 ### Runner Manager
 
-| 項目 | 内容 |
-|------|------|
+| 項目 | 内容                       |
+| ---- | -------------------------- |
 | 責務 | AIプロセスの起動/監視/終了 |
-| 入力 | Worker起動要求 |
-| 出力 | 実行状態・終了コード |
-| 依存 | OSプロセス, worktree |
+| 入力 | Worker起動要求             |
+| 出力 | 実行状態・終了コード       |
+| 依存 | OSプロセス, worktree       |
 
 ### Worktree Manager / Scope Enforcer
 
-| 項目 | 内容 |
-|------|------|
+| 項目 | 内容                       |
+| ---- | -------------------------- |
 | 責務 | 物理的な隔離と書き込み制約 |
-| 入力 | タスクとスコープ定義 |
-| 出力 | worktree構築と制約適用 |
-| 依存 | Git, Filesystem |
+| 入力 | タスクとスコープ定義       |
+| 出力 | worktree構築と制約適用     |
+| 依存 | Git, Filesystem            |
 
 ---
 
 ## コンポーネント間通信
 
-| 送信元 | 送信先 | プロトコル | 内容 |
-|--------|--------|------------|------|
-| Web UI | Local Daemon | HTTP + Events | タスク管理・実行制御・監視 |
-| Local Daemon | DB Master | SQL | 状態の保存と取得 |
-| Local Daemon | Git/Filesystem | CLI/FS | worktree操作、差分取得 |
-| Local Daemon | AI CLI | OSプロセス | AI実行 |
+| 送信元       | 送信先         | プロトコル    | 内容                       |
+| ------------ | -------------- | ------------- | -------------------------- |
+| Web UI       | Local Daemon   | HTTP + Events | タスク管理・実行制御・監視 |
+| Local Daemon | DB Master      | SQL           | 状態の保存と取得           |
+| Local Daemon | Git/Filesystem | CLI/FS        | worktree操作、差分取得     |
+| Local Daemon | AI CLI         | OSプロセス    | AI実行                     |
 
 ---
 

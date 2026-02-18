@@ -2,57 +2,9 @@ import { Hono } from "hono";
 import { db } from "../db";
 import { tasks, taskDependencies, runs, eq, and } from "@agentmine/db";
 import { runnerManager } from "../runner/manager";
+import { deriveTaskStatus } from "../utils/task-status";
 
 export const tasksRouter = new Hono();
-
-// Task状態を導出する関数
-function deriveTaskStatus(
-  task: typeof tasks.$inferSelect,
-  taskRuns: (typeof runs.$inferSelect)[],
-  dependencies: { dependsOnTaskId: number; status: string }[]
-): { status: string; reasons: string[] } {
-  const reasons: string[] = [];
-
-  // キャンセル済み
-  if (task.cancelledAt) {
-    return { status: "cancelled", reasons: [] };
-  }
-
-  // 依存タスクがすべてdoneか確認
-  const blockedDeps = dependencies.filter((d) => d.status !== "done");
-  if (blockedDeps.length > 0) {
-    reasons.push("blocked_by_dependency");
-    return { status: "blocked", reasons };
-  }
-
-  // 実行中のrunがあるか
-  const runningRun = taskRuns.find((r) => r.status === "running");
-  if (runningRun) {
-    return { status: "running", reasons: [] };
-  }
-
-  // 完了したrunがあるか
-  const completedRuns = taskRuns.filter((r) => r.status === "completed");
-  const failedRuns = taskRuns.filter((r) => r.status === "failed");
-
-  if (failedRuns.length > 0 && completedRuns.length === 0) {
-    reasons.push("last_run_failed");
-    return { status: "failed", reasons };
-  }
-
-  // TODO: DoD, merge状態, scope violationを確認してdone/needs_reviewを判定
-  // MVPでは簡易実装
-  if (completedRuns.length > 0) {
-    return { status: "needs_review", reasons: ["pending_review"] };
-  }
-
-  // runがない場合
-  if (taskRuns.length === 0) {
-    return { status: "ready", reasons: [] };
-  }
-
-  return { status: "open", reasons: [] };
-}
 
 // GET /api/projects/:projectId/tasks - 一覧取得
 tasksRouter.get("/", async (c) => {
@@ -60,7 +12,7 @@ tasksRouter.get("/", async (c) => {
   const statusFilter = c.req.query("status");
   const parentIdFilter = c.req.query("parent_id");
 
-  let query = db.select().from(tasks).where(eq(tasks.projectId, projectId));
+  const query = db.select().from(tasks).where(eq(tasks.projectId, projectId));
 
   const result = await query;
 
@@ -68,10 +20,7 @@ tasksRouter.get("/", async (c) => {
   const tasksWithStatus = await Promise.all(
     result.map(async (task) => {
       // このタスクのruns取得
-      const taskRuns = await db
-        .select()
-        .from(runs)
-        .where(eq(runs.taskId, task.id));
+      const taskRuns = await db.select().from(runs).where(eq(runs.taskId, task.id));
 
       // 依存タスクの状態取得
       const deps = await db
@@ -81,10 +30,7 @@ tasksRouter.get("/", async (c) => {
 
       const depsWithStatus = await Promise.all(
         deps.map(async (dep) => {
-          const depTask = await db
-            .select()
-            .from(tasks)
-            .where(eq(tasks.id, dep.dependsOnTaskId));
+          const depTask = await db.select().from(tasks).where(eq(tasks.id, dep.dependsOnTaskId));
           // 簡易的にcancelledAtで判定
           return {
             dependsOnTaskId: dep.dependsOnTaskId,
@@ -93,11 +39,7 @@ tasksRouter.get("/", async (c) => {
         })
       );
 
-      const { status, reasons } = deriveTaskStatus(
-        task,
-        taskRuns,
-        depsWithStatus
-      );
+      const { status, reasons } = deriveTaskStatus(task, taskRuns, depsWithStatus);
 
       return {
         ...task,
@@ -128,10 +70,7 @@ tasksRouter.post("/", async (c) => {
 
   // バリデーション
   if (!title) {
-    return c.json(
-      { error: { code: "VALIDATION_ERROR", message: "title is required" } },
-      400
-    );
+    return c.json({ error: { code: "VALIDATION_ERROR", message: "title is required" } }, 400);
   }
   if (!writeScope || !Array.isArray(writeScope) || writeScope.length === 0) {
     return c.json(
@@ -171,10 +110,7 @@ tasksRouter.post("/", async (c) => {
     }
   }
 
-  return c.json(
-    { data: { ...newTask, status: "ready", reasons: [] } },
-    201
-  );
+  return c.json({ data: { ...newTask, status: "ready", reasons: [] } }, 201);
 });
 
 // GET /api/tasks/:id - 単体取得
@@ -192,17 +128,11 @@ tasksRouter.get("/:id", async (c) => {
   const taskRuns = await db.select().from(runs).where(eq(runs.taskId, id));
 
   // 依存取得
-  const deps = await db
-    .select()
-    .from(taskDependencies)
-    .where(eq(taskDependencies.taskId, id));
+  const deps = await db.select().from(taskDependencies).where(eq(taskDependencies.taskId, id));
 
   const dependencies = await Promise.all(
     deps.map(async (dep) => {
-      const depTask = await db
-        .select()
-        .from(tasks)
-        .where(eq(tasks.id, dep.dependsOnTaskId));
+      const depTask = await db.select().from(tasks).where(eq(tasks.id, dep.dependsOnTaskId));
       return {
         taskId: dep.dependsOnTaskId,
         title: depTask[0]?.title ?? "",
@@ -250,11 +180,7 @@ tasksRouter.patch("/:id", async (c) => {
   if (body.description !== undefined) updateData.description = body.description;
   if (body.writeScope !== undefined) updateData.writeScope = body.writeScope;
 
-  const result = await db
-    .update(tasks)
-    .set(updateData)
-    .where(eq(tasks.id, id))
-    .returning();
+  const result = await db.update(tasks).set(updateData).where(eq(tasks.id, id)).returning();
 
   if (result.length === 0) {
     return c.json({ error: { code: "NOT_FOUND", message: "Task not found" } }, 404);
@@ -273,10 +199,7 @@ tasksRouter.post("/:id/cancel", async (c) => {
   }
 
   if (existing[0]!.cancelledAt) {
-    return c.json(
-      { error: { code: "CONFLICT", message: "Task already cancelled" } },
-      409
-    );
+    return c.json({ error: { code: "CONFLICT", message: "Task already cancelled" } }, 409);
   }
 
   const now = new Date().toISOString();

@@ -34,8 +34,7 @@ export const projectsApi = {
       method: "PATCH",
       body: JSON.stringify(data),
     }),
-  delete: (id: number) =>
-    fetchApi<void>(`/projects/${id}`, { method: "DELETE" }),
+  delete: (id: number) => fetchApi<void>(`/projects/${id}`, { method: "DELETE" }),
 };
 
 // Tasks
@@ -52,14 +51,12 @@ export const tasksApi = {
       method: "PATCH",
       body: JSON.stringify(data),
     }),
-  cancel: (id: number) =>
-    fetchApi<Task>(`/tasks/${id}/cancel`, { method: "POST" }),
+  cancel: (id: number) => fetchApi<Task>(`/tasks/${id}/cancel`, { method: "POST" }),
 };
 
 // Agent Profiles
 export const agentProfilesApi = {
-  list: (projectId: number) =>
-    fetchApi<AgentProfile[]>(`/projects/${projectId}/agent-profiles`),
+  list: (projectId: number) => fetchApi<AgentProfile[]>(`/projects/${projectId}/agent-profiles`),
   get: (id: number) => fetchApi<AgentProfileDetail>(`/agent-profiles/${id}`),
   create: (projectId: number, data: CreateAgentProfileInput) =>
     fetchApi<AgentProfile>(`/projects/${projectId}/agent-profiles`, {
@@ -71,8 +68,7 @@ export const agentProfilesApi = {
       method: "PATCH",
       body: JSON.stringify(data),
     }),
-  delete: (id: number) =>
-    fetchApi<void>(`/agent-profiles/${id}`, { method: "DELETE" }),
+  delete: (id: number) => fetchApi<void>(`/agent-profiles/${id}`, { method: "DELETE" }),
 };
 
 // Runs
@@ -114,13 +110,29 @@ export const orchestrateApi = {
 
 // Settings
 export const settingsApi = {
-  get: (projectId: number) =>
-    fetchApi<Setting[]>(`/projects/${projectId}/settings`),
+  get: (projectId: number) => fetchApi<Setting[]>(`/projects/${projectId}/settings`),
   update: (projectId: number, key: string, value: unknown) =>
     fetchApi<Setting>(`/projects/${projectId}/settings`, {
       method: "PATCH",
       body: JSON.stringify({ key, value }),
     }),
+};
+
+// Monitor
+export const monitorApi = {
+  get: (
+    projectId: number,
+    params?: {
+      status?: string;
+      reason_codes?: string;
+      task_id?: string;
+      agent_profile_id?: string;
+      since?: string;
+    }
+  ) => {
+    const qs = params ? `?${new URLSearchParams(params as Record<string, string>).toString()}` : "";
+    return fetchApi<MonitorData>(`/projects/${projectId}/monitor${qs}`);
+  },
 };
 
 // Types
@@ -266,4 +278,23 @@ export interface Setting {
   projectId: number;
   key: string;
   value: unknown;
+}
+
+export interface MonitorData {
+  summary: {
+    total_tasks: number;
+    running_runs: number;
+    needs_review_tasks: number;
+    failed_tasks: number;
+  };
+  tasks: MonitorTask[];
+  overview: {
+    time_range: { start: string; end: string };
+    activity: Array<{ time: string; count: number }>;
+  };
+}
+
+export interface MonitorTask extends Task {
+  runs: Run[];
+  children: MonitorTask[];
 }

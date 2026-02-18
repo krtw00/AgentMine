@@ -1,10 +1,5 @@
 import { spawn, ChildProcess } from "child_process";
-import type {
-  RunnerAdapter,
-  RunStartOptions,
-  RunHandle,
-  RunOutputHandler,
-} from "./types";
+import type { RunnerAdapter, RunStartOptions, RunHandle, RunOutputHandler } from "./types";
 import { killProcess } from "./process-utils";
 
 export class ClaudeAdapter implements RunnerAdapter {
@@ -45,7 +40,11 @@ export class ClaudeAdapter implements RunnerAdapter {
         args.push("--tools", tool);
       }
     }
-    if (config?.disallowedTools && Array.isArray(config.disallowedTools) && config.disallowedTools.length > 0) {
+    if (
+      config?.disallowedTools &&
+      Array.isArray(config.disallowedTools) &&
+      config.disallowedTools.length > 0
+    ) {
       for (const tool of config.disallowedTools as string[]) {
         args.push("--disallowedTools", tool);
       }

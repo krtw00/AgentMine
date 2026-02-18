@@ -17,23 +17,23 @@ This document defines the rules for writing style. For document structure and fo
 
 These standards (Writing Standards, Formatting Standards, and Git Standards) apply to files under the `docs/` directory.
 
-| File | Applies | Notes |
-|------|:-------:|-------|
-| `docs/**/*.md` | Yes | All rules apply |
-| `README.md` | Partial | Only text quality rules apply. Front Matter and status not required |
-| `DESIGN.md` | Partial | Only text quality rules apply. Front Matter and status not required |
-| `CHANGELOG.md` | No | Follows Keep a Changelog format |
-| `.github/**` | No | Follows GitHub standard format |
+| File           | Applies | Notes                                                               |
+| -------------- | :-----: | ------------------------------------------------------------------- |
+| `docs/**/*.md` |   Yes   | All rules apply                                                     |
+| `README.md`    | Partial | Only text quality rules apply. Front Matter and status not required |
+| `DESIGN.md`    | Partial | Only text quality rules apply. Front Matter and status not required |
+| `CHANGELOG.md` |   No    | Follows Keep a Changelog format                                     |
+| `.github/**`   |   No    | Follows GitHub standard format                                      |
 
 ---
 
 ## Core Principles
 
-| Principle | Description |
-|-----------|-------------|
-| **No code** | Design documents must not contain code |
+| Principle                  | Description                                              |
+| -------------------------- | -------------------------------------------------------- |
+| **No code**                | Design documents must not contain code                   |
 | **Active use of diagrams** | Visualize with Mermaid syntax. Do not rely on text alone |
-| **What/Why first** | Write "what" and "why." Do not write "how to implement" |
+| **What/Why first**         | Write "what" and "why." Do not write "how to implement"  |
 
 ### Exceptions to Code Prohibition
 
@@ -66,11 +66,11 @@ Write "do X" rather than "do not do Y." Use negative forms only when stating pro
 
 ### Controlling Ambiguous Expressions
 
-| Level | Action | Applicable Expressions |
-|-------|--------|----------------------|
-| **Prohibited** | Do not use | "sort of," "make it nice," "appropriately," "as needed" |
-| **Caution** | Provide concrete examples when used | "etc.," "generally," "typically," "mainly" |
-| **Permitted** | No restrictions | "for example," "specifically" |
+| Level          | Action                              | Applicable Expressions                                  |
+| -------------- | ----------------------------------- | ------------------------------------------------------- |
+| **Prohibited** | Do not use                          | "sort of," "make it nice," "appropriately," "as needed" |
+| **Caution**    | Provide concrete examples when used | "etc.," "generally," "typically," "mainly"              |
+| **Permitted**  | No restrictions                     | "for example," "specifically"                           |
 
 **Using cautionary expressions:**
 
@@ -103,9 +103,9 @@ Example: `For details, see the [Data Model](../03-details/data-model.md) (entity
 
 ### Applying the DRY Principle
 
-| Content | Policy |
-|---------|--------|
-| Summary (one-sentence overview) | Duplication is permitted (for self-containment) |
+| Content                                  | Policy                                                 |
+| ---------------------------------------- | ------------------------------------------------------ |
+| Summary (one-sentence overview)          | Duplication is permitted (for self-containment)        |
 | Details (tables, diagrams, explanations) | Duplication is prohibited. Use reference links instead |
 
 ### Eliminate Filler Expressions

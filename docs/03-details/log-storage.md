@@ -27,11 +27,11 @@ MVPではログをファイルとして保存し、DBは参照を保持する。
 
 ## ログの種類
 
-| 種類 | 単位 | 内容 |
-|------|------|------|
-| run log | run | runnerのstdout/stderr |
-| check log | check | DoD等の検証出力 |
-| daemon log | daemon | 起動/停止/エラー等 |
+| 種類       | 単位   | 内容                  |
+| ---------- | ------ | --------------------- |
+| run log    | run    | runnerのstdout/stderr |
+| check log  | check  | DoD等の検証出力       |
+| daemon log | daemon | 起動/停止/エラー等    |
 
 ---
 
@@ -54,9 +54,9 @@ AgentMine Home配下に保存する。
 ログファイルは参照文字列（log_ref / output_ref）で特定する。
 参照はDBに保存する。
 
-| 対象 | フィールド | 用途 |
-|------|-----------|------|
-| run | log_ref | runログ参照 |
+| 対象  | フィールド | 用途          |
+| ----- | ---------- | ------------- |
+| run   | log_ref    | runログ参照   |
 | check | output_ref | checkログ参照 |
 
 ---
@@ -66,13 +66,14 @@ AgentMine Home配下に保存する。
 ログは追記のみである。
 1行1レコードの形式とする。
 
-| フィールド | 説明 |
-|-----------|------|
-| timestamp | 出力時刻 |
-| stream | stdout / stderr / meta |
-| data | 出力テキストまたはメタ情報 |
+| フィールド | 説明                       |
+| ---------- | -------------------------- |
+| timestamp  | 出力時刻                   |
+| stream     | stdout / stderr / meta     |
+| data       | 出力テキストまたはメタ情報 |
 
 注:
+
 - `meta` はrun開始時のprompt等、stdout/stderr以外の追跡情報に使用する。
 
 ---
@@ -83,6 +84,7 @@ MVPではログを自動削除しない。
 削除は明示操作で行う。
 
 注:
+
 - 将来、保持期間やサイズ上限をProject設定に追加する。
 
 ---

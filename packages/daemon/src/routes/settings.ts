@@ -10,21 +10,12 @@ settingsRouter.get("/", async (c) => {
   const projectId = Number(c.req.param("projectId"));
 
   // プロジェクト存在確認
-  const project = await db
-    .select()
-    .from(projects)
-    .where(eq(projects.id, projectId));
+  const project = await db.select().from(projects).where(eq(projects.id, projectId));
   if (project.length === 0) {
-    return c.json(
-      { error: { code: "NOT_FOUND", message: "Project not found" } },
-      404
-    );
+    return c.json({ error: { code: "NOT_FOUND", message: "Project not found" } }, 404);
   }
 
-  const result = await db
-    .select()
-    .from(settings)
-    .where(eq(settings.projectId, projectId));
+  const result = await db.select().from(settings).where(eq(settings.projectId, projectId));
 
   return c.json({ data: result });
 });
@@ -108,15 +99,9 @@ settingsRouter.patch("/", async (c) => {
   }
 
   // プロジェクト存在確認
-  const project = await db
-    .select()
-    .from(projects)
-    .where(eq(projects.id, projectId));
+  const project = await db.select().from(projects).where(eq(projects.id, projectId));
   if (project.length === 0) {
-    return c.json(
-      { error: { code: "NOT_FOUND", message: "Project not found" } },
-      404
-    );
+    return c.json({ error: { code: "NOT_FOUND", message: "Project not found" } }, 404);
   }
 
   // 既存レコード確認
@@ -147,4 +132,3 @@ settingsRouter.patch("/", async (c) => {
 
   return c.json({ data: result[0] });
 });
-

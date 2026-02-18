@@ -19,18 +19,18 @@ Defines the screen for real-time monitoring of all Roles operating within a sing
 
 ## Purpose
 
-| Item | Description |
-|------|-------------|
-| Monitoring | View the progress of each Role in autonomous AI operation at a glance |
-| Intervention | Allow Humans to stop/instruct/approve during anomalies |
-| Transparency | Display per-Role log output via live streaming |
+| Item         | Description                                                           |
+| ------------ | --------------------------------------------------------------------- |
+| Monitoring   | View the progress of each Role in autonomous AI operation at a glance |
+| Intervention | Allow Humans to stop/instruct/approve during anomalies                |
+| Transparency | Display per-Role log output via live streaming                        |
 
 ---
 
 ## Routing
 
-| Route | Screen |
-|-------|--------|
+| Route                              | Screen         |
+| ---------------------------------- | -------------- |
 | `/p/:projectId/tasks/:taskId/live` | Task Live View |
 
 Navigate from the Monitor's Run list via the "Live" button.
@@ -41,15 +41,16 @@ Navigate from the Monitor's Run list via the "Live" button.
 
 AI autonomously processes the Task, and Humans only monitor and intervene.
 
-| Role | Launch | Description |
-|------|--------|-------------|
-| Orchestrator | Auto-launched at Task start | Overall Task management |
-| Planner | Launched by Orchestrator | Planning and subtask decomposition |
-| Supervisor | Launched by Planner | Worker progress management |
-| Worker | Launched by Supervisor | Actual work (code generation, etc.) |
-| Reviewer | Launched by Worker | Deliverable review |
+| Role         | Launch                      | Description                         |
+| ------------ | --------------------------- | ----------------------------------- |
+| Orchestrator | Auto-launched at Task start | Overall Task management             |
+| Planner      | Launched by Orchestrator    | Planning and subtask decomposition  |
+| Supervisor   | Launched by Planner         | Worker progress management          |
+| Worker       | Launched by Supervisor      | Actual work (code generation, etc.) |
+| Reviewer     | Launched by Worker          | Deliverable review                  |
 
 Notes:
+
 - Each Role is launched by the preceding Role (launch chain).
 - Humans generally do not intervene. Operations are only performed during anomalies.
 
@@ -59,75 +60,76 @@ Notes:
 
 ### Header
 
-| Display | Content |
-|---------|---------|
-| Task info | title, description |
-| Overall status | running/needs_review/completed/failed |
-| Auto badge | Display "Auto" during autonomous driving |
+| Display        | Content                                  |
+| -------------- | ---------------------------------------- |
+| Task info      | title, description                       |
+| Overall status | running/needs_review/completed/failed    |
+| Auto badge     | Display "Auto" during autonomous driving |
 
 ### Role Flow Timeline
 
-| Display | Content |
-|---------|---------|
-| Flow diagram | Orchestrator -> Planner -> Supervisor -> Worker -> Reviewer |
-| Each Role's status | pending/running/completed/failed (color-coded) |
-| Current position | Highlight the currently running Role |
+| Display            | Content                                                     |
+| ------------------ | ----------------------------------------------------------- |
+| Flow diagram       | Orchestrator -> Planner -> Supervisor -> Worker -> Reviewer |
+| Each Role's status | pending/running/completed/failed (color-coded)              |
+| Current position   | Highlight the currently running Role                        |
 
 ### Role Panes
 
 Five Role panes arranged vertically. Each pane is collapsible.
 
-| Display | Content |
-|---------|---------|
+| Display   | Content                                         |
+| --------- | ----------------------------------------------- |
 | Role name | Orchestrator/Planner/Supervisor/Worker/Reviewer |
-| Status | pending/running/completed/failed |
-| Output | Live streaming (stdout/stderr) |
-| Summary | Display result summary upon completion |
+| Status    | pending/running/completed/failed                |
+| Output    | Live streaming (stdout/stderr)                  |
+| Summary   | Display result summary upon completion          |
 
 Notes:
+
 - Running Roles are auto-expanded.
 - Completed/failed Roles are collapsed.
 - Each pane is designed with a tmux-style split layout in mind.
 
 ### Summary Section
 
-| Display | Content |
-|---------|---------|
-| DoD | Check result list (passed/failed/pending) |
-| Violations | Scope violation list and approval status |
-| Subtasks | Subtask progress (if Planner decomposed) |
+| Display    | Content                                   |
+| ---------- | ----------------------------------------- |
+| DoD        | Check result list (passed/failed/pending) |
+| Violations | Scope violation list and approval status  |
+| Subtasks   | Subtask progress (if Planner decomposed)  |
 
 ### Alert Banner
 
-| Condition | Display |
-|-----------|---------|
-| needs_review | Display "Human intervention required" banner |
-| failed | Display "Role has failed" banner |
-| scope_violation | Display "Scope violation detected" banner |
+| Condition       | Display                                      |
+| --------------- | -------------------------------------------- |
+| needs_review    | Display "Human intervention required" banner |
+| failed          | Display "Role has failed" banner             |
+| scope_violation | Display "Scope violation detected" banner    |
 
 ---
 
 ## Operations
 
-| Operation | Target | Description |
-|-----------|--------|-------------|
-| Stop | Running Role | Stop the currently running Role |
-| Continue | failed/completed Role | Resume with additional instructions |
-| Approve | scope_violation | Approve the violation |
-| Reject | scope_violation | Reject the violation |
-| Escalate | Any Role | Escalate to a higher-level Role |
+| Operation | Target                | Description                         |
+| --------- | --------------------- | ----------------------------------- |
+| Stop      | Running Role          | Stop the currently running Role     |
+| Continue  | failed/completed Role | Resume with additional instructions |
+| Approve   | scope_violation       | Approve the violation               |
+| Reject    | scope_violation       | Reject the violation                |
+| Escalate  | Any Role              | Escalate to a higher-level Role     |
 
 ---
 
 ## SSE Event Handling
 
-| Event | Handling |
-|-------|---------|
-| run.started | Set the corresponding Role's pane to running and start Output stream |
-| run.output | Append to Output |
-| run.finished | Update the corresponding Role's status, display summary |
-| check.updated | Update DoD section |
-| scope_violation.created | Add to Violations section, display Alert |
+| Event                   | Handling                                                             |
+| ----------------------- | -------------------------------------------------------------------- |
+| run.started             | Set the corresponding Role's pane to running and start Output stream |
+| run.output              | Append to Output                                                     |
+| run.finished            | Update the corresponding Role's status, display summary              |
+| check.updated           | Update DoD section                                                   |
+| scope_violation.created | Add to Violations section, display Alert                             |
 
 ---
 
@@ -135,10 +137,10 @@ Notes:
 
 The following additions are made to Monitor (S001).
 
-| Addition | Content |
-|----------|---------|
-| Live button | Navigation button to Task Live View |
-| Auto badge | Display "Auto" badge on Tasks in autonomous driving mode |
+| Addition    | Content                                                  |
+| ----------- | -------------------------------------------------------- |
+| Live button | Navigation button to Task Live View                      |
+| Auto badge  | Display "Auto" badge on Tasks in autonomous driving mode |
 
 ---
 

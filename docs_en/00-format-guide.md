@@ -48,14 +48,14 @@ Use tables for comparisons and listings. Prefer tables over bullet lists.
 
 ## Length Guidelines
 
-| Level | Limit | Action When Exceeded |
-|-------|-------|---------------------|
-| Single sentence | ~60 characters | Split it |
-| Single paragraph | 3-5 sentences | Break into separate paragraphs |
-| Single section (H2) | 50 lines | Split into subsections (H3) |
-| Single file | 200 lines | Split into separate files with cross-links |
-| Single table | 15 rows | Split tables by category |
-| Single Mermaid diagram | 15 nodes | Split into overview and detail diagrams |
+| Level                  | Limit          | Action When Exceeded                       |
+| ---------------------- | -------------- | ------------------------------------------ |
+| Single sentence        | ~60 characters | Split it                                   |
+| Single paragraph       | 3-5 sentences  | Break into separate paragraphs             |
+| Single section (H2)    | 50 lines       | Split into subsections (H3)                |
+| Single file            | 200 lines      | Split into separate files with cross-links |
+| Single table           | 15 rows        | Split tables by category                   |
+| Single Mermaid diagram | 15 nodes       | Split into overview and detail diagrams    |
 
 ### Splitting Principles
 
@@ -94,20 +94,20 @@ Place a "Related Documents" section at the end of each file, listing links with 
 
 Include YAML Front Matter at the beginning of each document. This is used for metadata extraction by AI and tools.
 
-| Field | Required | Description |
-|-------|----------|-------------|
-| `depends_on` | Optional | List of file paths that this document depends on |
-| `tags` | Optional | Tags for search and classification |
+| Field        | Required | Description                                                                                       |
+| ------------ | -------- | ------------------------------------------------------------------------------------------------- |
+| `depends_on` | Optional | List of file paths that this document depends on                                                  |
+| `tags`       | Optional | Tags for search and classification                                                                |
 | `ai_summary` | Required | One-sentence summary of the file contents (enables AI to assess content without opening the file) |
 
 ### Status Display (Human-Readable)
 
 Display a human-readable status in a blockquote immediately after the YAML Front Matter.
 
-| Status | Meaning |
-|--------|---------|
-| **Draft** | Work in progress. Content is incomplete |
-| **Active** | Valid. Reflects the current design |
+| Status         | Meaning                                            |
+| -------------- | -------------------------------------------------- |
+| **Draft**      | Work in progress. Content is incomplete            |
+| **Active**     | Valid. Reflects the current design                 |
 | **Deprecated** | Not recommended. Retained as reference information |
 
 ADRs (Architecture Decision Records) have their own status vocabulary: **Proposed** / **Accepted** / **Deprecated** / **Superseded**. See the [ADR Template](./04-decisions/0001-template.md) for details.
@@ -143,19 +143,20 @@ Summary text (1-2 sentences)
 Use **Mermaid only**. Do not use external tools (draw.io, Figma, etc.).
 
 Reasons:
+
 - Text-based, enabling Git diffs
 - Readable and writable by AI
 - No additional tool installation required
 
 ### Diagram Types and Usage
 
-| Diagram Type | Mermaid Syntax | Usage |
-|-------------|----------------|-------|
-| Flowchart | `flowchart` | Process flows, state transitions |
-| ER Diagram | `erDiagram` | Data models |
-| Sequence Diagram | `sequenceDiagram` | Inter-component communication |
-| C4 Diagram | `C4Context`, `C4Container` | System architecture |
-| Class Diagram | `classDiagram` | Structural relationships |
+| Diagram Type     | Mermaid Syntax             | Usage                            |
+| ---------------- | -------------------------- | -------------------------------- |
+| Flowchart        | `flowchart`                | Process flows, state transitions |
+| ER Diagram       | `erDiagram`                | Data models                      |
+| Sequence Diagram | `sequenceDiagram`          | Inter-component communication    |
+| C4 Diagram       | `C4Context`, `C4Container` | System architecture              |
+| Class Diagram    | `classDiagram`             | Structural relationships         |
 
 ### Diagram Rules
 

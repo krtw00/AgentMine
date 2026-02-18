@@ -6,19 +6,19 @@
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
     },
-      "dev": {
-        "cache": false,
-        "persistent": true
-      },
-      "test": {
-        "dependsOn": ["build"]
-      },
-      "lint": {},
-      "check-types": {
-        "dependsOn": ["^build"]
-      },
-      "clean": {
-        "cache": false
-      }
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "test": {
+      "dependsOn": ["build"]
+    },
+    "lint": {},
+    "check-types": {
+      "dependsOn": ["^build"]
+    },
+    "clean": {
+      "cache": false
     }
   }
+}

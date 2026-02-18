@@ -99,12 +99,7 @@ export function DefaultExcludeEditor({ projectId }: { projectId: number }) {
                 className="text-zinc-400 hover:text-zinc-200 transition-colors"
                 aria-label={`${pattern} を削除`}
               >
-                <svg
-                  className="w-3.5 h-3.5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -145,7 +140,9 @@ export function DefaultExcludeEditor({ projectId }: { projectId: number }) {
       <div className="flex justify-end">
         <button
           onClick={handleSave}
-          disabled={updateMutation.isPending || JSON.stringify(patterns) === JSON.stringify(currentPatterns)}
+          disabled={
+            updateMutation.isPending || JSON.stringify(patterns) === JSON.stringify(currentPatterns)
+          }
           className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {updateMutation.isPending ? "保存中..." : "保存"}

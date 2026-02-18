@@ -28,11 +28,11 @@ Settings are a mechanism for managing "mutable rules" in the DB.
 
 ## Assumptions
 
-| Item | Policy |
-|------|--------|
-| Scope | Per-Project (has project_id) |
-| Storage | DB (SSoT for state) |
-| Format | `key` + `value(JSON)` pairs |
+| Item    | Policy                                  |
+| ------- | --------------------------------------- |
+| Scope   | Per-Project (has project_id)            |
+| Storage | DB (SSoT for state)                     |
+| Format  | `key` + `value(JSON)` pairs             |
 | Secrets | Not stored in settings (API keys, etc.) |
 
 ---
@@ -41,14 +41,15 @@ Settings are a mechanism for managing "mutable rules" in the DB.
 
 Setting keys have "dot-separated namespaces."
 
-| Rule | Content |
-|------|---------|
-| Format | `<namespace>.<name>` |
-| namespace | Starts with lowercase letters (e.g., `dod`, `scope`) |
-| name | Uses lowerCamelCase (e.g., `requiredChecks`) |
+| Rule          | Content                                                           |
+| ------------- | ----------------------------------------------------------------- |
+| Format        | `<namespace>.<name>`                                              |
+| namespace     | Starts with lowercase letters (e.g., `dod`, `scope`)              |
+| name          | Uses lowerCamelCase (e.g., `requiredChecks`)                      |
 | Compatibility | Do not change the meaning of existing keys (add new keys instead) |
 
 Note:
+
 - The MVP only handles Project settings. Daemon-wide settings are out of scope.
 
 ---
@@ -60,12 +61,13 @@ Note:
 Defines project-wide exclude (inaccessible) paths.
 Combined with Agent Profile's `default_exclude` to produce the final exclude (see Scope Control).
 
-| Item | Content |
-|------|---------|
-| Value | Glob array |
+| Item    | Content     |
+| ------- | ----------- |
+| Value   | Glob array  |
 | Default | Empty array |
 
 Notes:
+
 - This is the primary setting for preventing personal and sensitive information from being passed to AI. Files can be excluded individually.
 - Sensitive files like `.env` should generally be excluded here and handled manually by humans.
 
@@ -73,10 +75,10 @@ Notes:
 
 Defines DoD required check definitions (commands, etc.) (see DoD).
 
-| Item | Content |
-|------|---------|
-| Value | Check definition array (check_key/label/command, etc.) |
-| Default | Undefined (DoD becomes `pending`) |
+| Item    | Content                                                |
+| ------- | ------------------------------------------------------ |
+| Value   | Check definition array (check_key/label/command, etc.) |
+| Default | Undefined (DoD becomes `pending`)                      |
 
 ---
 
@@ -86,22 +88,23 @@ Settings are mutable.
 However, if past run evaluations are affected by "current settings," reproducibility breaks.
 In the MVP, settings that affect runs are saved as snapshots at run start time.
 
-| Target | Storage | Purpose |
-|--------|---------|---------|
-| Effective scope | runs.scope_snapshot | Violation determination and reproducibility |
-| DoD definition | runs.dod_snapshot | Reproducibility of past run DoD determination |
+| Target          | Storage             | Purpose                                       |
+| --------------- | ------------------- | --------------------------------------------- |
+| Effective scope | runs.scope_snapshot | Violation determination and reproducibility   |
+| DoD definition  | runs.dod_snapshot   | Reproducibility of past run DoD determination |
 
 Note:
+
 - Snapshot specifics follow the respective detail documents (Scope Control / DoD).
 
 ---
 
 ## Change Handling (MVP)
 
-| Item | Policy |
-|------|--------|
-| Change actor | Human User (UI operation) |
-| Change unit | Per-key upsert |
+| Item         | Policy                                                                |
+| ------------ | --------------------------------------------------------------------- |
+| Change actor | Human User (UI operation)                                             |
+| Change unit  | Per-key upsert                                                        |
 | Impact scope | Applied to subsequent runs. Past runs are interpreted using snapshots |
 
 ---
