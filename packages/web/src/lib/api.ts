@@ -100,6 +100,16 @@ export const runnersApi = {
   list: () => fetchApi<Runner[]>("/runners"),
 };
 
+// Settings
+export const settingsApi = {
+  get: (projectId: number) => fetchApi<ProjectSettings>(`/projects/${projectId}/settings`),
+  update: (projectId: number, data: Partial<ProjectSettings>) =>
+    fetchApi<ProjectSettings>(`/projects/${projectId}/settings`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+};
+
 // Orchestrate
 export const orchestrateApi = {
   start: (projectId: number, data: { command: string; agentProfileId: number }) =>
@@ -245,4 +255,20 @@ export interface RunnerCapabilities {
   supportsNonInteractive: boolean;
   supportsPromptFileInclusion: boolean;
   availableModels: string[];
+}
+
+export interface RequiredCheck {
+  check_key: string;
+  label: string;
+  command: string;
+  timeout_sec?: number;
+}
+
+export interface ProjectSettings {
+  dod?: {
+    requiredChecks?: RequiredCheck[];
+  };
+  scope?: {
+    defaultExclude?: string[];
+  };
 }
