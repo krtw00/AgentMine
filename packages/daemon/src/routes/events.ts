@@ -6,8 +6,8 @@ export const eventsRouter = new Hono();
 
 // GET /api/events - SSEエンドポイント
 eventsRouter.get("/", async (c) => {
-  // TODO: projectIdフィルタ実装
-  // const projectId = c.req.query("project_id");
+  const projectIdParam = c.req.query("project_id");
+  const filterProjectId = projectIdParam ? Number(projectIdParam) : null;
 
   return streamSSE(c, async (stream) => {
     const sendEvent = (eventName: string, data: unknown) => {
@@ -21,8 +21,10 @@ eventsRouter.get("/", async (c) => {
     sendEvent("connected", { timestamp: new Date().toISOString() });
 
     // イベントリスナー登録
-    const listener = ({ event, data }: { event: string; data: unknown }) => {
-      // projectIdフィルタ（必要に応じて）
+    const listener = ({ event, data }: { event: string; data: Record<string, unknown> }) => {
+      if (filterProjectId !== null && data.projectId !== filterProjectId) {
+        return;
+      }
       sendEvent(event, data);
     };
 

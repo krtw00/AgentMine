@@ -10,6 +10,7 @@ import { eventsRouter } from "./routes/events";
 import { orchestrateRouter } from "./routes/orchestrate";
 import { filesRouter } from "./routes/files";
 import { settingsRouter } from "./routes/settings";
+import { scopeViolationsRouter } from "./routes/scope-violations";
 
 export const app = new Hono();
 
@@ -38,6 +39,7 @@ app.route("/api/events", eventsRouter);
 app.route("/api/projects/:projectId/orchestrate", orchestrateRouter);
 app.route("/api/projects/:projectId/files", filesRouter);
 app.route("/api/projects/:projectId/settings", settingsRouter);
+app.route("/api/scope-violations", scopeViolationsRouter);
 
 // Runners (static for now)
 app.get("/api/runners", (c) =>

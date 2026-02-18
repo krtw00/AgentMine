@@ -39,6 +39,7 @@ RUN chown -R node:node /app && \
     apt-get update && apt-get install -y gosu && rm -rf /var/lib/apt/lists/*
 
 EXPOSE 3001
-COPY --chmod=755 entrypoint.sh /entrypoint.sh
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod 755 /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["node", "dist/index.js"]
