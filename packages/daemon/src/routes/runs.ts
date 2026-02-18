@@ -137,7 +137,8 @@ ${basePrompt}`
       worktreePath,
       prompt,
       params.profile.model || undefined,
-      params.profile.config || undefined
+      params.profile.config || undefined,
+      params.projectId
     )
     .catch((err) => {
       console.error(`Failed to start runner for run ${newRun.id}:`, err);

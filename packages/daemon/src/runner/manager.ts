@@ -14,6 +14,7 @@ const LOG_DIR = "/tmp/agentmine/logs";
 class RunnerManager {
   private adapters: Map<string, RunnerAdapter> = new Map();
   private handles: Map<number, RunHandle> = new Map();
+  private runProjectMap: Map<number, number> = new Map();
 
   constructor() {
     const claude = new ClaudeAdapter();
@@ -52,8 +53,10 @@ class RunnerManager {
     }
 
     // イベント発行（emitRunEventでSSEワイルドカードリスナーにも届く）
+    const projectId = this.runProjectMap.get(runId);
     eventEmitter.emitRunEvent("run.output", {
       runId,
+      projectId,
       ...output,
     });
 
@@ -88,7 +91,9 @@ class RunnerManager {
       });
     }
 
-    eventEmitter.emitRunEvent("run.finished", { runId, status, exitCode });
+    const projectId = this.runProjectMap.get(runId);
+    eventEmitter.emitRunEvent("run.finished", { runId, projectId, status, exitCode });
+    this.runProjectMap.delete(runId);
   }
 
   getAdapter(name: string): RunnerAdapter | undefined {
@@ -105,10 +110,13 @@ class RunnerManager {
     worktreePath: string,
     prompt: string,
     model?: string,
-    config?: Record<string, unknown>
+    config?: Record<string, unknown>,
+    projectId?: number
   ): Promise<RunHandle | null> {
     const adapter = this.adapters.get(runner);
     if (!adapter) return null;
+
+    if (projectId) this.runProjectMap.set(runId, projectId);
 
     const handle = await adapter.start({
       runId,
@@ -127,7 +135,7 @@ class RunnerManager {
       .where(eq(runs.id, runId))
       .catch((err) => console.error(`[run:${runId}] Failed to set logRef:`, err));
 
-    eventEmitter.emitRunEvent("run.started", { runId });
+    eventEmitter.emitRunEvent("run.started", { runId, projectId });
 
     return handle;
   }
@@ -154,7 +162,9 @@ class RunnerManager {
 
     this.handles.delete(runId);
 
-    eventEmitter.emitRunEvent("run.cancelled", { runId });
+    const projectId = this.runProjectMap.get(runId);
+    eventEmitter.emitRunEvent("run.cancelled", { runId, projectId });
+    this.runProjectMap.delete(runId);
   }
 
   private findRunnerForHandle(runId: number): string | undefined {
