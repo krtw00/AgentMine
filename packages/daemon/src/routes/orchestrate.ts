@@ -146,7 +146,8 @@ ${command}`;
       worktreePath,
       prompt,
       profile[0]!.model || undefined,
-      profile[0]!.config || undefined
+      profile[0]!.config || undefined,
+      projectId
     )
     .catch((err) => {
       console.error(`Failed to start coordinator run ${coordinatorRunId}:`, err);

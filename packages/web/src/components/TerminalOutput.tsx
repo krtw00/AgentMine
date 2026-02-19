@@ -3,17 +3,64 @@
 import { useRef, useEffect } from "react";
 import type { OutputLine } from "@/lib/store";
 
-export function parseStreamJsonLine(
-  raw: string
-): { label: string; text: string; color: string } | null {
+export type ParsedLine = { label: string; text: string; color: string };
+export type ParseResult = ParsedLine | "skip" | null;
+
+function summarizeInput(input: Record<string, unknown>): string {
+  if (!input) return "";
+  if (input.command) return String(input.command).slice(0, 80);
+  if (input.file_path) return String(input.file_path);
+  if (input.pattern) return String(input.pattern);
+  if (input.query) return String(input.query).slice(0, 80);
+  if (input.prompt) return String(input.prompt).slice(0, 60);
+  const keys = Object.keys(input);
+  return keys.length > 0 ? keys.join(", ") : "";
+}
+
+const SKIP_TYPES = new Set([
+  "message_start", "message_delta", "message_stop",
+  "content_block_stop", "rate_limit_event",
+]);
+
+export function parseStreamJsonLine(raw: string): ParseResult {
   try {
     const obj = JSON.parse(raw);
+
+    // ノイズイベントをスキップ
+    if (SKIP_TYPES.has(obj.type)) return "skip";
+    // content_block_start の text 型もスキップ（本文は assistant イベントで来る）
+    if (obj.type === "content_block_start" && obj.content_block?.type === "text") return "skip";
+
     if (obj.type === "assistant" && obj.message?.content) {
       const texts = obj.message.content
         .filter((c: { type: string }) => c.type === "text")
         .map((c: { text: string }) => c.text);
       if (texts.length > 0) return { label: "assistant", text: texts.join(""), color: "#c9d1d9" };
+
+      // tool_useのみの場合
+      const toolUses = obj.message.content.filter((c: { type: string }) => c.type === "tool_use");
+      if (toolUses.length > 0) {
+        const t = toolUses[0];
+        return { label: "tool", text: `${t.name}(${summarizeInput(t.input)})`, color: "#d2a8ff" };
+      }
+      return "skip"; // contentが空
     }
+
+    if (obj.type === "user" && obj.message?.content) {
+      const results = obj.message.content.filter(
+        (c: { type: string }) => c.type === "tool_result"
+      );
+      if (results.length > 0) {
+        const r = results[0];
+        const text = typeof r.content === "string" ? r.content : JSON.stringify(r.content);
+        if (r.is_error) {
+          return { label: "error", text: text.slice(0, 200), color: "#f85149" };
+        }
+        return { label: "result", text: text.slice(0, 200), color: "#7ee787" };
+      }
+      return "skip";
+    }
+
     if (obj.type === "content_block_delta" && obj.delta?.text) {
       return { label: "text", text: obj.delta.text, color: "#c9d1d9" };
     }
@@ -29,14 +76,16 @@ export function parseStreamJsonLine(
         typeof obj.result === "string"
           ? obj.result.slice(0, 200)
           : JSON.stringify(obj).slice(0, 200);
-      return { label: "result", text: preview, color: "#7ee787" };
+      return { label: "done", text: preview, color: "#7ee787" };
     }
-    if (obj.type === "system" || obj.type === "init") {
-      return {
-        label: "system",
-        text: JSON.stringify(obj).slice(0, 150),
-        color: "#58a6ff",
-      };
+    if (obj.type === "result") {
+      return { label: "error", text: obj.error ?? obj.subtype ?? "execution error", color: "#f85149" };
+    }
+    if (obj.type === "system" && obj.subtype === "init") {
+      return { label: "init", text: `session started (${obj.model ?? "unknown"})`, color: "#58a6ff" };
+    }
+    if (obj.type === "system") {
+      return { label: "system", text: obj.subtype ?? "system event", color: "#58a6ff" };
     }
     if (obj.type) {
       return {
@@ -147,6 +196,7 @@ export function TerminalOutput({
           const elements: React.ReactNode[] = [];
           for (const jsonLine of jsonLines) {
             const parsed = parseStreamJsonLine(jsonLine);
+            if (parsed === "skip") continue;
             if (parsed) {
               elements.push(
                 <div key={`${i}-${elements.length}`} className="py-0.5 flex gap-1.5">
